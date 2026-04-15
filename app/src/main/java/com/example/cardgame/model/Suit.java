@@ -1,8 +1,11 @@
 package com.example.cardgame.model;
 
+/**
+ * Card suit enumeration.
+ */
 public enum Suit {
-    DIAMOND, // 方块
-    CLUB,    // 梅花
-    HEART,   // 红桃
-    SPADE    // 黑桃
+    DIAMOND, // Diamond
+    CLUB,    // Club
+    HEART,   // Heart
+    SPADE    // Spade
 }
