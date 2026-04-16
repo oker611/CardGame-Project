@@ -47,8 +47,8 @@ public class GameEngine {
 
     /**
      * Execute play cards action and check for settlement.
-     * @param playerId ID of the player / 玩家 ID
-     * @param selectedCardIds Selected card IDs / 选中的卡牌 ID 列表
+     * @param playerId ID of the player
+     * @param selectedCardIds Selected card IDs
      */
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         //  TODO: Validate play with RuleEngine
@@ -70,7 +70,7 @@ public class GameEngine {
      */
     public PassResult passTurn(String playerId) {
         if (gameState != null && !gameState.isGameOver()) {
-            // TODO: Update pass records in GameState / 更新过牌记录
+            // TODO: Update pass records in GameState 
             turnManager.switchPlayer(gameState);
         }
         return null;
