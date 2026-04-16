@@ -4,31 +4,26 @@ import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
 
 /**
- * Manager responsible for determining game over conditions and settlement.
+ * Manager responsible for victory conditions and settlement.
  */
 public class SettlementManager {
 
     /**
-     * Check if any player's hand card count has reached zero.
+     * Checks all players' hand cards and updates GameState if someone has won.
+     * @param gameState Current game state to be updated/
      */
-    public boolean checkGameOver(GameState gameState) {
-        for (Player player : gameState.getPlayers()) {
-            if (player.getHandCards().isEmpty()) {
-                return true;
-            }
+    public void checkAndSettle(GameState gameState) {
+        if (gameState.isGameOver()) {
+            return;
         }
-        return false;
-    }
 
-    /**
-     * Settle the game and set the winner ID.
-     */
-    public void settleGame(GameState gameState) {
         for (Player player : gameState.getPlayers()) {
+            // Check if hand cards are empty
             if (player.getHandCards().isEmpty()) {
+                // Perform settlement: update state and winner
                 gameState.setGameOver(true);
-                gameState.setWinnerId(player.getId());
-                break;
+                gameState.setWinnerId(player.getPlayerId());
+                return;
             }
         }
     }
