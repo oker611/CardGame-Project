@@ -11,16 +11,28 @@ import java.util.Collections;
 import java.util.List;
 
 /**
+<<<<<<< HEAD
  * Manager responsible for the deck lifecycle: generating, shuffling, and dealing.
+=======
+ * Manager responsible for generating the deck, shuffling, and dealing cards.
+>>>>>>> origin/dev-czh-ui-zhy
  */
 public class DealManager {
 
     /**
+<<<<<<< HEAD
      * Executes the complete dealing process and identifies the first player.
      */
     public void dealCards(GameState gameState) {
         List<Card> deck = generateFullDeck();
         Collections.shuffle(deck); // Shuffle
+=======
+     * Shuffle and deal 13 cards to each player, and determine the opening player.
+     */
+    public void dealCards(GameState gameState) {
+        List<Card> deck = generateDeck();
+        Collections.shuffle(deck); // Shuffle the deck
+>>>>>>> origin/dev-czh-ui-zhy
 
         List<Player> players = gameState.getPlayers();
         int playerCount = players.size();
@@ -31,6 +43,7 @@ public class DealManager {
             targetPlayer.getHandCards().add(deck.get(i));
         }
 
+<<<<<<< HEAD
         // Acceptance check: Ensure each player has exactly 13 cards
         validateDealing(players);
 
@@ -76,8 +89,36 @@ public class DealManager {
                     gameState.setCurrentPlayerId(player.getPlayerId());
                     gameState.setOpeningTurn(true); // Mark as the first turn
                     return;
+=======
+        // Find the player with the Three of Diamonds to set as the opening player
+        for (Player player : players) {
+            for (Card card : player.getHandCards()) {
+                if (card.getSuit() == Suit.DIAMOND && card.getRank() == Rank.THREE) {
+                    gameState.setCurrentPlayerId(player.getId());
+                    gameState.setOpeningTurn(true);
+                    break;
+>>>>>>> origin/dev-czh-ui-zhy
                 }
             }
         }
     }
+<<<<<<< HEAD
 }
+=======
+
+    /**
+     * Generate a standard 52-card deck.
+     */
+    private List<Card> generateDeck() {
+        List<Card> deck = new ArrayList<>();
+        int idCounter = 1;
+        for (Suit suit : Suit.values()) {
+            for (Rank rank : Rank.values()) {
+                String cardId = "C_" + idCounter++;
+                deck.add(new Card(cardId, suit, rank));
+            }
+        }
+        return deck;
+    }
+}
+>>>>>>> origin/dev-czh-ui-zhy
