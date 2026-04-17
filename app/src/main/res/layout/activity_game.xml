@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:background="#1E2A36">
+
+    <!-- 退出按钮（右上角） -->
+    <Button
+        android:id="@+id/btn_exit_game"
+        android:layout_width="72dp"
+        android:layout_height="40dp"
+        android:backgroundTint="#F44336"
+        android:text="退出"
+        android:textSize="14sp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp" />
+
+    <!-- 上方对手（玩家2） -->
+    <LinearLayout
+        android:id="@+id/opponent_top"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_avatar_top"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:src="@drawable/default_avatar" />
+
+        <TextView
+            android:id="@+id/tv_name_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="玩家2"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- 左侧对手（玩家3） -->
+    <LinearLayout
+        android:id="@+id/opponent_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_avatar_left"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:src="@drawable/default_avatar" />
+
+        <TextView
+            android:id="@+id/tv_name_left"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="玩家3"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- 右侧对手（玩家4） -->
+    <LinearLayout
+        android:id="@+id/opponent_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="12dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_avatar_right"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:src="@drawable/default_avatar" />
+
+        <TextView
+            android:id="@+id/tv_name_right"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="玩家4"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- 桌面牌区 -->
+    <FrameLayout
+        android:id="@+id/play_area"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_margin="24dp"
+        android:background="#3A4A5A"
+        app:layout_constraintBottom_toTopOf="@+id/button_bar"
+        app:layout_constraintEnd_toStartOf="@id/opponent_right"
+        app:layout_constraintStart_toEndOf="@id/opponent_left"
+        app:layout_constraintTop_toBottomOf="@id/opponent_top"
+        app:layout_constraintVertical_bias="0.4">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="桌面牌区"
+            android:textColor="#AAAAAA"
+            android:textSize="24sp" />
+    </FrameLayout>
+
+    <!-- 出牌/过牌按钮区（放在手牌区上方） -->
+    <LinearLayout
+        android:id="@+id/button_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintBottom_toTopOf="@+id/rv_hand_cards"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btn_play"
+            android:layout_width="80dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#4CAF50"
+            android:text="出牌"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btn_pass"
+            android:layout_width="80dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#F44336"
+            android:text="不要"
+            android:textSize="14sp"
+            android:layout_marginStart="16dp" />
+    </LinearLayout>
+
+    <!-- 底部自己的手牌区（横向滚动，重叠） -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_hand_cards"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_marginBottom="12dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
