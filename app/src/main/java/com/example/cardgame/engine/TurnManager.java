@@ -6,62 +6,30 @@ import com.example.cardgame.model.Player;
 import java.util.List;
 
 /**
-<<<<<<< HEAD
  * Manager responsible for turn rotation.
-=======
- * Manager responsible for handling turn switching and pass logic.
->>>>>>> origin/dev-czh-ui-zhy
  */
 public class TurnManager {
 
     /**
-<<<<<<< HEAD
      * Switches the turn to the next player in the list
-=======
-     * Switch to the next valid player's turn in a circular manner.
->>>>>>> origin/dev-czh-ui-zhy
      */
     public void switchPlayer(GameState gameState) {
         List<Player> players = gameState.getPlayers();
         String currentId = gameState.getCurrentPlayerId();
-<<<<<<< HEAD
 
         int currentIndex = -1;
         for (int i = 0; i < players.size(); i++) {
             if (players.get(i).getPlayerId().equals(currentId)) {
-=======
-        int currentIndex = -1;
-
-        // Find the index of the current player
-        for (int i = 0; i < players.size(); i++) {
-            if (players.get(i).getId().equals(currentId)) {
->>>>>>> origin/dev-czh-ui-zhy
                 currentIndex = i;
                 break;
             }
         }
 
-<<<<<<< HEAD
         // Circular rotation
         int nextIndex = (currentIndex + 1) % players.size();
         gameState.setCurrentPlayerId(players.get(nextIndex).getPlayerId());
 
         // After the first switch, it's no longer the opening move
         gameState.setOpeningTurn(false);
-=======
-        // Move to the next player
-        int nextIndex = (currentIndex + 1) % players.size();
-        gameState.setCurrentPlayerId(players.get(nextIndex).getId());
-    }
-
-    /**
-     * Handle the logic when all other players pass, making the current player the start of a new round.
-     */
-    public void resetTurnCycle(GameState gameState) {
-        // Clear the previous play so the new player can play any valid pattern
-        gameState.setLastPlay(null);
-        // Note: isOpeningTurn is typically strictly for the first move of the game with Diamond 3.
-        // For a new cycle, lastPlay == null is enough to indicate a free play.
->>>>>>> origin/dev-czh-ui-zhy
     }
 }

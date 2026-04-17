@@ -1,6 +1,5 @@
 package com.example.cardgame.rule;
 
-<<<<<<< HEAD
 import java.util.List;
 
 /**
@@ -45,7 +44,3 @@ public class RuleEngine {
     }
     */
 }
-=======
-public class RuleEngine {
-}
->>>>>>> origin/dev-czh-ui-zhy

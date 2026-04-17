@@ -1,5 +1,6 @@
 package com.example.cardgame.ui;
 
+import com.example.cardgame.R;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -102,5 +103,9 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
 
         String fileName = suitPart + "_" + rankPart;
         return context.getResources().getIdentifier(fileName, "drawable", context.getPackageName());
+    }
+    public void updateData(List<String> newCardList) {
+        this.cardList = newCardList;
+        notifyDataSetChanged();
     }
 }
