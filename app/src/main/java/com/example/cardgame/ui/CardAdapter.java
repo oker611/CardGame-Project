@@ -48,7 +48,7 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
             holder.ivCard.setImageResource(android.R.drawable.ic_menu_gallery);
         }
 
-        // 只做上移，不改变背景和阴影
+        // 上移效果
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) holder.itemView.getLayoutParams();
         if (selectedStates[position]) {
             params.topMargin = (int) (-8 * context.getResources().getDisplayMetrics().density);
@@ -63,7 +63,7 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
             listener.onItemClick(position);
         });
 
-        // 左边距设置（不变）
+        // 左边距设置
         ViewGroup.MarginLayoutParams marginParams = (ViewGroup.MarginLayoutParams) holder.itemView.getLayoutParams();
         if (position == 0) {
             marginParams.leftMargin = 0;
@@ -81,7 +81,19 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
 
     public void updateData(List<String> newCardList) {
         this.cardList = newCardList;
-        this.selectedStates = new boolean[newCardList.size()];
+        // 保留选中状态：如果新列表中有相同的牌，保留其选中状态
+        boolean[] newSelectedStates = new boolean[newCardList.size()];
+        for (int i = 0; i < newCardList.size(); i++) {
+            String cardId = newCardList.get(i);
+            // 在旧列表中查找相同牌的位置
+            for (int j = 0; j < this.selectedStates.length && j < this.cardList.size(); j++) {
+                if (this.cardList.get(j).equals(cardId) && this.selectedStates[j]) {
+                    newSelectedStates[i] = true;
+                    break;
+                }
+            }
+        }
+        this.selectedStates = newSelectedStates;
         notifyDataSetChanged();
     }
 

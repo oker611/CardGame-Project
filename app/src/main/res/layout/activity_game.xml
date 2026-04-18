@@ -102,27 +102,25 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- 桌面牌区 -->
-    <FrameLayout
-        android:id="@+id/play_area"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="24dp"
-        android:background="#3A4A5A"
+    <!-- 出牌区（显示最近出的牌） -->
+    <HorizontalScrollView
+        android:id="@+id/play_area_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_marginBottom="8dp"
+        android:scrollbars="none"
         app:layout_constraintBottom_toTopOf="@+id/button_bar"
-        app:layout_constraintEnd_toStartOf="@id/opponent_right"
-        app:layout_constraintStart_toEndOf="@id/opponent_left"
-        app:layout_constraintTop_toBottomOf="@id/opponent_top"
-        app:layout_constraintVertical_bias="0.4">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
+        <LinearLayout
+            android:id="@+id/play_area"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="桌面牌区"
-            android:textColor="#AAAAAA"
-            android:textSize="24sp" />
-    </FrameLayout>
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center" />
+
+    </HorizontalScrollView>
 
     <!-- 出牌/过牌按钮区（放在手牌区上方） -->
     <LinearLayout

@@ -1,0 +1,308 @@
+[33mcommit c9c6d4c498b03fa4c585def552e898e8b74cf59c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: oker611 <2923238166@qq.com>
+Date:   Sat Apr 18 01:59:53 2026 +0800
+
+    Fix compilation errors: add hand cards field, fix method calls, remove DefaultGameEngine
+
+[33mcommit b70d78d5d7ac5fdb33e46bc9606275f7747953dd[m
+Merge: fa1b89a b2d4fcc
+Author: oker611 <2923238166@qq.com>
+Date:   Fri Apr 17 19:13:27 2026 +0800
+
+    合并 dev-czh-ui-zhy 到 main
+
+[33mcommit b2d4fcc41397579eabe2a967b3b20998bde161f6[m[33m ([m[1;31morigin/dev-czh-ui-zhy[m[33m)[m
+Author: xiaoming <test@123.com>
+Date:   Fri Apr 17 17:40:22 2026 +0800
+
+    feat: 基础界面以及随机发牌
+
+[33mcommit fa1b89a91c0e87f3b57c1b70ad28a3f531e2f9cf[m
+Author: oker611 <2923238166@qq.com>
+Date:   Fri Apr 17 14:32:06 2026 +0800
+
+    remove local environment files
+
+[33mcommit 7c00ff1066e5bfe64a9b0be681317e7a6ede115c[m
+Merge: c90ac33 a866528
+Author: oker611 <2923238166@qq.com>
+Date:   Fri Apr 17 00:39:03 2026 +0800
+
+    Merge feature branch and resolve conflicts(clean env files)
+
+[33mcommit c90ac3387e7525f06dcc1e6bdfa1d13e644d7991[m
+Author: KikikZeng <2317841842@qq.com>
+Date:   Thu Apr 16 22:57:13 2026 +0800
+
+    W3：完成卡片4规则系统初稿 (#9)
+
+[33mcommit ab2e3a5dc74e05f9bdf90acf9c19a5225e2df7b9[m
+Author: oker611 <2923238166@qq.com>
+Date:   Thu Apr 16 22:37:46 2026 +0800
+
+    Dev czh (#8)
+    
+    * Task6 and Task7 completed
+    
+    Implemented the dealing and playing logic for a card game.
+    
+    * Add files via upload
+    
+    * Delete docs directory
+    
+    * Delete src directory
+    
+    * Delete .gitignore
+    
+    * Delete LICENSE
+    
+    * Delete README.md
+    
+    * Add files via upload
+    
+    * Delete CardGame-Project directory
+    
+    * Delete docs directory
+    
+    * Restructure project directory
+    
+    Restructure project directory
+    
+    * Complete core game main flow implementation
+    
+    Complete core game main flow implementation
+    
+    * merge main
+    
+    merge main
+    
+    * merge main
+    
+    merge main
+    
+    * Complete card generation, shuffle and dealing system
+    
+    Complete card generation, shuffle and dealing system
+    
+    * small change for annotation
+    
+    small change for annotation
+    
+    ---------
+    
+    Co-authored-by: veda-chen <2724309224@qq.com>
+    Co-authored-by: fujunye <fujunye11@gmail.com>
+
+[33mcommit 89ad1fabf2295f6f6211ecbebb7584f57a992cef[m
+Author: oker611 <2923238166@qq.com>
+Date:   Thu Apr 16 22:25:28 2026 +0800
+
+    Revert "Dev czh (#7)"
+    
+    This reverts commit 59f1dc8622a90f3f7a53bdd966a30ed1cf086564.
+    
+    e with '#' will be ignored, and an empty message aborts the commit.
+
+[33mcommit 59f1dc8622a90f3f7a53bdd966a30ed1cf086564[m
+Author: oker611 <2923238166@qq.com>
+Date:   Thu Apr 16 21:46:05 2026 +0800
+
+    Dev czh (#7)
+    
+    * Task6 and Task7 completed
+    
+    Implemented the dealing and playing logic for a card game.
+    
+    * Add files via upload
+    
+    * Delete docs directory
+    
+    * Delete src directory
+    
+    * Delete .gitignore
+    
+    * Delete LICENSE
+    
+    * Delete README.md
+    
+    * Add files via upload
+    
+    * Delete CardGame-Project directory
+    
+    * Delete docs directory
+    
+    * Restructure project directory
+    
+    Restructure project directory
+    
+    * Complete core game main flow implementation
+    
+    Complete core game main flow implementation
+    
+    * merge main
+    
+    merge main
+    
+    * merge main
+    
+    merge main
+    
+    ---------
+    
+    Co-authored-by: veda-chen <2724309224@qq.com>
+    Co-authored-by: fujunye <fujunye11@gmail.com>
+
+[33mcommit a8665288911ad906faf78d86635f257c6da3aaef[m
+Author: veda-chen <2724309224@qq.com>
+Date:   Thu Apr 16 20:19:49 2026 +0800
+
+    merge main
+    
+    merge main
+
+[33mcommit 2fa81ee6d63aba456b12d3a71b8028c098885231[m
+Author: veda-chen <2724309224@qq.com>
+Date:   Thu Apr 16 16:35:12 2026 +0800
+
+    merge main
+    
+    merge main
+
+[33mcommit 3a53d24b77db3efc4871639272e33fb90d8d113b[m
+Merge: fb2653d 62cc27e
+Author: veda-chen <2724309224@qq.com>
+Date:   Thu Apr 16 16:26:51 2026 +0800
+
+    Merge branch 'main' into dev-czh
+
+[33mcommit 62cc27eafe87822151e3ba7d8d52c1c82a5e4bfb[m
+Merge: 710038f 6068ef7
+Author: veda-chen <2724309224@qq.com>
+Date:   Thu Apr 16 15:56:33 2026 +0800
+
+    Merge branch 'main' of https://github.com/oker611/CardGame-Project
+
+[33mcommit 6068ef77a70f5d2401f05d594ecdda34d0c922d6[m[33m ([m[1;31morigin/dev-fjy[m[33m)[m
+Author: oker611 <2923238166@qq.com>
+Date:   Thu Apr 16 15:30:58 2026 +0800
+
+    Merge pull request #6 from oker611/main-recovery
+    
+    add model
+
+[33mcommit fb2653d331b12ca7c52b352bb43b1a7b625b8950[m
+Author: veda-chen <2724309224@qq.com>
+Date:   Wed Apr 15 23:18:45 2026 +0800
+
+    Complete core game main flow implementation
+    
+    Complete core game main flow implementation
+
+[33mcommit 710038f894a50143b5e69bb2b80b9e7ae031757b[m
+Merge: d365e0d e2033be
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 21:40:26 2026 +0800
+
+    Merge pull request #1
+    
+    Core fjy
+
+[33mcommit 12cf2a6cba74c321c9ea704ec266d4586629dd68[m
+Author: veda-chen <2724309224@qq.com>
+Date:   Wed Apr 15 21:05:42 2026 +0800
+
+    Restructure project directory
+    
+    Restructure project directory
+
+[33mcommit d365e0de2d6eae1850f65f4aa46a6f9c97a5e4bc[m
+Author: oker611 <2923238166@qq.com>
+Date:   Wed Apr 15 19:58:08 2026 +0800
+
+    add dto controller
+
+[33mcommit e2033becbb60c924209b027e1eb97ba6ebdaa80d[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:12:50 2026 +0800
+
+    Delete docs directory
+
+[33mcommit 684841d2760353dca626b326b5d53521282aa3b1[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:12:32 2026 +0800
+
+    Delete CardGame-Project directory
+
+[33mcommit 0383720da18ea5903aee363b81b8f606b8a904c0[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:11:31 2026 +0800
+
+    Add files via upload
+
+[33mcommit 3d263c0fd6ecc743a4d9164b5f1d51e01dea9f57[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:02:41 2026 +0800
+
+    Delete README.md
+
+[33mcommit fc71524cd9c4425ff6a33ef0de7be1ded70d10c5[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:02:31 2026 +0800
+
+    Delete LICENSE
+
+[33mcommit 1491df83d977ca8da5e38623ef3708d60deaae9c[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:02:20 2026 +0800
+
+    Delete .gitignore
+
+[33mcommit 1324af3cb1fcd1b5c8970a528db9f7a931ad5b53[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:02:06 2026 +0800
+
+    Delete src directory
+
+[33mcommit 11eb99dc6408f19990f13dc32ce20b701276673b[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 15:01:54 2026 +0800
+
+    Delete docs directory
+
+[33mcommit b945849322ac016e90fe4f5b666ebef66e7b0e23[m
+Author: fujunye <fujunye11@gmail.com>
+Date:   Wed Apr 15 14:49:57 2026 +0800
+
+    Add files via upload
+
+[33mcommit d1be93ad31d09455adf94080cfcb454ae012dc54[m[33m ([m[1;31morigin/sj[m[33m)[m
+Author: oker611 <2923238166@qq.com>
+Date:   Wed Apr 15 13:56:27 2026 +0800
+
+    Update Sprint 3 Iteration Plan with new tasks
+
+[33mcommit 94cd6347ae6df1f608ff67133976f4837d8c58f5[m
+Author: oker611 <2923238166@qq.com>
+Date:   Tue Apr 14 21:02:51 2026 +0800
+
+    Add project structure documentation for card game
+    
+    This document outlines the project structure for the card game, detailing the organization of source files into various categories such as model, engine, rule, controller, dto, ui, ai, network, util, and test.
+
+[33mcommit df769f838e5624c8a88cb75b993bfe59fba79807[m
+Author: oker611 <2923238166@qq.com>
+Date:   Tue Apr 14 20:58:19 2026 +0800
+
+    Rename Sprint3-Milestones.md to docs/03-Plans/Sprint3/Sprint3-Milestones.md
+
+[33mcommit b0f7896184892e804b1e53b11e98d95ab5594fd0[m
+Author: oker611 <2923238166@qq.com>
+Date:   Tue Apr 14 20:57:40 2026 +0800
+
+    Rename Naming-Convention.md to docs/03-Plans/Sprint3/Naming-Convention.md
+
+[33mcommit 5f9ba7a12dbd3d9c81aaded8e1d93a72a2d1307c[m
+Author: oker611 <2923238166@qq.com>
+Date:   Tue Apr 14 20:57:08 2026 +0800
+
+    Rename Iteration-Plan-Sprint3.m
