@@ -2,12 +2,14 @@ package com.example.cardgame.engine;
 
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.dto.ValidationResult;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.CardPattern;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.RuleConfig;
+import com.example.cardgame.rule.RuleEngine;
 
 import java.util.List;
 
@@ -18,6 +20,7 @@ public class GameEngine {
 
     private GameState gameState;
     private RuleConfig ruleConfig;
+    private RuleEngine ruleEngine;
 
     private final DealManager dealManager;
     private final TurnManager turnManager;
@@ -27,6 +30,7 @@ public class GameEngine {
         this.dealManager = new DealManager();
         this.turnManager = new TurnManager();
         this.settlementManager = new SettlementManager();
+        this.ruleEngine = ruleEngine;
     }
 
     /**
@@ -37,11 +41,7 @@ public class GameEngine {
         this.gameState = new GameState();
         this.gameState.setPlayers(players);
         this.gameState.setGameOver(false);
-        this.gameState.setWinnerId(null);
-        this.gameState.setLastPlay(null);
         this.gameState.setOpeningTurn(true);
-
-        System.out.println("[CardGame][START] Game initialized.");
     }
 
     /**
@@ -60,121 +60,78 @@ public class GameEngine {
      * @param selectedCardIds Selected card IDs
      */
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
-        if (gameState == null) {
-            System.out.println("[CardGame][ERROR] playCards failed: gameState is null.");
-            return new PlayResult(false, "Game state is null.", null);
+        Player player = gameState.getPlayerById(playerId);
+        if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
+            return createPlayResult(false, "Not your turn ", gameState);
         }
+        List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
+        Play currentPlay = new Play(playerId, selectedCards, CardPattern.INVALID);
 
-        if (gameState.isGameOver()) {
-            System.out.println("[CardGame][ERROR] playCards failed: game already over.");
-            return new PlayResult(false, "Game is already over.", gameState);
+        // =================================================================================
+        // TODO: Wait for M5 (Rule Layer) to refactor RuleEngine interfaces to match standard.
+        // =================================================================================
+        /*
+        currentPlay.setPattern(ruleEngine.recognizePattern(selectedCards));
+        ValidationResult validation = ruleEngine.validatePlay(
+            currentPlay,
+            gameState.getLastPlay(),
+            ruleConfig,
+            gameState.isOpeningTurn()
+        );
+        if (!validation.isValid()) {
+            return createPlayResult(false, validation.getMessage(), gameState);
         }
+        */
+        // 临时逻辑：假设出牌永远合法，强制放行以测试 Engine 主流程
+        currentPlay.setPattern(CardPattern.SINGLE);
 
-        Player currentPlayer = gameState.getCurrentPlayer();
-        System.out.println("[CardGame][PLAY] Current player: " + gameState.getCurrentPlayerId());
-
-        if (currentPlayer == null) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Current player not found.");
-            return new PlayResult(false, "Current player not found.", gameState);
+        //remove cards from hand and update last play
+        for (String cardId : selectedCardIds) {
+            player.removeCardById(cardId);
         }
-
-        if (!currentPlayer.getPlayerId().equals(playerId)) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Not current player's turn.");
-            return new PlayResult(false, "Not current player's turn.", gameState);
-        }
-
-        if (selectedCardIds == null || selectedCardIds.isEmpty()) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=No cards selected.");
-            return new PlayResult(false, "No cards selected.", gameState);
-        }
-
-        List<Card> selectedCards = currentPlayer.findCardsByIds(selectedCardIds);
-
-        System.out.println("[CardGame][PLAY] Selected card IDs: " + selectedCardIds);
-        System.out.println("[CardGame][PLAY] Selected cards: " + formatCards(selectedCards));
-
-        if (selectedCards.size() != selectedCardIds.size()) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Some cards are not in player's hand.");
-            return new PlayResult(false, "Some cards are not in player's hand.", gameState);
-        }
-
-        if (gameState.isOpeningTurn() && !containsThreeOfDiamonds(selectedCards)) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Opening play must contain 3 of Diamonds.");
-            return new PlayResult(false, "Opening play must contain 3 of Diamonds.", gameState);
-        }
-
-        Play currentPlay = new Play(playerId, selectedCards, guessPattern(selectedCards));
-
-        if (currentPlay.getPattern() == CardPattern.INVALID) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Unsupported card pattern.");
-            return new PlayResult(false, "Unsupported card pattern.", gameState);
-        }
-
         gameState.setLastPlay(currentPlay);
-        gameState.setOpeningTurn(false);
-        gameState.clearAllPassStatus();
-        currentPlayer.setPassed(false);
-
-        for (Card card : selectedCards) {
-            currentPlayer.removeCard(card);
-        }
-
-        System.out.println("[CardGame][VALIDATION] valid=true, message=Play accepted, pattern="
-                + currentPlay.getPattern());
-
+        player.setPassed(false);
         settlementManager.checkAndSettle(gameState);
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
-            return new PlayResult(true, "Play success.", gameState);
         }
-
-        return new PlayResult(true, "Play success. Game over.", gameState);
+        return createPlayResult(true, "Play successful", gameState);
     }
 
     /**
      * Player passes their turn.
      */
     public PassResult passTurn(String playerId) {
-        if (gameState == null) {
-            System.out.println("[CardGame][ERROR] passTurn failed: gameState is null.");
-            return new PassResult(false, "Game state is null.", null);
+        if (gameState == null || gameState.isGameOver()) {
+            return createPassResult(false, "Game is over ", gameState);
         }
 
-        if (gameState.isGameOver()) {
-            System.out.println("[CardGame][ERROR] passTurn failed: game already over.");
-            return new PassResult(false, "Game is already over.", gameState);
+        Player player = gameState.getPlayerById(playerId);
+        if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
+            return createPassResult(false, "Not your turn", gameState);
         }
-
-        Player currentPlayer = gameState.getCurrentPlayer();
-        if (currentPlayer == null) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Current player not found.");
-            return new PassResult(false, "Current player not found.", gameState);
-        }
-
-        if (!currentPlayer.getPlayerId().equals(playerId)) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Not current player's turn, cannot pass.");
-            return new PassResult(false, "Not current player's turn, cannot pass.", gameState);
-        }
-
         if (gameState.isOpeningTurn()) {
-            System.out.println("[CardGame][VALIDATION] valid=false, message=Opening player cannot pass.");
-            return new PassResult(false, "Opening player cannot pass.", gameState);
+            return createPassResult(false, "Cannot pass on opening turn", gameState);
         }
-
-        currentPlayer.setPassed(true);
-        System.out.println("[CardGame][PASS] Player "
-                + currentPlayer.getPlayerId()
-                + " (" + currentPlayer.getPlayerName() + ") passed.");
-
-        if (gameState.areAllOtherPlayersPassed(currentPlayer.getPlayerId())) {
-            gameState.clearAllPassStatus();
-            gameState.setLastPlay(null);
-            gameState.setOpeningTurn(true);
-            System.out.println("[CardGame][PASS] All other players passed. Round reset.");
-        }
-
+        player.setPassed(true);
         turnManager.switchPlayer(gameState);
-        return new PassResult(true, "Pass success.", gameState);
+
+        // Check if all OTHER players have passed to start a new round
+        if (gameState.areAllOtherPlayersPassed(gameState.getCurrentPlayerId())) {
+            gameState.setLastPlay(null);
+            gameState.clearAllPassStatus();
+        }
+
+        return createPassResult(true, "Pass successful ", gameState);
+    }
+
+    // Helper methods for creating DTO results
+    private PlayResult createPlayResult(boolean success, String msg, GameState state) {
+        return new PlayResult(success, msg, state);
+    }
+
+    private PassResult createPassResult(boolean success, String msg, GameState state) {
+        return new PassResult(success, msg, state);
     }
 
     public boolean isGameOver() {
