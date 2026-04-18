@@ -21,6 +21,8 @@ import com.example.cardgame.controller.GameActionHandler;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.CardGameApplication;
+import com.example.cardgame.dto.PlayerViewData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,10 +47,9 @@ public class GameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        // ========== 团队接口初始化（需要团队补充） ==========
         // TODO: 从 Application 或单例获取 GameActionHandler 实例
-        // 示例：gameActionHandler = ((CardGameApp) getApplication()).getGameActionHandler();
-        gameActionHandler = null; // 临时置空，团队接入后替换
+        gameActionHandler = CardGameApplication.getGameActionHandler();
+        Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
         // 设置对手头像和昵称（模拟数据，不受影响）
         setupOpponents();
@@ -57,17 +58,21 @@ public class GameActivity extends AppCompatActivity {
         rvHandCards = findViewById(R.id.rv_hand_cards);
         rvHandCards.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
-        // ========== 原有模拟代码已注释，改用团队接口 ==========
-        if (gameActionHandler != null) {
-            // 通过团队接口开始新游戏（假设游戏未开始）
-            gameActionHandler.startNewGame();
-            // 刷新界面（从 handler 获取数据）
-            refreshUI();
-        } else {
-            // 若接口未就绪，临时使用模拟数据（仅用于 UI 演示，待团队接口完成后删除）
-            useMockDataForDemo();
-            Toast.makeText(this, "当前使用模拟数据，等待团队接口", Toast.LENGTH_LONG).show();
-        }
+        // 临时强制使用模拟数据，绕过 GameController 的空指针问题
+        useMockDataForDemo();
+        Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
+
+//        // ========== 原有模拟代码已注释，改用团队接口 ==========
+//        if (gameActionHandler != null) {
+//            // 通过团队接口开始新游戏（假设游戏未开始）
+//            gameActionHandler.startNewGame();
+//            // 刷新界面（从 handler 获取数据）
+//            refreshUI();
+//        } else {
+//            // 若接口未就绪，临时使用模拟数据（仅用于 UI 演示，待团队接口完成后删除）
+//            useMockDataForDemo();
+//            Toast.makeText(this, "当前使用模拟数据，等待团队接口", Toast.LENGTH_LONG).show();
+//        }
 
         // 出牌按钮
         findViewById(R.id.btn_play).setOnClickListener(v -> {
@@ -111,6 +116,7 @@ public class GameActivity extends AppCompatActivity {
      * 若接口尚未提供这些字段，UI 无法正确显示手牌，需要团队补充。
      */
     private void refreshUI() {
+        Log.d("GameActivity", "refreshUI called");
         if (gameActionHandler == null) return;
 
         GameViewData data = gameActionHandler.getGameViewData();
@@ -118,6 +124,7 @@ public class GameActivity extends AppCompatActivity {
         // ========== 获取当前玩家手牌（需要团队在 GameViewData 中添加字段） ==========
         // TODO: 要求团队在 GameViewData 中增加 List<String> myHandCards
         List<String> myHandCards = data.getMyHandCards(); // 假设方法存在，实际目前没有
+        Log.d("GameActivity", "myHandCards = " + myHandCards);
         if (myHandCards != null) {
             handCards = myHandCards;
         } else {
@@ -155,11 +162,41 @@ public class GameActivity extends AppCompatActivity {
      * 根据 GameViewData 更新对手信息（头像、名称、剩余牌数、回合指示等）
      * 依赖：GameViewData 中的 players 列表（PlayerViewData）包含所有玩家信息
      */
+    /**
+     * 根据 GameViewData 更新对手信息（头像、名称、剩余牌数、回合指示等）
+     * 假设 players 列表顺序为：[玩家1(自己), 玩家2(上家), 玩家3(对家), 玩家4(下家)]
+     */
     private void updateOpponentsFromViewData(GameViewData data) {
-        // 示例：根据 data.getPlayers() 找到对应玩家并更新
-        // 由于团队 PlayerViewData 已包含剩余牌数等，可以正确显示
-        // 当前实现暂保留原有模拟数据，待团队提供完整玩家列表后再替换
-        // TODO: 将 setupOpponents() 中的模拟数据替换为从 data 中获取
+        List<PlayerViewData> players = data.getPlayers();
+        if (players == null || players.size() < 4) {
+            // 数据不足，继续使用模拟数据
+            return;
+        }
+
+        // 对手顺序：索引1 = 上方（玩家2），索引2 = 左侧（玩家3），索引3 = 右侧（玩家4）
+        PlayerViewData opponentTop = players.get(1);
+        PlayerViewData opponentLeft = players.get(2);
+        PlayerViewData opponentRight = players.get(3);
+
+        // 更新上方对手
+        TextView nameTop = findViewById(R.id.tv_name_top);
+        nameTop.setText(opponentTop.getPlayerName() + " (" + opponentTop.getRemainingCardCount() + ")");
+
+        // 更新左侧对手
+        TextView nameLeft = findViewById(R.id.tv_name_left);
+        nameLeft.setText(opponentLeft.getPlayerName() + " (" + opponentLeft.getRemainingCardCount() + ")");
+
+        // 更新右侧对手
+        TextView nameRight = findViewById(R.id.tv_name_right);
+        nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + ")");
+
+        // 可选：根据是否当前回合改变对手名称颜色（例如当前玩家回合高亮）
+        if (opponentTop.isCurrentTurn()) {
+            nameTop.setTextColor(getColor(android.R.color.holo_orange_dark));
+        } else {
+            nameTop.setTextColor(getColor(android.R.color.white));
+        }
+        // 同样处理左右对手...
     }
 
     /**
