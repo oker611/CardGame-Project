@@ -55,13 +55,14 @@ public class GameEngine {
 
     /**
      * Execute play cards action and check for settlement.
+     *
      * @param playerId ID of the player
      * @param selectedCardIds Selected card IDs
      */
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
-            return createPlayResult(false, "Not your turn (非当前玩家回合)", gameState);
+            return createPlayResult(false, "Not your turn ", gameState);
         }
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
         Play currentPlay = new Play(playerId, selectedCards, CardPattern.INVALID);
@@ -149,5 +150,59 @@ public class GameEngine {
      */
     public GameState getGameState() {
         return gameState;
+    }
+
+    private boolean containsThreeOfDiamonds(List<Card> cards) {
+        for (Card card : cards) {
+            if (card != null && card.isThreeOfDiamonds()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private CardPattern guessPattern(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return CardPattern.INVALID;
+        }
+        if (cards.size() == 1) {
+            return CardPattern.SINGLE;
+        }
+        if (cards.size() == 2 && sameRank(cards)) {
+            return CardPattern.PAIR;
+        }
+        if (cards.size() == 3 && sameRank(cards)) {
+            return CardPattern.TRIPLE;
+        }
+        return CardPattern.INVALID;
+    }
+
+    private boolean sameRank(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return false;
+        }
+        Card first = cards.get(0);
+        for (Card card : cards) {
+            if (card == null || first.getRank() != card.getRank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String formatCards(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return "[]";
+        }
+
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < cards.size(); i++) {
+            sb.append(cards.get(i).getDisplayText());
+            if (i < cards.size() - 1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

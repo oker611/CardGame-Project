@@ -28,6 +28,10 @@ public class SettlementManager {
             if (player.getHandCards().isEmpty()) {
                 gameState.setGameOver(true);
                 gameState.setWinnerId(player.getPlayerId());
+
+                System.out.println("[CardGame][WIN] Winner: "
+                        + player.getPlayerId()
+                        + " (" + player.getPlayerName() + ")");
                 break;
             }
         }
@@ -35,8 +39,6 @@ public class SettlementManager {
 
     /**
      * Checks all players' hand cards and updates GameState if someone has won.
-     * This is a convenience method that combines check and settle in one call.
-     * @param gameState Current game state to be updated
      */
     public void checkAndSettle(GameState gameState) {
         if (gameState.isGameOver()) {
@@ -47,6 +49,10 @@ public class SettlementManager {
             if (player.getHandCards().isEmpty()) {
                 gameState.setGameOver(true);
                 gameState.setWinnerId(player.getPlayerId());
+
+                System.out.println("[CardGame][WIN] Winner: "
+                        + player.getPlayerId()
+                        + " (" + player.getPlayerName() + ")");
                 return;
             }
         }
