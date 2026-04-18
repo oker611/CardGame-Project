@@ -1,35 +1,27 @@
 package com.example.cardgame.rule;
 
+import com.example.cardgame.model.Card;
+import com.example.cardgame.model.Rank;
+import com.example.cardgame.model.Suit;
 import java.util.List;
 
 /**
- * 牌型识别器
- * 支持点数+花色的完整比较
+ * 牌型识别器（支持单张、对子）
  */
 public class PatternRecognizer {
 
-    // 牌型枚举
     public enum PatternType {
-        SINGLE,    // 单张
-        PAIR,      // 对子
-        INVALID    // 无效
+        SINGLE,   // 单张
+        PAIR,     // 对子
+        INVALID   // 无效
     }
 
-    // 花色比较值（越大越大）
-    private static int getSuitValue(String suit) {
-        switch (suit) {
-            case "SPADE":   return 3;
-            case "HEART":   return 2;
-            case "CLUB":    return 1;
-            case "DIAMOND": return 0;
-            default:        return -1;
-        }
-    }
-
-    // 识别结果，比较值已包含点数+花色
+    /**
+     * 识别结果，包含牌型和比较值（用于压牌比较）
+     */
     public static class PatternInfo {
         private final PatternType type;
-        private final int compareValue;  // 编码：点数*10 + 花色值（单张）/ 对子中最大花色
+        private final int compareValue;  // 数值越大牌越大（点数权重*10 + 花色权重）
 
         public PatternInfo(PatternType type, int compareValue) {
             this.type = type;
@@ -40,71 +32,75 @@ public class PatternRecognizer {
         public int getCompareValue() { return compareValue; }
     }
 
+    private final PatternRecognizerHelper helper = new PatternRecognizerHelper();
+
     /**
      * 识别牌型
-     * @param cards 要识别的牌
+     * @param cards 要识别的牌列表（不能为null或空）
      * @return 识别结果
      */
-    public PatternInfo recognizePattern(List<SimpleCard> cards) {
+    public PatternInfo recognizePattern(List<Card> cards) {
         if (cards == null || cards.isEmpty()) {
             return new PatternInfo(PatternType.INVALID, -1);
         }
         int size = cards.size();
         if (size == 1) {
-            // 单张：比较值 = 点数*10 + 花色值
-            SimpleCard card = cards.get(0);
-            int rankVal = getCardRankValue(card);
-            int suitVal = getSuitValue(card.suit);
-            int compareVal = rankVal * 10 + suitVal;
-            return new PatternInfo(PatternType.SINGLE, compareVal);
-        } else if (size == 2) {
-            int v1 = getCardRankValue(cards.get(0));
-            int v2 = getCardRankValue(cards.get(1));
-            if (v1 == v2) {
-                // 对子：比较值 = 点数*10 + 两张牌中较大的花色值
-                int suit1 = getSuitValue(cards.get(0).suit);
-                int suit2 = getSuitValue(cards.get(1).suit);
-                int maxSuit = Math.max(suit1, suit2);
-                int compareVal = v1 * 10 + maxSuit;
-                return new PatternInfo(PatternType.PAIR, compareVal);
+            // 单张：比较值 = 点数权重 * 10 + 花色权重
+            Card card = cards.get(0);
+            int rankWeight = helper.getRankWeight(card.getRank());
+            int suitWeight = helper.getSuitWeight(card.getSuit());
+            int compareValue = rankWeight * 10 + suitWeight;
+            return new PatternInfo(PatternType.SINGLE, compareValue);
+        }
+        else if (size == 2) {
+            Rank rank1 = cards.get(0).getRank();
+            Rank rank2 = cards.get(1).getRank();
+            if (rank1 == rank2) {
+                // 对子：比较值 = 点数权重 * 10 + 两张牌中较大的花色权重
+                int rankWeight = helper.getRankWeight(rank1);
+                int suitWeight1 = helper.getSuitWeight(cards.get(0).getSuit());
+                int suitWeight2 = helper.getSuitWeight(cards.get(1).getSuit());
+                int maxSuitWeight = Math.max(suitWeight1, suitWeight2);
+                int compareValue = rankWeight * 10 + maxSuitWeight;
+                return new PatternInfo(PatternType.PAIR, compareValue);
             }
         }
         return new PatternInfo(PatternType.INVALID, -1);
     }
 
-    // 获取单张牌的点数（3最小=0，2最大=12）
-    private int getCardRankValue(SimpleCard card) {
-        String rank = card.rank;
-        switch (rank) {
-            case "3": return 0;
-            case "4": return 1;
-            case "5": return 2;
-            case "6": return 3;
-            case "7": return 4;
-            case "8": return 5;
-            case "9": return 6;
-            case "10": return 7;
-            case "J": return 8;
-            case "Q": return 9;
-            case "K": return 10;
-            case "A": return 11;
-            case "2": return 12;
-            default: return -1;
-        }
-    }
-
-    // ---------- 临时内部类：SimpleCard ----------
-    public static class SimpleCard {
-        public String suit;  // "DIAMOND", "CLUB", "HEART", "SPADE"
-        public String rank;  // "3","4","5","6","7","8","9","10","J","Q","K","A","2"
-
-        public SimpleCard(String suit, String rank) {
-            this.suit = suit;
-            this.rank = rank;
+    /**
+     * 辅助类：获取权重
+     */
+    private static class PatternRecognizerHelper {
+        // 点数权重（3最小→0，2最大→12）
+        int getRankWeight(Rank rank) {
+            switch (rank) {
+                case THREE: return 0;
+                case FOUR:  return 1;
+                case FIVE:  return 2;
+                case SIX:   return 3;
+                case SEVEN: return 4;
+                case EIGHT: return 5;
+                case NINE:  return 6;
+                case TEN:   return 7;
+                case JACK:  return 8;
+                case QUEEN: return 9;
+                case KING:  return 10;
+                case ACE:   return 11;
+                case TWO:   return 12;
+                default:    return -1;
+            }
         }
 
-        public boolean isDiamondThree() {
-            return "DIAMOND".equals(suit) && "3".equals(rank);
+        // 花色权重（方块最小0，黑桃最大3，与游戏规则一致）
+        int getSuitWeight(Suit suit) {
+            switch (suit) {
+                case DIAMONDS: return 0;
+                case CLUBS:    return 1;
+                case HEARTS:   return 2;
+                case SPADES:   return 3;
+                default:       return -1;
+            }
         }
     }
 }
