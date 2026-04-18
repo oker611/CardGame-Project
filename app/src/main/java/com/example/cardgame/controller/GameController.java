@@ -1,9 +1,13 @@
 package com.example.cardgame.controller;
 
-import com.example.cardgame.dto.*;
+import com.example.cardgame.dto.GameViewData;
+import com.example.cardgame.dto.PassResult;
+import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.dto.PlayerViewData;
 import com.example.cardgame.engine.GameEngine;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
+import com.example.cardgame.rule.RuleConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +15,8 @@ import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
 
-    private GameEngine gameEngine;
-    private List<String> selectedCardIds = new ArrayList<>();
+    private final GameEngine gameEngine;
+    private final List<String> selectedCardIds = new ArrayList<>();
 
     public GameController(GameEngine gameEngine) {
         this.gameEngine = gameEngine;
@@ -20,39 +24,95 @@ public class GameController implements GameActionHandler {
 
     @Override
     public void startNewGame() {
-        // TODO: 初始化玩家和规则
-        // gameEngine.initializeGame(...)
+        System.out.println("[CardGame][CONTROLLER] startNewGame called");
+
+        List<Player> players = new ArrayList<>();
+        players.add(new Player("P1", "Alice"));
+        players.add(new Player("P2", "Bob"));
+        players.add(new Player("P3", "Cindy"));
+        players.add(new Player("P4", "David"));
+
+        RuleConfig ruleConfig = null;
+
+        gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
+
+        GameState state = gameEngine.getGameState();
+        if (state != null && state.getCurrentPlayer() != null) {
+            System.out.println("[CardGame][CONTROLLER] startNewGame finished, currentPlayer="
+                    + state.getCurrentPlayer().getPlayerId());
+        }
     }
 
     @Override
     public PlayResult submitPlay(List<String> selectedCardIds) {
-        GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        System.out.println("[CardGame][CONTROLLER] submitPlay called, selectedCardIds=" + selectedCardIds);
 
-        return gameEngine.playCards(currentPlayerId, selectedCardIds);
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][CONTROLLER] submitPlay failed: game state not ready");
+            return new PlayResult(false, "Game state not ready.", state);
+        }
+
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        PlayResult result = gameEngine.playCards(currentPlayerId, selectedCardIds);
+
+        System.out.println("[CardGame][CONTROLLER] submitPlay result="
+                + (result != null ? result.getMessage() : "null"));
+
+        return result;
     }
 
     @Override
     public PassResult passTurn() {
-        GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        System.out.println("[CardGame][CONTROLLER] passTurn called");
 
-        return gameEngine.passTurn(currentPlayerId);
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][CONTROLLER] passTurn failed: game state not ready");
+            return new PassResult(false, "Game state not ready.", state);
+        }
+
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        PassResult result = gameEngine.passTurn(currentPlayerId);
+
+        System.out.println("[CardGame][CONTROLLER] passTurn result="
+                + (result != null ? result.getMessage() : "null"));
+
+        return result;
     }
 
     @Override
     public void toggleCardSelection(String cardId) {
+        System.out.println("[CardGame][CONTROLLER] toggleCardSelection called, cardId=" + cardId);
+
         if (selectedCardIds.contains(cardId)) {
             selectedCardIds.remove(cardId);
         } else {
             selectedCardIds.add(cardId);
         }
+
+        System.out.println("[CardGame][CONTROLLER] current selectedCardIds=" + selectedCardIds);
     }
 
     @Override
     public GameViewData getGameViewData() {
+        System.out.println("[CardGame][CONTROLLER] getGameViewData called");
+
         GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: game state not ready");
+            return new GameViewData(
+                    "",
+                    "",
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    "",
+                    false,
+                    ""
+            );
+        }
 
         List<PlayerViewData> players = new ArrayList<>();
 
@@ -62,24 +122,23 @@ public class GameController implements GameActionHandler {
                     p.getPlayerName(),
                     p.getHandCards().size(),
                     p.equals(state.getCurrentPlayer()),
-                    state.areAllOtherPlayersPassed(p.getPlayerId())
+                    p.isPassed()
             ));
         }
 
         Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
         Player currentPlayer = state.getCurrentPlayer();
 
-        // ✅ 获取当前玩家的手牌（将 Card 对象转换为字符串）
         List<String> myHandCards = currentPlayer.getHandCards().stream()
-                .map(card -> card.getSuit().getDisplayName() + card.getRank().getDisplayName())
+                .map(card -> card.getCardId())
                 .collect(Collectors.toList());
 
         return new GameViewData(
                 currentPlayer.getPlayerId(),
                 currentPlayer.getPlayerName(),
                 players,
-                selectedCardIds,
-                myHandCards,  // ✅ 新增的第5个参数
+                new ArrayList<>(selectedCardIds),
+                myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""

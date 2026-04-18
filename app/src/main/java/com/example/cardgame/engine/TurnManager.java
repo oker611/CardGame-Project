@@ -25,11 +25,14 @@ public class TurnManager {
             }
         }
 
-        // Circular rotation
         int nextIndex = (currentIndex + 1) % players.size();
-        gameState.setCurrentPlayerId(players.get(nextIndex).getPlayerId());
+        Player nextPlayer = players.get(nextIndex);
+        gameState.setCurrentPlayerId(nextPlayer.getPlayerId());
 
-        // After the first switch, it's no longer the opening move
         gameState.setOpeningTurn(false);
+
+        System.out.println("[CardGame][TURN] Next player: "
+                + nextPlayer.getPlayerId()
+                + " (" + nextPlayer.getPlayerName() + ")");
     }
 }
