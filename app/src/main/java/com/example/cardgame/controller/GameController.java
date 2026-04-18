@@ -7,6 +7,7 @@ import com.example.cardgame.model.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
 
@@ -27,7 +28,7 @@ public class GameController implements GameActionHandler {
     @Override
     public PlayResult submitPlay(List<String> selectedCardIds) {
         GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getId();
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
 
         return gameEngine.playCards(currentPlayerId, selectedCardIds);
     }
@@ -35,9 +36,9 @@ public class GameController implements GameActionHandler {
     @Override
     public PassResult passTurn() {
         GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getId();
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
 
-        return gameEngine.pass(currentPlayerId);
+        return gameEngine.passTurn(currentPlayerId);
     }
 
     @Override
@@ -57,22 +58,31 @@ public class GameController implements GameActionHandler {
 
         for (Player p : state.getPlayers()) {
             players.add(new PlayerViewData(
-                    p.getId(),
-                    p.getName(),
+                    p.getPlayerId(),
+                    p.getPlayerName(),
                     p.getHandCards().size(),
                     p.equals(state.getCurrentPlayer()),
-                    state.getPassedPlayers().contains(p.getId())
+                    state.areAllOtherPlayersPassed(p.getPlayerId())
             ));
         }
 
+        Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
+        Player currentPlayer = state.getCurrentPlayer();
+
+        // ✅ 获取当前玩家的手牌（将 Card 对象转换为字符串）
+        List<String> myHandCards = currentPlayer.getHandCards().stream()
+                .map(card -> card.getSuit().getDisplayName() + card.getRank().getDisplayName())
+                .collect(Collectors.toList());
+
         return new GameViewData(
-                state.getCurrentPlayer().getId(),
-                state.getCurrentPlayer().getName(),
+                currentPlayer.getPlayerId(),
+                currentPlayer.getPlayerName(),
                 players,
                 selectedCardIds,
+                myHandCards,  // ✅ 新增的第5个参数
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
-                gameEngine.isGameOver() ? state.getWinner().getName() : ""
+                gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""
         );
     }
 }

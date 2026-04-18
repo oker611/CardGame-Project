@@ -1,5 +1,9 @@
 package com.example.cardgame.ui;
 
+import java.util.Random;
+import java.util.Collections;
+
+import com.example.cardgame.R;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;

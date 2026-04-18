@@ -8,13 +8,16 @@ public class GameViewData {
     private String currentPlayerName;
     private List<PlayerViewData> players;
     private List<String> selectedCardIds;
+    private List<String> myHandCards;  // ✅ 新增：当前玩家手牌
     private String lastPlayText;
     private boolean gameOver;
     private String winnerName;
 
+    // ✅ 修改构造函数，添加 myHandCards 参数
     public GameViewData(String currentPlayerId, String currentPlayerName,
                         List<PlayerViewData> players,
                         List<String> selectedCardIds,
+                        List<String> myHandCards,  // 新增参数
                         String lastPlayText,
                         boolean gameOver,
                         String winnerName) {
@@ -22,6 +25,7 @@ public class GameViewData {
         this.currentPlayerName = currentPlayerName;
         this.players = players;
         this.selectedCardIds = selectedCardIds;
+        this.myHandCards = myHandCards;  // 新增赋值
         this.lastPlayText = lastPlayText;
         this.gameOver = gameOver;
         this.winnerName = winnerName;
@@ -41,6 +45,11 @@ public class GameViewData {
 
     public List<String> getSelectedCardIds() {
         return selectedCardIds;
+    }
+
+    // ✅ 新增方法
+    public List<String> getMyHandCards() {
+        return myHandCards;
     }
 
     public String getLastPlayText() {

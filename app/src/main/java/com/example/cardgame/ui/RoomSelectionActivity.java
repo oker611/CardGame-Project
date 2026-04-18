@@ -1,5 +1,6 @@
 package com.example.cardgame.ui;
 
+import com.example.cardgame.R;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
