@@ -5,6 +5,7 @@ import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.dto.PlayerViewData;
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.RuleConfig;
@@ -32,7 +33,7 @@ public class GameController implements GameActionHandler {
         players.add(new Player("P3", "Cindy"));
         players.add(new Player("P4", "David"));
 
-        RuleConfig ruleConfig = null;
+        RuleConfig ruleConfig = new RuleConfig();
 
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
@@ -59,6 +60,11 @@ public class GameController implements GameActionHandler {
 
         System.out.println("[CardGame][CONTROLLER] submitPlay result="
                 + (result != null ? result.getMessage() : "null"));
+
+        // 出牌成功后清空选中的牌列表
+        if (result != null && result.isSuccess()) {
+            this.selectedCardIds.clear();
+        }
 
         return result;
     }
@@ -129,8 +135,17 @@ public class GameController implements GameActionHandler {
         Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
         Player currentPlayer = state.getCurrentPlayer();
 
-        List<String> myHandCards = currentPlayer.getHandCards().stream()
-                .map(card -> card.getCardId())
+        // 获取手牌列表并排序
+        List<Card> handCardsList = new ArrayList<>(currentPlayer.getHandCards());
+        // 按锄大地规则排序（点数从大到小，同点数花色从大到小）
+        handCardsList.sort((c1, c2) -> {
+            int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
+            if (rankCompare != 0) return rankCompare;
+            return Integer.compare(c2.getSuit().getWeight(), c1.getSuit().getWeight());
+        });
+
+        List<String> myHandCards = handCardsList.stream()
+                .map(card -> card.getSuit().getSymbol() + card.getRank().getDisplayName())
                 .collect(Collectors.toList());
 
         return new GameViewData(

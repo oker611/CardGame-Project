@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,10 +31,10 @@ public class GameActivity extends AppCompatActivity {
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
-    private List<String> handCards;           // 当前玩家手牌（联调阶段先直接使用 cardId）
-    private List<String> selectedCardIds;     // 当前选中的牌ID
+    private List<String> handCards;
+    private List<String> selectedCardIds;
+    private LinearLayout playArea;
 
-    // 卡片尺寸常量（与 item_card.xml 中 CardView 的宽高一致）
     private static final float CARD_WIDTH_DP = 50f;
     private static final float CARD_OVERLAP_DP = -8f;
 
@@ -51,13 +52,14 @@ public class GameActivity extends AppCompatActivity {
 
         setupOpponents();
 
+        playArea = findViewById(R.id.play_area);
+
         rvHandCards = findViewById(R.id.rv_hand_cards);
         rvHandCards.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
         selectedCardIds = new ArrayList<>();
         handCards = new ArrayList<>();
 
-        // 优先走真实联调模式；拿不到 handler 时才回退到 mock
         if (gameActionHandler != null) {
             System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
             gameActionHandler.startNewGame();
@@ -69,7 +71,6 @@ public class GameActivity extends AppCompatActivity {
             Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }
 
-        // 出牌按钮
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             System.out.println("[CardGame][UI] Click play button, selectedCardIds=" + selectedCardIds);
 
@@ -91,7 +92,6 @@ public class GameActivity extends AppCompatActivity {
             }
         });
 
-        // 过牌按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             System.out.println("[CardGame][UI] Click pass button");
 
@@ -110,7 +110,6 @@ public class GameActivity extends AppCompatActivity {
             }
         });
 
-        // 退出游戏按钮
         Button btnExitGame = findViewById(R.id.btn_exit_game);
         btnExitGame.setOnClickListener(v -> {
             System.out.println("[CardGame][UI] Click exit button");
@@ -122,9 +121,6 @@ public class GameActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 从团队接口获取最新数据并刷新 UI
-     */
     private void refreshUI() {
         Log.d("GameActivity", "refreshUI called");
         System.out.println("[CardGame][UI] refreshUI called");
@@ -140,7 +136,6 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
 
-        // 联调阶段这里默认取 myHandCards
         List<String> myHandCards = data.getMyHandCards();
         Log.d("GameActivity", "myHandCards = " + myHandCards);
         System.out.println("[CardGame][UI] myHandCards=" + myHandCards);
@@ -160,6 +155,7 @@ public class GameActivity extends AppCompatActivity {
         }
 
         updateOpponentsFromViewData(data);
+        updatePlayArea(data);
 
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
@@ -183,10 +179,21 @@ public class GameActivity extends AppCompatActivity {
         rvHandCards.post(this::centerHandCards);
     }
 
-    /**
-     * 根据 GameViewData 更新对手信息
-     * 假设 players 列表顺序为：[玩家1(自己), 玩家2(上家), 玩家3(对家), 玩家4(下家)]
-     */
+    private void updatePlayArea(GameViewData data) {
+        if (playArea == null) return;
+        playArea.removeAllViews();
+
+        String lastPlayText = data.getLastPlayText();
+        if (lastPlayText == null || lastPlayText.isEmpty()) return;
+
+        TextView lastPlayView = new TextView(this);
+        lastPlayView.setText("上一手: " + lastPlayText);
+        lastPlayView.setTextColor(getColor(android.R.color.white));
+        lastPlayView.setTextSize(14f);
+        lastPlayView.setPadding(16, 0, 16, 0);
+        playArea.addView(lastPlayView);
+    }
+
     private void updateOpponentsFromViewData(GameViewData data) {
         List<PlayerViewData> players = data.getPlayers();
         if (players == null || players.size() < 4) {
@@ -226,9 +233,6 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 临时模拟数据方法（仅用于 UI 演示，待团队接口完成后删除）
-     */
     private void useMockDataForDemo() {
         handCards = generateRandomHand();
         sortHandByRule(handCards);
