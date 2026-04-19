@@ -46,6 +46,20 @@
             android:text="玩家2"
             android:textColor="#FFFFFF"
             android:textSize="12sp" />
+
+        <!-- 出牌区（头像下方） -->
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="8dp"
+            android:background="#80FF0000">
+            <LinearLayout
+                android:id="@+id/play_area_top"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center" />
+        </FrameLayout>
     </LinearLayout>
 
     <!-- 左侧对手（玩家3） -->
@@ -55,24 +69,46 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:gravity="center"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:id="@+id/iv_avatar_left"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:src="@drawable/default_avatar" />
-
-        <TextView
-            android:id="@+id/tv_name_left"
+        <!-- 头像 -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="玩家3"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/iv_avatar_left"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:src="@drawable/default_avatar" />
+
+            <TextView
+                android:id="@+id/tv_name_left"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="玩家3"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- 出牌区（头像右侧） -->
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="60dp"
+            android:layout_marginStart="8dp"
+            android:background="#8000FF00">
+            <LinearLayout
+                android:id="@+id/play_area_left"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center" />
+        </FrameLayout>
     </LinearLayout>
 
     <!-- 右侧对手（玩家4） -->
@@ -82,87 +118,104 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="12dp"
         android:gravity="center"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:id="@+id/iv_avatar_right"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:src="@drawable/default_avatar" />
+        <!-- 出牌区（头像左侧） -->
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="8dp"
+            android:background="#800000FF">
+            <LinearLayout
+                android:id="@+id/play_area_right"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center" />
+        </FrameLayout>
 
-        <TextView
-            android:id="@+id/tv_name_right"
+        <!-- 头像 -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="玩家4"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/iv_avatar_right"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:src="@drawable/default_avatar" />
+
+            <TextView
+                android:id="@+id/tv_name_right"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="玩家4"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- 出牌区（显示最近出的牌） -->
-    <HorizontalScrollView
-        android:id="@+id/play_area_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:layout_marginBottom="8dp"
-        android:scrollbars="none"
-        app:layout_constraintBottom_toTopOf="@+id/button_bar"
+    <!-- 底部：出牌按钮（左下） -->
+    <Button
+        android:id="@+id/btn_play"
+        android:layout_width="80dp"
+        android:layout_height="48dp"
+        android:backgroundTint="#4CAF50"
+        android:text="出牌"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="16dp" />
 
-        <LinearLayout
-            android:id="@+id/play_area"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:gravity="center" />
-
-    </HorizontalScrollView>
-
-    <!-- 出牌/过牌按钮区（放在手牌区上方） -->
-    <LinearLayout
-        android:id="@+id/button_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        app:layout_constraintBottom_toTopOf="@+id/rv_hand_cards"
-        app:layout_constraintStart_toStartOf="parent"
+    <!-- 底部：不要按钮（右下） -->
+    <Button
+        android:id="@+id/btn_pass"
+        android:layout_width="80dp"
+        android:layout_height="48dp"
+        android:backgroundTint="#F44336"
+        android:text="不要"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="12dp">
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="16dp" />
 
-        <Button
-            android:id="@+id/btn_play"
-            android:layout_width="80dp"
-            android:layout_height="40dp"
-            android:backgroundTint="#4CAF50"
-            android:text="出牌"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btn_pass"
-            android:layout_width="80dp"
-            android:layout_height="40dp"
-            android:backgroundTint="#F44336"
-            android:text="不要"
-            android:textSize="14sp"
-            android:layout_marginStart="16dp" />
-    </LinearLayout>
-
-    <!-- 底部自己的手牌区（横向滚动，重叠） -->
+    <!-- 手牌区 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_hand_cards"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="100dp"
-        android:layout_marginBottom="12dp"
         android:orientation="horizontal"
         android:clipChildren="false"
         android:clipToPadding="false"
+        app:layout_constraintStart_toEndOf="@id/btn_play"
+        app:layout_constraintEnd_toStartOf="@id/btn_pass"
         app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="3dp" />
+
+    <!-- 自己的出牌区（手牌区上方） -->
+    <FrameLayout
+        android:layout_width="150dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="8dp"
+        android:background="#80FFFF00"
+        app:layout_constraintBottom_toTopOf="@id/rv_hand_cards"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+        <LinearLayout
+            android:id="@+id/play_area_self"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center" />
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

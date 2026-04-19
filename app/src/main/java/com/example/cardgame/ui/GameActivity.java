@@ -23,9 +23,9 @@ import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.dto.PlayerViewData;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Collections;
 
 public class GameActivity extends AppCompatActivity {
 
@@ -33,7 +33,10 @@ public class GameActivity extends AppCompatActivity {
     private CardAdapter cardAdapter;
     private List<String> handCards;
     private List<String> selectedCardIds;
-    private LinearLayout playArea;
+    private LinearLayout playAreaSelf;
+    private LinearLayout playAreaTop;
+    private LinearLayout playAreaLeft;
+    private LinearLayout playAreaRight;
 
     private static final float CARD_WIDTH_DP = 50f;
     private static final float CARD_OVERLAP_DP = -8f;
@@ -48,11 +51,14 @@ public class GameActivity extends AppCompatActivity {
 
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
-        System.out.println("[CardGame][UI] onCreate, gameActionHandler=" + gameActionHandler);
 
         setupOpponents();
 
-        playArea = findViewById(R.id.play_area);
+        // 初始化出牌区
+        playAreaSelf = findViewById(R.id.play_area_self);
+        playAreaTop = findViewById(R.id.play_area_top);
+        playAreaLeft = findViewById(R.id.play_area_left);
+        playAreaRight = findViewById(R.id.play_area_right);
 
         rvHandCards = findViewById(R.id.rv_hand_cards);
         rvHandCards.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
@@ -72,48 +78,33 @@ public class GameActivity extends AppCompatActivity {
         }
 
         findViewById(R.id.btn_play).setOnClickListener(v -> {
-            System.out.println("[CardGame][UI] Click play button, selectedCardIds=" + selectedCardIds);
-
             if (gameActionHandler != null) {
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    System.out.println("[CardGame][UI] Play result=" + result.getMessage());
-
                     if (result.isSuccess()) {
                         refreshUI();
                     }
-                } else {
-                    System.out.println("[CardGame][UI] Play result is null");
-                    Toast.makeText(this, "PlayResult is null", Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Toast.makeText(this, "出牌功能开发中（等待团队接口）", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
-            System.out.println("[CardGame][UI] Click pass button");
-
             if (gameActionHandler != null) {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    System.out.println("[CardGame][UI] Pass result=" + result.getMessage());
                     refreshUI();
-                } else {
-                    System.out.println("[CardGame][UI] Pass result is null");
-                    Toast.makeText(this, "PassResult is null", Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Toast.makeText(this, "过牌功能开发中（等待团队接口）", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
         Button btnExitGame = findViewById(R.id.btn_exit_game);
         btnExitGame.setOnClickListener(v -> {
-            System.out.println("[CardGame][UI] Click exit button");
-
             Intent intent = new Intent(GameActivity.this, MainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(intent);
@@ -122,50 +113,26 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void refreshUI() {
-        Log.d("GameActivity", "refreshUI called");
-        System.out.println("[CardGame][UI] refreshUI called");
-
-        if (gameActionHandler == null) {
-            System.out.println("[CardGame][UI] refreshUI aborted: gameActionHandler is null");
-            return;
-        }
+        if (gameActionHandler == null) return;
 
         GameViewData data = gameActionHandler.getGameViewData();
-        if (data == null) {
-            System.out.println("[CardGame][UI] refreshUI aborted: GameViewData is null");
-            return;
-        }
+        if (data == null) return;
 
         List<String> myHandCards = data.getMyHandCards();
-        Log.d("GameActivity", "myHandCards = " + myHandCards);
-        System.out.println("[CardGame][UI] myHandCards=" + myHandCards);
-
         if (myHandCards != null) {
             handCards = new ArrayList<>(myHandCards);
         } else {
-            Log.e("GameActivity", "无法获取手牌列表，请团队在 GameViewData 中添加 myHandCards 字段");
-            System.out.println("[CardGame][UI] myHandCards is null");
             handCards = new ArrayList<>();
         }
 
-        if (data.getSelectedCardIds() != null) {
-            selectedCardIds = new ArrayList<>(data.getSelectedCardIds());
-        } else {
-            selectedCardIds = new ArrayList<>();
-        }
+        selectedCardIds = new ArrayList<>(data.getSelectedCardIds());
 
         updateOpponentsFromViewData(data);
-        updatePlayArea(data);
+        updatePlayAreas(data);
 
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
-                if (position < 0 || position >= handCards.size()) {
-                    return;
-                }
-
                 String cardId = handCards.get(position);
-                System.out.println("[CardGame][UI] Click hand card, cardId=" + cardId);
-
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
                     refreshUI();
@@ -179,27 +146,23 @@ public class GameActivity extends AppCompatActivity {
         rvHandCards.post(this::centerHandCards);
     }
 
-    private void updatePlayArea(GameViewData data) {
-        if (playArea == null) return;
-        playArea.removeAllViews();
-
+    private void updatePlayAreas(GameViewData data) {
+        // 更新自己的出牌区（从 lastPlayText 解析，这里简化处理）
         String lastPlayText = data.getLastPlayText();
-        if (lastPlayText == null || lastPlayText.isEmpty()) return;
-
-        TextView lastPlayView = new TextView(this);
-        lastPlayView.setText("上一手: " + lastPlayText);
-        lastPlayView.setTextColor(getColor(android.R.color.white));
-        lastPlayView.setTextSize(14f);
-        lastPlayView.setPadding(16, 0, 16, 0);
-        playArea.addView(lastPlayView);
+        if (lastPlayText != null && !lastPlayText.isEmpty() && playAreaSelf != null) {
+            playAreaSelf.removeAllViews();
+            // 简化：显示文字提示，实际应解析出牌列表
+            TextView tv = new TextView(this);
+            tv.setText("出牌: " + lastPlayText);
+            tv.setTextColor(getColor(android.R.color.white));
+            tv.setTextSize(12f);
+            playAreaSelf.addView(tv);
+        }
     }
 
     private void updateOpponentsFromViewData(GameViewData data) {
         List<PlayerViewData> players = data.getPlayers();
-        if (players == null || players.size() < 4) {
-            System.out.println("[CardGame][UI] updateOpponentsFromViewData skipped: players data invalid");
-            return;
-        }
+        if (players == null || players.size() < 4) return;
 
         PlayerViewData opponentTop = players.get(1);
         PlayerViewData opponentLeft = players.get(2);
@@ -214,23 +177,12 @@ public class GameActivity extends AppCompatActivity {
         TextView nameRight = findViewById(R.id.tv_name_right);
         nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + ")");
 
-        if (opponentTop.isCurrentTurn()) {
-            nameTop.setTextColor(getColor(android.R.color.holo_orange_dark));
-        } else {
-            nameTop.setTextColor(getColor(android.R.color.white));
-        }
-
-        if (opponentLeft.isCurrentTurn()) {
-            nameLeft.setTextColor(getColor(android.R.color.holo_orange_dark));
-        } else {
-            nameLeft.setTextColor(getColor(android.R.color.white));
-        }
-
-        if (opponentRight.isCurrentTurn()) {
-            nameRight.setTextColor(getColor(android.R.color.holo_orange_dark));
-        } else {
-            nameRight.setTextColor(getColor(android.R.color.white));
-        }
+        // 高亮当前回合玩家
+        int colorTurn = getColor(android.R.color.holo_orange_dark);
+        int colorNormal = getColor(android.R.color.white);
+        nameTop.setTextColor(opponentTop.isCurrentTurn() ? colorTurn : colorNormal);
+        nameLeft.setTextColor(opponentLeft.isCurrentTurn() ? colorTurn : colorNormal);
+        nameRight.setTextColor(opponentRight.isCurrentTurn() ? colorTurn : colorNormal);
     }
 
     private void useMockDataForDemo() {
@@ -241,14 +193,11 @@ public class GameActivity extends AppCompatActivity {
         cardAdapter = new CardAdapter(this, handCards, position -> {
             String card = handCards.get(position);
             Toast.makeText(GameActivity.this, "选中: " + card, Toast.LENGTH_SHORT).show();
-
             if (selectedCardIds.contains(card)) {
                 selectedCardIds.remove(card);
             } else {
                 selectedCardIds.add(card);
             }
-
-            System.out.println("[CardGame][UI][MOCK] toggle card=" + card + ", selectedCardIds=" + selectedCardIds);
         });
 
         rvHandCards.setAdapter(cardAdapter);
@@ -256,45 +205,30 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void centerHandCards() {
-        if (handCards == null || handCards.isEmpty() || rvHandCards == null) {
-            return;
-        }
+        if (handCards == null || handCards.isEmpty() || rvHandCards == null) return;
 
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         float density = getResources().getDisplayMetrics().density;
         int cardWidthPx = (int) (CARD_WIDTH_DP * density);
         int overlapPx = (int) (CARD_OVERLAP_DP * density);
 
-        int totalWidth;
-        if (handCards.size() == 1) {
-            totalWidth = cardWidthPx;
-        } else {
-            totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
-        }
-
+        int totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
         int padding = (screenWidth - totalWidth) / 2;
-        if (padding < 0) {
-            padding = 0;
-        }
-
+        if (padding < 0) padding = 0;
         int minMarginPx = (int) (8 * density);
         padding = Math.max(padding, minMarginPx);
         rvHandCards.setPadding(padding, 0, padding, 0);
-
-        Log.d("GameActivity", "手牌数量: " + handCards.size() + ", 总宽度px: " + totalWidth + ", 左右padding: " + padding);
     }
 
     private List<String> generateRandomHand() {
         List<String> allCards = new ArrayList<>();
         String[] suits = {"♥", "♠", "♦", "♣"};
         String[] ranks = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
-
         for (String suit : suits) {
             for (String rank : ranks) {
                 allCards.add(suit + rank);
             }
         }
-
         List<String> hand = new ArrayList<>();
         Random random = new Random();
         for (int i = 0; i < 13; i++) {
@@ -326,18 +260,14 @@ public class GameActivity extends AppCompatActivity {
         suitPriority.put("♣", 2);
         suitPriority.put("♦", 1);
 
-        Collections.sort(hand, (card1, card2) -> {
+        hand.sort((card1, card2) -> {
             String suit1 = card1.substring(0, 1);
             String rank1 = card1.substring(1);
             String suit2 = card2.substring(0, 1);
             String rank2 = card2.substring(1);
-
             int rankCompare = rankPriority.get(rank2) - rankPriority.get(rank1);
-            if (rankCompare != 0) {
-                return rankCompare;
-            } else {
-                return suitPriority.get(suit2) - suitPriority.get(suit1);
-            }
+            if (rankCompare != 0) return rankCompare;
+            return suitPriority.get(suit2) - suitPriority.get(suit1);
         });
     }
 
