@@ -1,9 +1,14 @@
 package com.example.cardgame.controller;
 
-import com.example.cardgame.dto.*;
+import com.example.cardgame.dto.GameViewData;
+import com.example.cardgame.dto.PassResult;
+import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.dto.PlayerViewData;
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
+import com.example.cardgame.rule.RuleConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +16,11 @@ import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
 
-    private GameEngine gameEngine;
-    private List<String> selectedCardIds = new ArrayList<>();
+    private final GameEngine gameEngine;
+    private final List<String> selectedCardIds = new ArrayList<>();
+
+    // 固定“我”的ID（当前阶段先写死，后续可改为登录/房间分配）
+    private static final String MY_PLAYER_ID = "P1";
 
     public GameController(GameEngine gameEngine) {
         this.gameEngine = gameEngine;
@@ -20,69 +28,159 @@ public class GameController implements GameActionHandler {
 
     @Override
     public void startNewGame() {
-        // TODO: 初始化玩家和规则
-        // gameEngine.initializeGame(...)
+        System.out.println("[CardGame][CONTROLLER] startNewGame called");
+
+        List<Player> players = new ArrayList<>();
+        players.add(new Player("P1", "Alice"));
+        players.add(new Player("P2", "Bob"));
+        players.add(new Player("P3", "Cindy"));
+        players.add(new Player("P4", "David"));
+
+        RuleConfig ruleConfig = new RuleConfig();
+
+        gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
+
+        GameState state = gameEngine.getGameState();
+        if (state != null && state.getCurrentPlayer() != null) {
+            System.out.println("[CardGame][CONTROLLER] startNewGame finished, currentPlayer="
+                    + state.getCurrentPlayer().getPlayerId());
+        }
     }
 
     @Override
     public PlayResult submitPlay(List<String> selectedCardIds) {
-        GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        System.out.println("[CardGame][CONTROLLER] submitPlay called, selectedCardIds=" + selectedCardIds);
 
-        return gameEngine.playCards(currentPlayerId, selectedCardIds);
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][CONTROLLER] submitPlay failed: game state not ready");
+            return new PlayResult(false, "Game state not ready.", state);
+        }
+
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        PlayResult result = gameEngine.playCards(currentPlayerId, selectedCardIds);
+
+        System.out.println("[CardGame][CONTROLLER] submitPlay result="
+                + (result != null ? result.getMessage() : "null"));
+
+        // 出牌成功后清空选中的牌列表
+        if (result != null && result.isSuccess()) {
+            this.selectedCardIds.clear();
+        }
+
+        return result;
     }
 
     @Override
     public PassResult passTurn() {
-        GameState state = gameEngine.getGameState();
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        System.out.println("[CardGame][CONTROLLER] passTurn called");
 
-        return gameEngine.passTurn(currentPlayerId);
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][CONTROLLER] passTurn failed: game state not ready");
+            return new PassResult(false, "Game state not ready.", state);
+        }
+
+        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
+        PassResult result = gameEngine.passTurn(currentPlayerId);
+
+        System.out.println("[CardGame][CONTROLLER] passTurn result="
+                + (result != null ? result.getMessage() : "null"));
+
+        return result;
     }
 
     @Override
     public void toggleCardSelection(String cardId) {
+        System.out.println("[CardGame][CONTROLLER] toggleCardSelection called, cardId=" + cardId);
+
         if (selectedCardIds.contains(cardId)) {
             selectedCardIds.remove(cardId);
         } else {
             selectedCardIds.add(cardId);
         }
+
+        System.out.println("[CardGame][CONTROLLER] current selectedCardIds=" + selectedCardIds);
     }
 
     @Override
     public GameViewData getGameViewData() {
+        System.out.println("[CardGame][CONTROLLER] getGameViewData called");
+
         GameState state = gameEngine.getGameState();
+        if (state == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: state is null");
+            return emptyViewData();
+        }
 
+        // 当前行动玩家（用于高亮）
+        Player currentPlayer = state.getCurrentPlayer();
+        if (currentPlayer == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: currentPlayer is null");
+            return emptyViewData();
+        }
+
+        // 固定“我”的视角
+        Player me = state.getPlayerById(MY_PLAYER_ID);
+        if (me == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: me is null");
+            return emptyViewData();
+        }
+
+        // 玩家列表（用于UI显示：名字、剩余牌数、是否当前回合）
         List<PlayerViewData> players = new ArrayList<>();
-
         for (Player p : state.getPlayers()) {
             players.add(new PlayerViewData(
                     p.getPlayerId(),
                     p.getPlayerName(),
                     p.getHandCards().size(),
-                    p.equals(state.getCurrentPlayer()),
-                    state.areAllOtherPlayersPassed(p.getPlayerId())
+                    p.equals(currentPlayer),
+                    p.isPassed()
             ));
         }
 
-        Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
-        Player currentPlayer = state.getCurrentPlayer();
+        // 胜利者
+        Player winner = state.getWinnerId() != null
+                ? state.getPlayerById(state.getWinnerId())
+                : null;
 
-        // ✅ 获取当前玩家的手牌（将 Card 对象转换为字符串）
-        List<String> myHandCards = currentPlayer.getHandCards().stream()
-                .map(card -> card.getSuit().getDisplayName() + card.getRank().getDisplayName())
+        // 👉 关键：手牌必须来自“我”，而不是 currentPlayer
+        List<Card> handCardsList = new ArrayList<>(me.getHandCards());
+
+        // 排序（点数大→小，同点数花色大→小）
+        handCardsList.sort((c1, c2) -> {
+            int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
+            if (rankCompare != 0) return rankCompare;
+            return Integer.compare(c2.getSuit().getWeight(), c1.getSuit().getWeight());
+        });
+
+        List<String> myHandCards = handCardsList.stream()
+                .map(card -> card.getSuit().getSymbol() + card.getRank().getDisplayName())
                 .collect(Collectors.toList());
 
         return new GameViewData(
-                currentPlayer.getPlayerId(),
-                currentPlayer.getPlayerName(),
-                players,
-                selectedCardIds,
-                myHandCards,  // ✅ 新增的第5个参数
+                me.getPlayerId(),                    // 👉 UI视角：我
+                me.getPlayerName(),
+                players,                             // 👉 包含 currentPlayer 信息用于高亮
+                new ArrayList<>(selectedCardIds),
+                myHandCards,                         // 👉 只显示我的手牌
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""
+        );
+    }
+
+    private GameViewData emptyViewData() {
+        return new GameViewData(
+                "",
+                "",
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                "",
+                false,
+                ""
         );
     }
 }

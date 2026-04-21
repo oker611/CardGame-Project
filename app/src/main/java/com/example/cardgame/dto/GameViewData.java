@@ -10,6 +10,7 @@ public class GameViewData {
     private List<String> selectedCardIds;
     private List<String> myHandCards;  // ✅ 新增：当前玩家手牌
     private String lastPlayText;
+    private List<String> lastPlayCards;
     private boolean gameOver;
     private String winnerName;
 
@@ -29,6 +30,7 @@ public class GameViewData {
         this.lastPlayText = lastPlayText;
         this.gameOver = gameOver;
         this.winnerName = winnerName;
+        this.lastPlayCards = lastPlayCards;
     }
 
     public String getCurrentPlayerId() {
@@ -62,5 +64,9 @@ public class GameViewData {
 
     public String getWinnerName() {
         return winnerName;
+    }
+
+    public List<String> getLastPlayCards() {
+        return lastPlayCards;
     }
 }

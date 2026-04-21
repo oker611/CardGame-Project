@@ -1,14 +1,11 @@
 package com.example.cardgame.ui;
 
-import java.util.Random;
-import java.util.Collections;
-
-import com.example.cardgame.R;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,26 +14,33 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.cardgame.CardGameApplication;
+import com.example.cardgame.R;
 import com.example.cardgame.controller.GameActionHandler;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.dto.PlayerViewData;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.Collections;
 
 public class GameActivity extends AppCompatActivity {
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
-    private List<String> handCards;           // 当前玩家手牌（牌面文字列表）
-    private List<String> selectedCardIds;     // 当前选中的牌ID
+    private List<String> handCards;
+    private List<String> selectedCardIds;
+    private LinearLayout playAreaSelf;
+    private LinearLayout playAreaTop;
+    private LinearLayout playAreaLeft;
+    private LinearLayout playAreaRight;
 
-    // 卡片尺寸常量（与 item_card.xml 中 CardView 的宽高一致）
     private static final float CARD_WIDTH_DP = 50f;
     private static final float CARD_OVERLAP_DP = -8f;
 
-    // 团队接口实例（需要团队提供全局获取方式）
     @Nullable
     private GameActionHandler gameActionHandler;
 
@@ -45,57 +49,60 @@ public class GameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        // ========== 团队接口初始化（需要团队补充） ==========
-        // TODO: 从 Application 或单例获取 GameActionHandler 实例
-        // 示例：gameActionHandler = ((CardGameApp) getApplication()).getGameActionHandler();
-        gameActionHandler = null; // 临时置空，团队接入后替换
+        gameActionHandler = CardGameApplication.getGameActionHandler();
+        Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
-        // 设置对手头像和昵称（模拟数据，不受影响）
         setupOpponents();
 
-        // 手牌区
+        // 初始化出牌区
+        playAreaSelf = findViewById(R.id.play_area_self);
+        playAreaTop = findViewById(R.id.play_area_top);
+        playAreaLeft = findViewById(R.id.play_area_left);
+        playAreaRight = findViewById(R.id.play_area_right);
+
         rvHandCards = findViewById(R.id.rv_hand_cards);
         rvHandCards.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
-        // ========== 原有模拟代码已注释，改用团队接口 ==========
+        selectedCardIds = new ArrayList<>();
+        handCards = new ArrayList<>();
+
         if (gameActionHandler != null) {
-            // 通过团队接口开始新游戏（假设游戏未开始）
+            System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
             gameActionHandler.startNewGame();
-            // 刷新界面（从 handler 获取数据）
             refreshUI();
+            Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();
         } else {
-            // 若接口未就绪，临时使用模拟数据（仅用于 UI 演示，待团队接口完成后删除）
+            System.out.println("[CardGame][UI] gameActionHandler is null, fallback to mock mode");
             useMockDataForDemo();
-            Toast.makeText(this, "当前使用模拟数据，等待团队接口", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }
 
-        // 出牌按钮
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
-                // 调用团队出牌接口
-                PlayResult result = gameActionHandler.submitPlay(selectedCardIds);
-                Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                if (result.isSuccess()) {
-                    refreshUI(); // 刷新界面
+                PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
+                if (result != null) {
+                    Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                    if (result.isSuccess()) {
+                        refreshUI();
+                    }
                 }
             } else {
-                // 模拟模式下的出牌演示
-                Toast.makeText(this, "出牌功能开发中（等待团队接口）", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // 过牌按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 PassResult result = gameActionHandler.passTurn();
-                Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                refreshUI();
+                if (result != null) {
+                    Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                    refreshUI();
+                }
             } else {
-                Toast.makeText(this, "过牌功能开发中（等待团队接口）", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // 退出游戏按钮
         Button btnExitGame = findViewById(R.id.btn_exit_game);
         btnExitGame.setOnClickListener(v -> {
             Intent intent = new Intent(GameActivity.this, MainActivity.class);
@@ -105,69 +112,80 @@ public class GameActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 从团队接口获取最新数据并刷新 UI
-     * 依赖：GameViewData 必须提供当前玩家的手牌列表（myHandCards）和选中牌ID列表（selectedCardIds）
-     * 若接口尚未提供这些字段，UI 无法正确显示手牌，需要团队补充。
-     */
     private void refreshUI() {
         if (gameActionHandler == null) return;
 
         GameViewData data = gameActionHandler.getGameViewData();
-
-        // ========== 获取当前玩家手牌（需要团队在 GameViewData 中添加字段） ==========
-        // TODO: 要求团队在 GameViewData 中增加 List<String> myHandCards
-        List<String> myHandCards = data.getMyHandCards(); // 假设方法存在，实际目前没有
+        if (data == null) return;
+        Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
+        List<String> myHandCards = data.getMyHandCards();
         if (myHandCards != null) {
-            handCards = myHandCards;
+            handCards = new ArrayList<>(myHandCards);
         } else {
-            // 临时处理：无法获取手牌，显示空列表（并记录错误）
-            Log.e("GameActivity", "无法获取手牌列表，请团队在 GameViewData 中添加 myHandCards 字段");
             handCards = new ArrayList<>();
         }
 
-        // 获取选中的牌ID（接口已提供）
-        selectedCardIds = data.getSelectedCardIds();
+        selectedCardIds = new ArrayList<>(data.getSelectedCardIds());
 
-        // 更新对手信息（剩余牌数、回合提示等）
         updateOpponentsFromViewData(data);
+        updatePlayAreas(data);
 
-        // 刷新手牌适配器
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
                 String cardId = handCards.get(position);
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
-                    refreshUI(); // 重新获取选中状态并刷新
+                    refreshUI();
                 }
             });
             rvHandCards.setAdapter(cardAdapter);
         } else {
-            // 需要 CardAdapter 增加 updateData 方法，或直接重新设置数据
             cardAdapter.updateData(handCards);
         }
 
-        // 重新计算居中
-        rvHandCards.post(() -> centerHandCards());
+        rvHandCards.post(this::centerHandCards);
     }
 
-    /**
-     * 根据 GameViewData 更新对手信息（头像、名称、剩余牌数、回合指示等）
-     * 依赖：GameViewData 中的 players 列表（PlayerViewData）包含所有玩家信息
-     */
+    private void updatePlayAreas(GameViewData data) {
+        // 更新自己的出牌区（从 lastPlayText 解析，这里简化处理）
+        String lastPlayText = data.getLastPlayText();
+        if (lastPlayText != null && !lastPlayText.isEmpty() && playAreaSelf != null) {
+            playAreaSelf.removeAllViews();
+            // 简化：显示文字提示，实际应解析出牌列表
+            TextView tv = new TextView(this);
+            tv.setText("出牌: " + lastPlayText);
+            tv.setTextColor(getColor(android.R.color.white));
+            tv.setTextSize(12f);
+            playAreaSelf.addView(tv);
+        }
+    }
+
     private void updateOpponentsFromViewData(GameViewData data) {
-        // 示例：根据 data.getPlayers() 找到对应玩家并更新
-        // 由于团队 PlayerViewData 已包含剩余牌数等，可以正确显示
-        // 当前实现暂保留原有模拟数据，待团队提供完整玩家列表后再替换
-        // TODO: 将 setupOpponents() 中的模拟数据替换为从 data 中获取
+        List<PlayerViewData> players = data.getPlayers();
+        if (players == null || players.size() < 4) return;
+
+        PlayerViewData opponentLeft = players.get(1);
+        PlayerViewData opponentTop = players.get(2);
+        PlayerViewData opponentRight = players.get(3);
+
+        TextView nameTop = findViewById(R.id.tv_name_top);
+        nameTop.setText(opponentTop.getPlayerName() + " (" + opponentTop.getRemainingCardCount() + ")");
+
+        TextView nameLeft = findViewById(R.id.tv_name_left);
+        nameLeft.setText(opponentLeft.getPlayerName() + " (" + opponentLeft.getRemainingCardCount() + ")");
+
+        TextView nameRight = findViewById(R.id.tv_name_right);
+        nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + ")");
+
+        // 高亮当前回合玩家
+        int colorTurn = getColor(android.R.color.holo_orange_dark);
+        int colorNormal = getColor(android.R.color.white);
+        nameTop.setTextColor(opponentTop.isCurrentTurn() ? colorTurn : colorNormal);
+        nameLeft.setTextColor(opponentLeft.isCurrentTurn() ? colorTurn : colorNormal);
+        nameRight.setTextColor(opponentRight.isCurrentTurn() ? colorTurn : colorNormal);
     }
 
-    /**
-     * 临时模拟数据方法（仅用于 UI 演示，待团队接口完成后删除）
-     * 完全复制原有逻辑，不依赖团队接口
-     */
     private void useMockDataForDemo() {
-        // 原有模拟生成和排序代码（直接复制原逻辑）
         handCards = generateRandomHand();
         sortHandByRule(handCards);
         selectedCardIds = new ArrayList<>();
@@ -175,41 +193,33 @@ public class GameActivity extends AppCompatActivity {
         cardAdapter = new CardAdapter(this, handCards, position -> {
             String card = handCards.get(position);
             Toast.makeText(GameActivity.this, "选中: " + card, Toast.LENGTH_SHORT).show();
-            // 模拟选中状态切换
             if (selectedCardIds.contains(card)) {
                 selectedCardIds.remove(card);
             } else {
                 selectedCardIds.add(card);
             }
         });
-        rvHandCards.setAdapter(cardAdapter);
-        rvHandCards.post(() -> centerHandCards());
-    }
 
-    // ========== 以下为原有方法（保留未改，仅用于模拟数据） ==========
-    // 这些方法在 useMockDataForDemo() 中调用，团队接口就绪后可删除
+        rvHandCards.setAdapter(cardAdapter);
+        rvHandCards.post(this::centerHandCards);
+    }
 
     private void centerHandCards() {
         if (handCards == null || handCards.isEmpty() || rvHandCards == null) return;
+
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         float density = getResources().getDisplayMetrics().density;
         int cardWidthPx = (int) (CARD_WIDTH_DP * density);
         int overlapPx = (int) (CARD_OVERLAP_DP * density);
-        int totalWidth;
-        if (handCards.size() == 1) {
-            totalWidth = cardWidthPx;
-        } else {
-            totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
-        }
+
+        int totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
         int padding = (screenWidth - totalWidth) / 2;
         if (padding < 0) padding = 0;
         int minMarginPx = (int) (8 * density);
         padding = Math.max(padding, minMarginPx);
         rvHandCards.setPadding(padding, 0, padding, 0);
-        Log.d("GameActivity", "手牌数量: " + handCards.size() + ", 总宽度px: " + totalWidth + ", 左右padding: " + padding);
     }
 
-    // 原有随机生成手牌方法（仅模拟）
     private List<String> generateRandomHand() {
         List<String> allCards = new ArrayList<>();
         String[] suits = {"♥", "♠", "♦", "♣"};
@@ -228,7 +238,6 @@ public class GameActivity extends AppCompatActivity {
         return hand;
     }
 
-    // 原有排序方法（仅模拟）
     private void sortHandByRule(List<String> hand) {
         java.util.Map<String, Integer> rankPriority = new java.util.HashMap<>();
         rankPriority.put("2", 13);
@@ -244,32 +253,35 @@ public class GameActivity extends AppCompatActivity {
         rankPriority.put("5", 3);
         rankPriority.put("4", 2);
         rankPriority.put("3", 1);
+
         java.util.Map<String, Integer> suitPriority = new java.util.HashMap<>();
         suitPriority.put("♠", 4);
         suitPriority.put("♥", 3);
         suitPriority.put("♣", 2);
         suitPriority.put("♦", 1);
-        Collections.sort(hand, (card1, card2) -> {
+
+        hand.sort((card1, card2) -> {
             String suit1 = card1.substring(0, 1);
             String rank1 = card1.substring(1);
             String suit2 = card2.substring(0, 1);
             String rank2 = card2.substring(1);
             int rankCompare = rankPriority.get(rank2) - rankPriority.get(rank1);
             if (rankCompare != 0) return rankCompare;
-            else return suitPriority.get(suit2) - suitPriority.get(suit1);
+            return suitPriority.get(suit2) - suitPriority.get(suit1);
         });
     }
 
-    // 原有对手模拟数据（仅模拟）
     private void setupOpponents() {
         ImageView avatarTop = findViewById(R.id.iv_avatar_top);
         TextView nameTop = findViewById(R.id.tv_name_top);
         avatarTop.setImageResource(R.drawable.default_avatar);
         nameTop.setText("玩家2");
+
         ImageView avatarLeft = findViewById(R.id.iv_avatar_left);
         TextView nameLeft = findViewById(R.id.tv_name_left);
         avatarLeft.setImageResource(R.drawable.default_avatar);
         nameLeft.setText("玩家3");
+
         ImageView avatarRight = findViewById(R.id.iv_avatar_right);
         TextView nameRight = findViewById(R.id.tv_name_right);
         avatarRight.setImageResource(R.drawable.default_avatar);
