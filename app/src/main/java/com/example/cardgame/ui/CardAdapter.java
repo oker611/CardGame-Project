@@ -79,21 +79,41 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
         return cardList.size();
     }
 
+//    public void updateData(List<String> newCardList) {
+//        this.cardList = newCardList;
+//        // 保留选中状态：如果新列表中有相同的牌，保留其选中状态
+//        boolean[] newSelectedStates = new boolean[newCardList.size()];
+//        for (int i = 0; i < newCardList.size(); i++) {
+//            String cardId = newCardList.get(i);
+//            // 在旧列表中查找相同牌的位置
+//            for (int j = 0; j < this.selectedStates.length && j < this.cardList.size(); j++) {
+//                if (this.cardList.get(j).equals(cardId) && this.selectedStates[j]) {
+//                    newSelectedStates[i] = true;
+//                    break;
+//                }
+//            }
+//        }
+//        this.selectedStates = newSelectedStates;
+//        notifyDataSetChanged();
+//    }
     public void updateData(List<String> newCardList) {
-        this.cardList = newCardList;
-        // 保留选中状态：如果新列表中有相同的牌，保留其选中状态
+        List<String> oldList = this.cardList;  // 保存旧数据
+
         boolean[] newSelectedStates = new boolean[newCardList.size()];
+
         for (int i = 0; i < newCardList.size(); i++) {
             String cardId = newCardList.get(i);
-            // 在旧列表中查找相同牌的位置
-            for (int j = 0; j < this.selectedStates.length && j < this.cardList.size(); j++) {
-                if (this.cardList.get(j).equals(cardId) && this.selectedStates[j]) {
+            for (int j = 0; j < oldList.size() && j < selectedStates.length; j++) {
+                if (oldList.get(j).equals(cardId) && selectedStates[j]) {
                     newSelectedStates[i] = true;
                     break;
                 }
             }
         }
+
+        this.cardList = newCardList;
         this.selectedStates = newSelectedStates;
+
         notifyDataSetChanged();
     }
 

@@ -117,7 +117,7 @@ public class GameActivity extends AppCompatActivity {
 
         GameViewData data = gameActionHandler.getGameViewData();
         if (data == null) return;
-
+        Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
         List<String> myHandCards = data.getMyHandCards();
         if (myHandCards != null) {
             handCards = new ArrayList<>(myHandCards);

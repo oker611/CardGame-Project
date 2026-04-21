@@ -86,9 +86,13 @@ public class GameEngine {
         currentPlay.setPattern(CardPattern.SINGLE);
 
         //remove cards from hand and update last play
-        for (String cardId : selectedCardIds) {
-            player.removeCardById(cardId);
-        }
+//        for (String cardId : selectedCardIds) {
+//            player.removeCardById(cardId);
+//        }
+
+        player.getHandCards().removeIf(card ->
+                selectedCardIds.contains(card.getSuit().getSymbol() + card.getRank().getDisplayName())
+        );
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
         settlementManager.checkAndSettle(gameState);
