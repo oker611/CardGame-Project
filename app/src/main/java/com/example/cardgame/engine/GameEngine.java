@@ -96,9 +96,9 @@ public class GameEngine {
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
         settlementManager.checkAndSettle(gameState);
-//        if (!gameState.isGameOver()) {
-//            turnManager.switchPlayer(gameState);
-//        }
+        if (!gameState.isGameOver()) {
+            turnManager.switchPlayer(gameState);
+        }
         return createPlayResult(true, "Play successful", gameState);
     }
 

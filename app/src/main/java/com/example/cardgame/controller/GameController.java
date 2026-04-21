@@ -19,6 +19,9 @@ public class GameController implements GameActionHandler {
     private final GameEngine gameEngine;
     private final List<String> selectedCardIds = new ArrayList<>();
 
+    // 固定“我”的ID（当前阶段先写死，后续可改为登录/房间分配）
+    private static final String MY_PLAYER_ID = "P1";
+
     public GameController(GameEngine gameEngine) {
         this.gameEngine = gameEngine;
     }
@@ -106,38 +109,46 @@ public class GameController implements GameActionHandler {
         System.out.println("[CardGame][CONTROLLER] getGameViewData called");
 
         GameState state = gameEngine.getGameState();
-        if (state == null || state.getCurrentPlayer() == null) {
-            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: game state not ready");
-            return new GameViewData(
-                    "",
-                    "",
-                    new ArrayList<>(),
-                    new ArrayList<>(),
-                    new ArrayList<>(),
-                    "",
-                    false,
-                    ""
-            );
+        if (state == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: state is null");
+            return emptyViewData();
         }
 
-        List<PlayerViewData> players = new ArrayList<>();
+        // 当前行动玩家（用于高亮）
+        Player currentPlayer = state.getCurrentPlayer();
+        if (currentPlayer == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: currentPlayer is null");
+            return emptyViewData();
+        }
 
+        // 固定“我”的视角
+        Player me = state.getPlayerById(MY_PLAYER_ID);
+        if (me == null) {
+            System.out.println("[CardGame][CONTROLLER] getGameViewData failed: me is null");
+            return emptyViewData();
+        }
+
+        // 玩家列表（用于UI显示：名字、剩余牌数、是否当前回合）
+        List<PlayerViewData> players = new ArrayList<>();
         for (Player p : state.getPlayers()) {
             players.add(new PlayerViewData(
                     p.getPlayerId(),
                     p.getPlayerName(),
                     p.getHandCards().size(),
-                    p.equals(state.getCurrentPlayer()),
+                    p.equals(currentPlayer),
                     p.isPassed()
             ));
         }
 
-        Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
-        Player currentPlayer = state.getCurrentPlayer();
+        // 胜利者
+        Player winner = state.getWinnerId() != null
+                ? state.getPlayerById(state.getWinnerId())
+                : null;
 
-        // 获取手牌列表并排序
-        List<Card> handCardsList = new ArrayList<>(currentPlayer.getHandCards());
-        // 按锄大地规则排序（点数从大到小，同点数花色从大到小）
+        // 👉 关键：手牌必须来自“我”，而不是 currentPlayer
+        List<Card> handCardsList = new ArrayList<>(me.getHandCards());
+
+        // 排序（点数大→小，同点数花色大→小）
         handCardsList.sort((c1, c2) -> {
             int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
             if (rankCompare != 0) return rankCompare;
@@ -149,14 +160,27 @@ public class GameController implements GameActionHandler {
                 .collect(Collectors.toList());
 
         return new GameViewData(
-                currentPlayer.getPlayerId(),
-                currentPlayer.getPlayerName(),
-                players,
+                me.getPlayerId(),                    // 👉 UI视角：我
+                me.getPlayerName(),
+                players,                             // 👉 包含 currentPlayer 信息用于高亮
                 new ArrayList<>(selectedCardIds),
-                myHandCards,
+                myHandCards,                         // 👉 只显示我的手牌
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""
+        );
+    }
+
+    private GameViewData emptyViewData() {
+        return new GameViewData(
+                "",
+                "",
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                "",
+                false,
+                ""
         );
     }
 }

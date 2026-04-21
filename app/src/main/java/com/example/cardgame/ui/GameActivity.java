@@ -164,8 +164,8 @@ public class GameActivity extends AppCompatActivity {
         List<PlayerViewData> players = data.getPlayers();
         if (players == null || players.size() < 4) return;
 
-        PlayerViewData opponentTop = players.get(1);
-        PlayerViewData opponentLeft = players.get(2);
+        PlayerViewData opponentLeft = players.get(1);
+        PlayerViewData opponentTop = players.get(2);
         PlayerViewData opponentRight = players.get(3);
 
         TextView nameTop = findViewById(R.id.tv_name_top);
