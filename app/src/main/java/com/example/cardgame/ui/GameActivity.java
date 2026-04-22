@@ -29,6 +29,8 @@ import java.util.Collections;
 
 public class GameActivity extends AppCompatActivity {
 
+    private static final String TAG = "GameActivity";
+
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
     private List<String> handCards;
@@ -50,7 +52,7 @@ public class GameActivity extends AppCompatActivity {
         setContentView(R.layout.activity_game);
 
         gameActionHandler = CardGameApplication.getGameActionHandler();
-        Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
+        Log.d(TAG, "gameActionHandler = " + gameActionHandler);
 
         setupOpponents();
 
@@ -70,24 +72,31 @@ public class GameActivity extends AppCompatActivity {
             System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
             gameActionHandler.startNewGame();
             refreshUI();
-            Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();
+            devLog("REAL_GAME_MODE_READY");
         } else {
             System.out.println("[CardGame][UI] gameActionHandler is null, fallback to mock mode");
             useMockDataForDemo();
-            Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
+            showUserMessage("模拟数据模式（UI演示）");
+            devLog("MOCK_MODE_READY");
         }
 
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
-                PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
+                List<String> submittedCards = new ArrayList<>(selectedCardIds);
+                PlayResult result = gameActionHandler.submitPlay(submittedCards);
                 if (result != null) {
-                    Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
                     if (result.isSuccess()) {
+                        devLog("PLAY_OK cards=" + submittedCards + ", message=" + result.getMessage());
                         refreshUI();
+                    } else {
+                        showUserMessage(result.getMessage());
+                        devLog("PLAY_FAIL cards=" + submittedCards + ", message=" + result.getMessage());
                     }
+                } else {
+                    devLog("PLAY_RESULT_NULL cards=" + submittedCards);
                 }
             } else {
-                Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
+                showUserMessage("出牌功能开发中");
             }
         });
 
@@ -95,11 +104,18 @@ public class GameActivity extends AppCompatActivity {
             if (gameActionHandler != null) {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
-                    Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    refreshUI();
+                    if (result.isSuccess()) {
+                        devLog("PASS_OK message=" + result.getMessage());
+                        refreshUI();
+                    } else {
+                        showUserMessage(result.getMessage());
+                        devLog("PASS_FAIL message=" + result.getMessage());
+                    }
+                } else {
+                    devLog("PASS_RESULT_NULL");
                 }
             } else {
-                Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
+                showUserMessage("过牌功能开发中");
             }
         });
 
@@ -110,6 +126,14 @@ public class GameActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
+    }
+
+    private void showUserMessage(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    private void devLog(String message) {
+        Log.d(TAG, message);
     }
 
     private void refreshUI() {
@@ -192,7 +216,7 @@ public class GameActivity extends AppCompatActivity {
 
         cardAdapter = new CardAdapter(this, handCards, position -> {
             String card = handCards.get(position);
-            Toast.makeText(GameActivity.this, "选中: " + card, Toast.LENGTH_SHORT).show();
+            devLog("MOCK_SELECT card=" + card);
             if (selectedCardIds.contains(card)) {
                 selectedCardIds.remove(card);
             } else {
