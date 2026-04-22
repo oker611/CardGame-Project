@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cardgame.CardGameApplication;
 import com.example.cardgame.R;
 import com.example.cardgame.controller.GameActionHandler;
+import com.example.cardgame.controller.GameController;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
@@ -52,6 +53,13 @@ public class GameActivity extends AppCompatActivity {
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
+        // 如果 gameActionHandler 是 GameController 实例，设置 UI 刷新回调
+        if (gameActionHandler instanceof GameController) {
+            ((GameController) gameActionHandler).setUiRefreshCallback(() -> {
+                runOnUiThread(() -> refreshUI());
+            });
+        }
+
         setupOpponents();
 
         // 初始化出牌区
@@ -82,9 +90,7 @@ public class GameActivity extends AppCompatActivity {
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    if (result.isSuccess()) {
-                        refreshUI();
-                    }
+                    // 注意：这里不再显式调用 refreshUI()，因为 submitPlay 内部会通过回调触发刷新
                 }
             } else {
                 Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
@@ -96,7 +102,7 @@ public class GameActivity extends AppCompatActivity {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    refreshUI();
+                    // 同样，passTurn 内部也会通过回调触发刷新
                 }
             } else {
                 Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
@@ -135,7 +141,7 @@ public class GameActivity extends AppCompatActivity {
                 String cardId = handCards.get(position);
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
-                    refreshUI();
+                    // toggleCardSelection 内部也会触发回调刷新 UI，所以这里不需要额外调用
                 }
             });
             rvHandCards.setAdapter(cardAdapter);
@@ -147,11 +153,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void updatePlayAreas(GameViewData data) {
-        // 更新自己的出牌区（从 lastPlayText 解析，这里简化处理）
         String lastPlayText = data.getLastPlayText();
         if (lastPlayText != null && !lastPlayText.isEmpty() && playAreaSelf != null) {
             playAreaSelf.removeAllViews();
-            // 简化：显示文字提示，实际应解析出牌列表
             TextView tv = new TextView(this);
             tv.setText("出牌: " + lastPlayText);
             tv.setTextColor(getColor(android.R.color.white));
@@ -177,7 +181,6 @@ public class GameActivity extends AppCompatActivity {
         TextView nameRight = findViewById(R.id.tv_name_right);
         nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + ")");
 
-        // 高亮当前回合玩家
         int colorTurn = getColor(android.R.color.holo_orange_dark);
         int colorNormal = getColor(android.R.color.white);
         nameTop.setTextColor(opponentTop.isCurrentTurn() ? colorTurn : colorNormal);
