@@ -22,7 +22,6 @@ public class GameController implements GameActionHandler {
     private final GameEngine gameEngine;
     private final List<String> selectedCardIds = new ArrayList<>();
 
-    // 固定“我”的ID（当前阶段先写死，后续可改为登录/房间分配）
     private static final String MY_PLAYER_ID = "P1";
 
     public GameController(GameEngine gameEngine) {
@@ -44,7 +43,6 @@ public class GameController implements GameActionHandler {
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
 
-        // 发牌后，如果当前玩家是 AI，则自动出牌
         triggerAITurn();
 
         GameState state = gameEngine.getGameState();
@@ -65,15 +63,37 @@ public class GameController implements GameActionHandler {
         }
 
         String currentPlayerId = state.getCurrentPlayer().getPlayerId();
-        PlayResult result = gameEngine.playCards(currentPlayerId, selectedCardIds);
+        List<String> cardsToPlay;
+
+        if (currentPlayerId.equals(MY_PLAYER_ID)) {
+            cardsToPlay = new ArrayList<>(this.selectedCardIds);
+        } else {
+            Player aiPlayer = state.getCurrentPlayer();
+            List<Card> randomCards = aiPlayer.getRandomCards(2);
+            cardsToPlay = new ArrayList<>();
+            for (Card card : randomCards) {
+                cardsToPlay.add(card.getCardId());
+            }
+            System.out.println("[CardGame][AI] 自动出牌: " + cardsToPlay);
+        }
+
+        // 修复点：无牌可出时调用 passTurn() 但返回 PlayResult
+        if (cardsToPlay == null || cardsToPlay.isEmpty()) {
+            System.out.println("[CardGame][CONTROLLER] No cards to play, auto pass");
+            passTurn(); // 执行 Pass 逻辑，会切换玩家并触发 AI
+            // 返回一个表示自动 Pass 的 PlayResult（避免类型错误）
+            return new PlayResult(true, "Auto pass", gameEngine.getGameState());
+        }
+
+        PlayResult result = gameEngine.playCards(currentPlayerId, cardsToPlay);
 
         System.out.println("[CardGame][CONTROLLER] submitPlay result="
                 + (result != null ? result.getMessage() : "null"));
 
-        // 出牌成功后清空选中的牌列表
         if (result != null && result.isSuccess()) {
-            this.selectedCardIds.clear();
-
+            if (currentPlayerId.equals(MY_PLAYER_ID)) {
+                this.selectedCardIds.clear();
+            }
             // 出牌成功且游戏未结束时，延迟触发 AI 行动（让 UI 刷新）
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), 100);
@@ -99,7 +119,6 @@ public class GameController implements GameActionHandler {
         System.out.println("[CardGame][CONTROLLER] passTurn result="
                 + (result != null ? result.getMessage() : "null"));
 
-        // Pass 成功后，如果游戏未结束，延迟触发 AI 行动
         if (result != null && result.isSuccess() && !gameEngine.isGameOver()) {
             new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), 100);
         }
@@ -110,13 +129,11 @@ public class GameController implements GameActionHandler {
     @Override
     public void toggleCardSelection(String cardId) {
         System.out.println("[CardGame][CONTROLLER] toggleCardSelection called, cardId=" + cardId);
-
         if (selectedCardIds.contains(cardId)) {
             selectedCardIds.remove(cardId);
         } else {
             selectedCardIds.add(cardId);
         }
-
         System.out.println("[CardGame][CONTROLLER] current selectedCardIds=" + selectedCardIds);
     }
 
@@ -130,21 +147,18 @@ public class GameController implements GameActionHandler {
             return emptyViewData();
         }
 
-        // 当前行动玩家（用于高亮）
         Player currentPlayer = state.getCurrentPlayer();
         if (currentPlayer == null) {
             System.out.println("[CardGame][CONTROLLER] getGameViewData failed: currentPlayer is null");
             return emptyViewData();
         }
 
-        // 固定“我”的视角
         Player me = state.getPlayerById(MY_PLAYER_ID);
         if (me == null) {
             System.out.println("[CardGame][CONTROLLER] getGameViewData failed: me is null");
             return emptyViewData();
         }
 
-        // 玩家列表（用于UI显示：名字、剩余牌数、是否当前回合）
         List<PlayerViewData> players = new ArrayList<>();
         for (Player p : state.getPlayers()) {
             players.add(new PlayerViewData(
@@ -156,15 +170,11 @@ public class GameController implements GameActionHandler {
             ));
         }
 
-        // 胜利者
         Player winner = state.getWinnerId() != null
                 ? state.getPlayerById(state.getWinnerId())
                 : null;
 
-        // 手牌必须来自“我”
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
-
-        // 排序（点数大→小，同点数花色大→小）
         handCardsList.sort((c1, c2) -> {
             int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
             if (rankCompare != 0) return rankCompare;
@@ -202,9 +212,6 @@ public class GameController implements GameActionHandler {
 
     // ==================== AI 自动出牌逻辑 ====================
 
-    /**
-     * 自动为当前玩家出两张随机牌（仅用于 AI）
-     */
     private void autoPlayForCurrentPlayer() {
         GameState state = gameEngine.getGameState();
         if (state == null || gameEngine.isGameOver()) {
@@ -214,14 +221,11 @@ public class GameController implements GameActionHandler {
         if (currentPlayer == null) {
             return;
         }
-        // 如果是真人玩家，不自动出牌
         if (MY_PLAYER_ID.equals(currentPlayer.getPlayerId())) {
             return;
         }
-        // 获取随机两张牌（复用 Player 中已有的 getRandomCards 方法）
         List<Card> randomCards = currentPlayer.getRandomCards(2);
         if (randomCards.isEmpty()) {
-            // 无牌可出，自动 Pass（实际上游戏应该结束，但这里做保护）
             passTurn();
             return;
         }
@@ -230,13 +234,9 @@ public class GameController implements GameActionHandler {
             cardIds.add(card.getCardId());
         }
         System.out.println("[CardGame][AI] 自动出牌: " + cardIds);
-        // 调用出牌
         submitPlay(cardIds);
     }
 
-    /**
-     * 递归触发 AI 行动（当游戏未结束且当前玩家为 AI 时）
-     */
     public void triggerAITurn() {
         if (gameEngine.isGameOver()) {
             return;
