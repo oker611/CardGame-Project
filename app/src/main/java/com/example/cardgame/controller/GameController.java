@@ -29,6 +29,7 @@ public class GameController implements GameActionHandler {
     @Override
     public void startNewGame() {
         System.out.println("[CardGame][CONTROLLER] startNewGame called");
+        selectedCardIds.clear();
 
         List<Player> players = new ArrayList<>();
         players.add(new Player("P1", "Alice"));
@@ -87,6 +88,10 @@ public class GameController implements GameActionHandler {
 
         System.out.println("[CardGame][CONTROLLER] passTurn result="
                 + (result != null ? result.getMessage() : "null"));
+
+        if (result != null && result.isSuccess()) {
+            this.selectedCardIds.clear();
+        }
 
         return result;
     }

@@ -60,9 +60,17 @@ public class GameEngine {
      * @param selectedCardIds Selected card IDs
      */
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
+        System.out.println("[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
+
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
-            return createPlayResult(false, "Not your turn ", gameState);
+            System.out.println("[CardGame][PLAY] rejected: not current player, currentPlayerId="
+                    + (gameState != null ? gameState.getCurrentPlayerId() : "null"));
+            return createPlayResult(false, "Not your turn", gameState);
+        }
+        if (selectedCardIds == null || selectedCardIds.isEmpty()) {
+            System.out.println("[CardGame][PLAY] rejected: selectedCardIds is empty");
+            return createPlayResult(false, "Please select cards first", gameState);
         }
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
         Play currentPlay = new Play(playerId, selectedCards, CardPattern.INVALID);
@@ -90,31 +98,42 @@ public class GameEngine {
 //            player.removeCardById(cardId);
 //        }
 
-        player.getHandCards().removeIf(card ->
-                selectedCardIds.contains(card.getSuit().getSymbol() + card.getRank().getDisplayName())
-        );
+        for (String cardId : selectedCardIds) {
+            player.removeCardById(cardId);
+        }
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
+
+        System.out.println("[CardGame][PLAY] success playerId=" + playerId
+                + ", cards=" + selectedCardIds
+                + ", pattern=" + currentPlay.getPattern());
+
         settlementManager.checkAndSettle(gameState);
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
         }
-        return createPlayResult(true, "Play successful", gameState);
+        return createPlayResult(true, "PLAY_OK", gameState);
     }
 
     /**
      * Player passes their turn.
      */
     public PassResult passTurn(String playerId) {
+        System.out.println("[CardGame][PASS] request playerId=" + playerId);
+
         if (gameState == null || gameState.isGameOver()) {
-            return createPassResult(false, "Game is over ", gameState);
+            System.out.println("[CardGame][PASS] rejected: game is over");
+            return createPassResult(false, "Game is over", gameState);
         }
 
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
+            System.out.println("[CardGame][PASS] rejected: not current player, currentPlayerId="
+                    + gameState.getCurrentPlayerId());
             return createPassResult(false, "Not your turn", gameState);
         }
         if (gameState.isOpeningTurn()) {
+            System.out.println("[CardGame][PASS] rejected: opening turn cannot pass");
             return createPassResult(false, "Cannot pass on opening turn", gameState);
         }
         player.setPassed(true);
@@ -124,9 +143,11 @@ public class GameEngine {
         if (gameState.areAllOtherPlayersPassed(gameState.getCurrentPlayerId())) {
             gameState.setLastPlay(null);
             gameState.clearAllPassStatus();
+            System.out.println("[CardGame][PASS] all other players passed, reset round state");
         }
 
-        return createPassResult(true, "Pass successful ", gameState);
+        System.out.println("[CardGame][PASS] success playerId=" + playerId);
+        return createPassResult(true, "PASS_OK", gameState);
     }
 
     // Helper methods for creating DTO results
