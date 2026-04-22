@@ -80,7 +80,20 @@ public class GameController implements GameActionHandler {
         List<String> cardsToPlay;
 
         if (currentPlayerId.equals(MY_PLAYER_ID)) {
-            cardsToPlay = new ArrayList<>(this.selectedCardIds);
+            // 将 UI 层的展示字符串映射回底层真实的 CardId
+            cardsToPlay = new ArrayList<>();
+            Player me = state.getPlayerById(MY_PLAYER_ID);
+            if (me != null && this.selectedCardIds != null) {
+                for (String uiCardStr : this.selectedCardIds) {
+                    for (Card c : me.getHandCards()) {
+                        String matchStr = c.getSuit().getSymbol() + c.getRank().getDisplayName();
+                        if (matchStr.equals(uiCardStr)) {
+                            cardsToPlay.add(c.getCardId());
+                            break; 
+                        }
+                    }
+                }
+            }
         } else {
             Player aiPlayer = state.getCurrentPlayer();
             List<Card> randomCards = aiPlayer.getRandomCards(2);
