@@ -121,7 +121,21 @@ public class GameActivity extends AppCompatActivity {
 
         GameViewData data = gameActionHandler.getGameViewData();
         if (data == null) return;
+<<<<<<< feature/gameover-ui-zhy
 
+=======
+        //根据游戏状态控制按钮启用/禁用
+        Button btnPlay = findViewById(R.id.btn_play);
+        Button btnPass = findViewById(R.id.btn_pass);
+        if (data.isGameOver()) {
+            btnPlay.setEnabled(false);
+            btnPass.setEnabled(false);
+        } else {
+            btnPlay.setEnabled(true);
+            btnPass.setEnabled(true);
+        }
+        Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
+>>>>>>> main
         List<String> myHandCards = data.getMyHandCards();
         if (myHandCards != null) {
             handCards = new ArrayList<>(myHandCards);

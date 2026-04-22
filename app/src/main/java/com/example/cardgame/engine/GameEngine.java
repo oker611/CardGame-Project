@@ -86,6 +86,9 @@ public class GameEngine {
             turnManager.switchPlayer(gameState);
             // 不再主动调用自动出牌，由 Controller 控制
         }
+        else {
+            Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
+        }
         return createPlayResult(true, "PLAY_OK", gameState);
     }
 
