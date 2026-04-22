@@ -1,5 +1,8 @@
 package com.example.cardgame.controller;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
@@ -41,6 +44,9 @@ public class GameController implements GameActionHandler {
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
 
+        // 发牌后，如果当前玩家是 AI，则自动出牌
+        triggerAITurn();
+
         GameState state = gameEngine.getGameState();
         if (state != null && state.getCurrentPlayer() != null) {
             System.out.println("[CardGame][CONTROLLER] startNewGame finished, currentPlayer="
@@ -67,6 +73,11 @@ public class GameController implements GameActionHandler {
         // 出牌成功后清空选中的牌列表
         if (result != null && result.isSuccess()) {
             this.selectedCardIds.clear();
+
+            // 出牌成功且游戏未结束时，延迟触发 AI 行动（让 UI 刷新）
+            if (!gameEngine.isGameOver()) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), 100);
+            }
         }
 
         return result;
@@ -87,6 +98,11 @@ public class GameController implements GameActionHandler {
 
         System.out.println("[CardGame][CONTROLLER] passTurn result="
                 + (result != null ? result.getMessage() : "null"));
+
+        // Pass 成功后，如果游戏未结束，延迟触发 AI 行动
+        if (result != null && result.isSuccess() && !gameEngine.isGameOver()) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), 100);
+        }
 
         return result;
     }
@@ -145,7 +161,7 @@ public class GameController implements GameActionHandler {
                 ? state.getPlayerById(state.getWinnerId())
                 : null;
 
-        // 👉 关键：手牌必须来自“我”，而不是 currentPlayer
+        // 手牌必须来自“我”
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
 
         // 排序（点数大→小，同点数花色大→小）
@@ -160,11 +176,11 @@ public class GameController implements GameActionHandler {
                 .collect(Collectors.toList());
 
         return new GameViewData(
-                me.getPlayerId(),                    // 👉 UI视角：我
+                me.getPlayerId(),
                 me.getPlayerName(),
-                players,                             // 👉 包含 currentPlayer 信息用于高亮
+                players,
                 new ArrayList<>(selectedCardIds),
-                myHandCards,                         // 👉 只显示我的手牌
+                myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""
@@ -182,5 +198,55 @@ public class GameController implements GameActionHandler {
                 false,
                 ""
         );
+    }
+
+    // ==================== AI 自动出牌逻辑 ====================
+
+    /**
+     * 自动为当前玩家出两张随机牌（仅用于 AI）
+     */
+    private void autoPlayForCurrentPlayer() {
+        GameState state = gameEngine.getGameState();
+        if (state == null || gameEngine.isGameOver()) {
+            return;
+        }
+        Player currentPlayer = state.getCurrentPlayer();
+        if (currentPlayer == null) {
+            return;
+        }
+        // 如果是真人玩家，不自动出牌
+        if (MY_PLAYER_ID.equals(currentPlayer.getPlayerId())) {
+            return;
+        }
+        // 获取随机两张牌（复用 Player 中已有的 getRandomCards 方法）
+        List<Card> randomCards = currentPlayer.getRandomCards(2);
+        if (randomCards.isEmpty()) {
+            // 无牌可出，自动 Pass（实际上游戏应该结束，但这里做保护）
+            passTurn();
+            return;
+        }
+        List<String> cardIds = new ArrayList<>();
+        for (Card card : randomCards) {
+            cardIds.add(card.getCardId());
+        }
+        System.out.println("[CardGame][AI] 自动出牌: " + cardIds);
+        // 调用出牌
+        submitPlay(cardIds);
+    }
+
+    /**
+     * 递归触发 AI 行动（当游戏未结束且当前玩家为 AI 时）
+     */
+    public void triggerAITurn() {
+        if (gameEngine.isGameOver()) {
+            return;
+        }
+        GameState state = gameEngine.getGameState();
+        if (state == null) return;
+        Player current = state.getCurrentPlayer();
+        if (current == null) return;
+        if (!MY_PLAYER_ID.equals(current.getPlayerId())) {
+            autoPlayForCurrentPlayer();
+        }
     }
 }

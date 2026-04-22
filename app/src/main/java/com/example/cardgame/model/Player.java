@@ -88,7 +88,6 @@ public class Player {
         if (cardId == null) {
             return false;
         }
-
         Iterator<Card> iterator = handCards.iterator();
         while (iterator.hasNext()) {
             Card card = iterator.next();
@@ -105,7 +104,6 @@ public class Player {
         if (cardIds == null) {
             return result;
         }
-
         for (String cardId : cardIds) {
             Card card = findCardById(cardId);
             if (card != null) {
@@ -119,7 +117,6 @@ public class Player {
         if (cardId == null) {
             return null;
         }
-
         for (Card card : handCards) {
             if (cardId.equals(card.getCardId())) {
                 return card;
@@ -140,6 +137,21 @@ public class Player {
         this.passed = false;
     }
 
+    /**
+     * 随机获取手牌中的 n 张牌（用于调试自动出牌）
+     * @param n 要获取的牌数
+     * @return 随机选出的牌列表，如果手牌不足则返回全部手牌
+     */
+    public List<Card> getRandomCards(int n) {
+        if (handCards == null || handCards.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<Card> shuffled = new ArrayList<>(handCards);
+        java.util.Collections.shuffle(shuffled);
+        int count = Math.min(n, shuffled.size());
+        return new ArrayList<>(shuffled.subList(0, count));
+    }
+
     @Override
     public String toString() {
         return "Player{" +
@@ -152,12 +164,8 @@ public class Player {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof Player)) {
-            return false;
-        }
+        if (this == o) return true;
+        if (!(o instanceof Player)) return false;
         Player player = (Player) o;
         return Objects.equals(playerId, player.playerId);
     }

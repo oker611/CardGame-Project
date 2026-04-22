@@ -1,8 +1,8 @@
 package com.example.cardgame.engine;
 
+import android.util.Log;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
-import com.example.cardgame.dto.ValidationResult;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.CardPattern;
 import com.example.cardgame.model.GameState;
@@ -10,13 +10,17 @@ import com.example.cardgame.model.Play;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.RuleConfig;
 import com.example.cardgame.rule.RuleEngine;
-
+import com.example.cardgame.util.Logger;
 import java.util.List;
 
 /**
  * Core game engine class that coordinates game flow and managers.
  */
 public class GameEngine {
+
+    // ==================== 调试开关（已关闭，自动出牌由 Controller 统一调度） ====================
+    private static final boolean DEBUG_AUTO_PLAY = false;   // 关闭 Engine 自动出牌
+    // =================================================
 
     private GameState gameState;
     private RuleConfig ruleConfig;
@@ -30,12 +34,9 @@ public class GameEngine {
         this.dealManager = new DealManager();
         this.turnManager = new TurnManager();
         this.settlementManager = new SettlementManager();
-        this.ruleEngine = ruleEngine;
+        this.ruleEngine = null;
     }
 
-    /**
-     * Initialize the game with players and rules.
-     */
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
         this.gameState = new GameState();
@@ -44,21 +45,13 @@ public class GameEngine {
         this.gameState.setOpeningTurn(true);
     }
 
-    /**
-     * Shuffles and deals cards to players, determining the first player.
-     */
     public void dealCards() {
         if (gameState != null) {
             dealManager.dealCards(gameState);
+            // 不再主动调用自动出牌，由 Controller 控制
         }
     }
 
-    /**
-     * Execute play cards action and check for settlement.
-     *
-     * @param playerId ID of the player
-     * @param selectedCardIds Selected card IDs
-     */
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
@@ -67,44 +60,22 @@ public class GameEngine {
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
         Play currentPlay = new Play(playerId, selectedCards, CardPattern.INVALID);
 
-        // =================================================================================
-        // TODO: Wait for M5 (Rule Layer) to refactor RuleEngine interfaces to match standard.
-        // =================================================================================
-        /*
-        currentPlay.setPattern(ruleEngine.recognizePattern(selectedCards));
-        ValidationResult validation = ruleEngine.validatePlay(
-            currentPlay,
-            gameState.getLastPlay(),
-            ruleConfig,
-            gameState.isOpeningTurn()
-        );
-        if (!validation.isValid()) {
-            return createPlayResult(false, validation.getMessage(), gameState);
-        }
-        */
         // 临时逻辑：假设出牌永远合法，强制放行以测试 Engine 主流程
         currentPlay.setPattern(CardPattern.SINGLE);
 
-        //remove cards from hand and update last play
-//        for (String cardId : selectedCardIds) {
-//            player.removeCardById(cardId);
-//        }
+        // 根据 cardId 正确移除手牌
+        player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
 
-        player.getHandCards().removeIf(card ->
-                selectedCardIds.contains(card.getSuit().getSymbol() + card.getRank().getDisplayName())
-        );
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
         settlementManager.checkAndSettle(gameState);
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
+            // 不再主动调用自动出牌，由 Controller 控制
         }
         return createPlayResult(true, "Play successful", gameState);
     }
 
-    /**
-     * Player passes their turn.
-     */
     public PassResult passTurn(String playerId) {
         if (gameState == null || gameState.isGameOver()) {
             return createPassResult(false, "Game is over ", gameState);
@@ -120,16 +91,19 @@ public class GameEngine {
         player.setPassed(true);
         turnManager.switchPlayer(gameState);
 
-        // Check if all OTHER players have passed to start a new round
         if (gameState.areAllOtherPlayersPassed(gameState.getCurrentPlayerId())) {
             gameState.setLastPlay(null);
             gameState.clearAllPassStatus();
         }
 
+        // 不再主动调用自动出牌，由 Controller 控制
         return createPassResult(true, "Pass successful ", gameState);
     }
 
-    // Helper methods for creating DTO results
+    // ==================== 以下方法不再被调用，但保留以防万一 ====================
+    // private void autoPlayForCurrentPlayer() { ... }   // 已注释，不再使用
+    // ====================================================
+
     private PlayResult createPlayResult(boolean success, String msg, GameState state) {
         return new PlayResult(success, msg, state);
     }
@@ -142,16 +116,10 @@ public class GameEngine {
         return gameState != null && gameState.isGameOver();
     }
 
-    /**
-     * Gets the ID of the winner.
-     */
     public String getWinnerId() {
         return (gameState != null) ? gameState.getWinnerId() : null;
     }
 
-    /**
-     * Access the raw game state (for Controller use).
-     */
     public GameState getGameState() {
         return gameState;
     }
@@ -198,7 +166,6 @@ public class GameEngine {
         if (cards == null || cards.isEmpty()) {
             return "[]";
         }
-
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < cards.size(); i++) {
             sb.append(cards.get(i).getDisplayText());
