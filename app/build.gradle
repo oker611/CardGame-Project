@@ -4,12 +4,14 @@ plugins {
 
 android {
     namespace 'com.example.cardgame'
-    compileSdk 35
+    compileSdk 34
+
+    buildToolsVersion "36.1.0"
 
     defaultConfig {
         applicationId "com.example.cardgame"
         minSdk 24
-        targetSdk 35
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
