@@ -1,0 +1,19 @@
+*   [33mddddfaf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mai-zyq[m[33m)[m Merge branch 'main' of https://github.com/oker611/CardGame-Project into ai-zyq
+[31m|[m[32m\[m  
+* [32m|[m [33mc492737[m[33m ([m[1;31morigin/ai-zyq[m[33m)[m feat: 实现单张/对子识别及出牌合法性校验（首轮方块3、压过上家、Pass逻辑等）
+[32m|[m [32m|[m * [33m91a3c2f[m[33m ([m[1;31morigin/feature/util-game-logger-fjy[m[33m)[m add logger
+[32m|[m [32m|[m[32m/[m  
+[32m|[m * [33m20b0efc[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix compilation error
+[32m|[m * [33m56b9cad[m feat: 实现单张/对子识别及出牌合法性校验（首轮方块3、压过上家、Pass逻辑等） (#13)
+[32m|[m * [33m7438e76[m feat(ui): 完整 UI 优化及架构初始化 (#12)
+[32m|[m[32m/[m  
+[32m|[m * [33m3ed4a92[m[33m ([m[1;31morigin/feature/engine-pass-play-czh[m[33m)[m Improve card pass and play logic
+[32m|[m *   [33mb23e1c9[m Merge branch 'main' of https://github.com/oker611/CardGame-Project
+[32m|[m [35m|[m[32m\[m  
+[32m|[m [35m|[m[32m/[m  
+[32m|[m[32m/[m[35m|[m   
+* [35m|[m [33mc9c6d4c[m[33m ([m[1;32mmain[m[33m)[m Fix compilation errors: add hand cards field, fix method calls, remove DefaultGameEngine
+[36m|[m *   [33m5caa52d[m Merge branch 'main' of https://github.com/oker611/CardGame-Project
+[36m|[m [1;31m|[m[36m\[m  
+[36m|[m [1;31m|[m[36m/[m  
+[36m|[m[36m/[m[1;31m|[m   
