@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cardgame.CardGameApplication;
 import com.example.cardgame.R;
 import com.example.cardgame.controller.GameActionHandler;
+import com.example.cardgame.controller.GameController;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
@@ -56,6 +57,14 @@ public class GameActivity extends AppCompatActivity {
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
+        // ✅ 第二段代码：设置 UI 刷新回调（实现 AI 自动刷新）
+        if (gameActionHandler instanceof GameController) {
+            ((GameController) gameActionHandler).setUiRefreshCallback(() -> {
+                runOnUiThread(() -> refreshUI());
+            });
+            Log.d("GameActivity", "✅ UI 刷新回调已设置");
+        }
+
         setupOpponents();
 
         // 初始化出牌区
@@ -81,26 +90,26 @@ public class GameActivity extends AppCompatActivity {
             Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }
 
+        // ✅ 第一段代码：出牌按钮（保留 Toast 和基本逻辑）
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    if (result.isSuccess()) {
-                        refreshUI();
-                    }
+                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
+        // ✅ 第一段代码：Pass 按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    refreshUI();
+                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
@@ -121,10 +130,8 @@ public class GameActivity extends AppCompatActivity {
 
         GameViewData data = gameActionHandler.getGameViewData();
         if (data == null) return;
-<<<<<<< feature/gameover-ui-zhy
 
-=======
-        //根据游戏状态控制按钮启用/禁用
+        // 根据游戏状态控制按钮启用/禁用
         Button btnPlay = findViewById(R.id.btn_play);
         Button btnPass = findViewById(R.id.btn_pass);
         if (data.isGameOver()) {
@@ -135,7 +142,7 @@ public class GameActivity extends AppCompatActivity {
             btnPass.setEnabled(true);
         }
         Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
->>>>>>> main
+
         List<String> myHandCards = data.getMyHandCards();
         if (myHandCards != null) {
             handCards = new ArrayList<>(myHandCards);
@@ -148,12 +155,13 @@ public class GameActivity extends AppCompatActivity {
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
 
+        // ✅ 第一段代码：CardAdapter 创建逻辑（更清晰的注释）
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
                 String cardId = handCards.get(position);
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
-                    refreshUI();
+                    // toggleCardSelection 内部会通过回调触发刷新
                 }
             });
             rvHandCards.setAdapter(cardAdapter);
@@ -170,6 +178,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void updatePlayAreas(GameViewData data) {
+        // ✅ 采用第一段代码的逻辑：每次都清空，确保不残留旧数据
         if (playAreaSelf == null) return;
         playAreaSelf.removeAllViews();
 
@@ -181,6 +190,9 @@ public class GameActivity extends AppCompatActivity {
             tv.setTextSize(12f);
             playAreaSelf.addView(tv);
         }
+
+        // 可选：更新其他出牌区（如果需要显示其他玩家的出牌）
+        // 这里保留第一段代码的简洁性，只更新自己的出牌区
     }
 
     private void updateOpponentsFromViewData(GameViewData data) {
@@ -220,6 +232,7 @@ public class GameActivity extends AppCompatActivity {
             } else {
                 selectedCardIds.add(card);
             }
+            refreshUI(); // Mock 模式下需要手动刷新
         });
 
         rvHandCards.setAdapter(cardAdapter);
@@ -331,8 +344,13 @@ public class GameActivity extends AppCompatActivity {
 
         // 设置自定义字体（游戏结束标题）
         TextView tvTitle = dialogView.findViewById(R.id.tv_game_over_title);
-        Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
-        tvTitle.setTypeface(typeface);
+        try {
+            Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
+            tvTitle.setTypeface(typeface);
+        } catch (Exception e) {
+            // 字体文件不存在时使用默认字体
+            Log.w("GameActivity", "自定义字体加载失败", e);
+        }
 
         // 设置获胜者名称
         TextView tvWinner = dialogView.findViewById(R.id.tv_winner);
