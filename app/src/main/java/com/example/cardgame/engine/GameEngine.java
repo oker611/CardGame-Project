@@ -246,4 +246,19 @@ public class GameEngine {
         sb.append("]");
         return sb.toString();
     }
+
+    /**
+     * 接收远程（蓝牙）出牌指令的入口
+     */
+    public void executeRemotePlay(Play play) {
+        // TODO: 周一晚或周二再实现，现在只留空
+    }
+
+    /**
+     * 接收远程（蓝牙）过牌指令的入口
+     */
+    public void executeRemotePass(String playerId) {
+        // TODO: 周一晚或周二再实现，现在只留空
+    }
 }
+
