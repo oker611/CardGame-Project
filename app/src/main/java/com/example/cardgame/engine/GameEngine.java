@@ -16,6 +16,7 @@ import java.util.List;
 /**
  * Core game engine class that coordinates game flow and managers.
  */
+
 public class GameEngine {
 
     // ==================== 调试开关（已关闭，自动出牌由 Controller 统一调度） ====================
@@ -148,6 +149,50 @@ public class GameEngine {
     public GameState getGameState() {
         return gameState;
     }
+
+    // ========== 为 AI 提供的状态查询接口 ==========
+    /**
+     * 获取当前桌面上最后出的牌（可能为 null）
+     */
+    public List<Card> getLastPlayCards() {
+        if (gameState == null || gameState.getLastPlay() == null) {
+            return null;
+        }
+        return gameState.getLastPlay().getCards();
+    }
+
+    /**
+     * 是否为游戏第一轮（首轮强制方块3）
+     */
+    public boolean isFirstRound() {
+        return gameState != null && gameState.isOpeningTurn();
+    }
+
+    /**
+     * 当前轮次当前玩家是否为第一个出牌者
+     * 判断依据：当前轮次还没有任何有效出牌（即 lastPlay == null）
+     */
+    public boolean isFirstTurnOfCurrentRound() {
+        if (gameState == null) return true;
+        List<Card> lastPlayCards = getLastPlayCards();
+        return lastPlayCards == null || lastPlayCards.isEmpty();
+    }
+
+    /**
+     * 获取当前玩家ID
+     */
+    public String getCurrentPlayerId() {
+        return gameState != null ? gameState.getCurrentPlayerId() : null;
+    }
+
+    /**
+     * 获取某个玩家的手牌（返回真实列表，调用方不应修改）
+     */
+    public List<Card> getPlayerHand(String playerId) {
+        Player player = gameState != null ? gameState.getPlayerById(playerId) : null;
+        return player != null ? player.getHandCards() : null;
+    }
+    // ===========================================
 
     private boolean containsThreeOfDiamonds(List<Card> cards) {
         for (Card card : cards) {
