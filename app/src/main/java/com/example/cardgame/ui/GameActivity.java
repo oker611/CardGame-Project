@@ -93,6 +93,16 @@ public class GameActivity extends AppCompatActivity {
         // ✅ 第一段代码：出牌按钮（保留 Toast 和基本逻辑）
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
+                GameViewData data = gameActionHandler.getGameViewData();
+                if (data != null && data.getPlayers() != null) {
+                    for (PlayerViewData player : data.getPlayers()) {
+                        // 【修改】直接调用 isHuman() 进行拦截
+                        if (player.isCurrentTurn() && !player.isHuman()) {
+                            Toast.makeText(this, "当前是AI或远程玩家的回合，请等待...", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    }
+                }
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
@@ -106,6 +116,16 @@ public class GameActivity extends AppCompatActivity {
         // ✅ 第一段代码：Pass 按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             if (gameActionHandler != null) {
+                GameViewData data = gameActionHandler.getGameViewData();
+                if (data != null && data.getPlayers() != null) {
+                    for (PlayerViewData player : data.getPlayers()) {
+                        // 【修改】直接调用 isHuman() 进行拦截
+                        if (player.isCurrentTurn() && !player.isHuman()) {
+                            Toast.makeText(this, "当前是AI或远程玩家的回合，请等待...", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    }
+                }
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
