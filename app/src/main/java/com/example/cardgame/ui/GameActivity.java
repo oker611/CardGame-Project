@@ -1,15 +1,19 @@
 package com.example.cardgame.ui;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -26,7 +30,6 @@ import com.example.cardgame.dto.PlayerViewData;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.Collections;
 
 public class GameActivity extends AppCompatActivity {
 
@@ -38,6 +41,7 @@ public class GameActivity extends AppCompatActivity {
     private LinearLayout playAreaTop;
     private LinearLayout playAreaLeft;
     private LinearLayout playAreaRight;
+    private boolean gameOverDialogShown = false;
 
     private static final float CARD_WIDTH_DP = 50f;
     private static final float CARD_OVERLAP_DP = -8f;
@@ -53,11 +57,12 @@ public class GameActivity extends AppCompatActivity {
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
-        // 如果 gameActionHandler 是 GameController 实例，设置 UI 刷新回调
+        // ✅ 第二段代码：设置 UI 刷新回调（实现 AI 自动刷新）
         if (gameActionHandler instanceof GameController) {
             ((GameController) gameActionHandler).setUiRefreshCallback(() -> {
                 runOnUiThread(() -> refreshUI());
             });
+            Log.d("GameActivity", "✅ UI 刷新回调已设置");
         }
 
         setupOpponents();
@@ -85,24 +90,26 @@ public class GameActivity extends AppCompatActivity {
             Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }
 
+        // ✅ 第一段代码：出牌按钮（保留 Toast 和基本逻辑）
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    // 注意：这里不再显式调用 refreshUI()，因为 submitPlay 内部会通过回调触发刷新
+                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
+        // ✅ 第一段代码：Pass 按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    // 同样，passTurn 内部也会通过回调触发刷新
+                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
@@ -123,7 +130,8 @@ public class GameActivity extends AppCompatActivity {
 
         GameViewData data = gameActionHandler.getGameViewData();
         if (data == null) return;
-        //根据游戏状态控制按钮启用/禁用
+
+        // 根据游戏状态控制按钮启用/禁用
         Button btnPlay = findViewById(R.id.btn_play);
         Button btnPass = findViewById(R.id.btn_pass);
         if (data.isGameOver()) {
@@ -134,6 +142,7 @@ public class GameActivity extends AppCompatActivity {
             btnPass.setEnabled(true);
         }
         Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
+
         List<String> myHandCards = data.getMyHandCards();
         if (myHandCards != null) {
             handCards = new ArrayList<>(myHandCards);
@@ -146,12 +155,13 @@ public class GameActivity extends AppCompatActivity {
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
 
+        // ✅ 第一段代码：CardAdapter 创建逻辑（更清晰的注释）
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
                 String cardId = handCards.get(position);
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
-                    // toggleCardSelection 内部也会触发回调刷新 UI，所以这里不需要额外调用
+                    // toggleCardSelection 内部会通过回调触发刷新
                 }
             });
             rvHandCards.setAdapter(cardAdapter);
@@ -160,18 +170,29 @@ public class GameActivity extends AppCompatActivity {
         }
 
         rvHandCards.post(this::centerHandCards);
+
+        // 检查游戏结束
+        if (data.isGameOver() && !gameOverDialogShown) {
+            showGameOverDialog(data);
+        }
     }
 
     private void updatePlayAreas(GameViewData data) {
+        // ✅ 采用第一段代码的逻辑：每次都清空，确保不残留旧数据
+        if (playAreaSelf == null) return;
+        playAreaSelf.removeAllViews();
+
         String lastPlayText = data.getLastPlayText();
-        if (lastPlayText != null && !lastPlayText.isEmpty() && playAreaSelf != null) {
-            playAreaSelf.removeAllViews();
+        if (lastPlayText != null && !lastPlayText.isEmpty()) {
             TextView tv = new TextView(this);
             tv.setText("出牌: " + lastPlayText);
             tv.setTextColor(getColor(android.R.color.white));
             tv.setTextSize(12f);
             playAreaSelf.addView(tv);
         }
+
+        // 可选：更新其他出牌区（如果需要显示其他玩家的出牌）
+        // 这里保留第一段代码的简洁性，只更新自己的出牌区
     }
 
     private void updateOpponentsFromViewData(GameViewData data) {
@@ -211,6 +232,7 @@ public class GameActivity extends AppCompatActivity {
             } else {
                 selectedCardIds.add(card);
             }
+            refreshUI(); // Mock 模式下需要手动刷新
         });
 
         rvHandCards.setAdapter(cardAdapter);
@@ -299,5 +321,57 @@ public class GameActivity extends AppCompatActivity {
         TextView nameRight = findViewById(R.id.tv_name_right);
         avatarRight.setImageResource(R.drawable.default_avatar);
         nameRight.setText("玩家4");
+    }
+
+    private void showGameOverDialog(GameViewData data) {
+        if (gameOverDialogShown) return;
+        gameOverDialogShown = true;
+
+        List<PlayerViewData> players = data.getPlayers();
+        if (players == null || players.isEmpty()) return;
+
+        // 按剩余牌数排序（升序，剩余牌数少排名高）
+        List<PlayerViewData> sorted = new ArrayList<>(players);
+        sorted.sort((a, b) -> Integer.compare(a.getRemainingCardCount(), b.getRemainingCardCount()));
+
+        // 构建对话框
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_game_over, null);
+        builder.setView(dialogView);
+        builder.setCancelable(false);
+
+        AlertDialog dialog = builder.create();
+
+        // 设置自定义字体（游戏结束标题）
+        TextView tvTitle = dialogView.findViewById(R.id.tv_game_over_title);
+        try {
+            Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
+            tvTitle.setTypeface(typeface);
+        } catch (Exception e) {
+            // 字体文件不存在时使用默认字体
+            Log.w("GameActivity", "自定义字体加载失败", e);
+        }
+
+        // 设置获胜者名称
+        TextView tvWinner = dialogView.findViewById(R.id.tv_winner);
+        tvWinner.setText(data.getWinnerName());
+
+        // 设置排名列表
+        RecyclerView rvRanking = dialogView.findViewById(R.id.rv_ranking);
+        rvRanking.setLayoutManager(new LinearLayoutManager(this));
+        RankingAdapter adapter = new RankingAdapter(sorted);
+        rvRanking.setAdapter(adapter);
+
+        // 返回按钮（圆形 ImageButton）
+        ImageButton btnBackHome = dialogView.findViewById(R.id.btn_back_home);
+        btnBackHome.setOnClickListener(v -> {
+            dialog.dismiss();
+            Intent intent = new Intent(GameActivity.this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(intent);
+            finish();
+        });
+
+        dialog.show();
     }
 }
