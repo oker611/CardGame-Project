@@ -7,14 +7,20 @@ public class PlayerViewData {
     private int remainingCardCount;
     private boolean currentTurn;
     private boolean passed;
+    private boolean isHuman;
 
     public PlayerViewData(String playerId, String playerName,
-                          int remainingCardCount, boolean currentTurn, boolean passed) {
+                          int remainingCardCount, boolean currentTurn, boolean passed,boolean isHuman) {
         this.playerId = playerId;
         this.playerName = playerName;
         this.remainingCardCount = remainingCardCount;
         this.currentTurn = currentTurn;
         this.passed = passed;
+        this.isHuman = isHuman;
+    }
+
+    public boolean isHuman() {
+        return isHuman;
     }
 
     public String getPlayerId() {

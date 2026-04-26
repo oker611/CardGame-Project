@@ -3,6 +3,7 @@ package com.example.cardgame.engine;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
+import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
 
@@ -23,6 +24,15 @@ public class DealManager {
         Collections.shuffle(deck);
 
         List<Player> players = gameState.getPlayers();
+        for (int i = 0; i < players.size(); i++) {
+            Player p = players.get(i);
+            if (i == 0) {
+                p.setType(PlayerType.HUMAN);
+            } else {
+                p.setType(PlayerType.AI);
+            }
+            // 如果是联机模式，后续会在这里根据逻辑分配 PlayerType.REMOTE
+        }
         int playerCount = players.size();
 
         for (int i = 0; i < deck.size(); i++) {

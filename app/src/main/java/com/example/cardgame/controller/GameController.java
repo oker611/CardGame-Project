@@ -12,6 +12,7 @@ import com.example.cardgame.engine.GameEngine;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
+import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.RuleConfig;
 
 import java.util.ArrayList;
@@ -54,19 +55,19 @@ public class GameController implements GameActionHandler {
         List<Player> players = new ArrayList<>();
         // 创建玩家并设置是否为 AI
         Player p1 = new Player("P1", "Alice");
-        p1.setAI(false); // 真人
+        p1.setType(PlayerType.HUMAN); // 真人玩家
         players.add(p1);
 
         Player p2 = new Player("P2", "Bob");
-        p2.setAI(true);
+        p2.setType(PlayerType.AI);    // AI 机器人
         players.add(p2);
 
         Player p3 = new Player("P3", "Cindy");
-        p3.setAI(true);
+        p3.setType(PlayerType.AI);    // AI 机器人
         players.add(p3);
 
         Player p4 = new Player("P4", "David");
-        p4.setAI(true);
+        p4.setType(PlayerType.AI);    // AI 机器人
         players.add(p4);
 
         RuleConfig ruleConfig = new RuleConfig();
@@ -77,7 +78,7 @@ public class GameController implements GameActionHandler {
         // 清空 AI 缓存（新游戏重新创建）
         aiPlayerCache.clear();
 
-        triggerAITurn();
+        triggerNextAction();
 
         GameState state = gameEngine.getGameState();
         if (state != null && state.getCurrentPlayer() != null) {
@@ -140,7 +141,7 @@ public class GameController implements GameActionHandler {
             if (!gameEngine.isGameOver()) {
                 // 真人出牌后延迟很短（100ms）触发下一个回合检查；AI 出牌后延迟 0 毫秒（因为 AI 回合内的延迟已在 triggerAITurn 中处理）
                 long delay = currentPlayerId.equals(MY_PLAYER_ID) ? 100 : 0;
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), delay);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), delay);
             }
         }
 
@@ -167,7 +168,7 @@ public class GameController implements GameActionHandler {
             notifyUiRefresh();
             if (!gameEngine.isGameOver()) {
                 long delay = currentPlayerId.equals(MY_PLAYER_ID) ? 100 : 0;
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerAITurn(), delay);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), delay);
             }
         }
 
@@ -215,7 +216,8 @@ public class GameController implements GameActionHandler {
                     p.getPlayerName(),
                     p.getHandCards().size(),
                     p.equals(currentPlayer),
-                    p.isPassed()
+                    p.isPassed(),
+                    p.getType() == com.example.cardgame.model.PlayerType.HUMAN
             ));
         }
 
@@ -265,7 +267,7 @@ public class GameController implements GameActionHandler {
      * 获取或创建 AI 玩家实例（缓存）
      */
     private AIPlayer getOrCreateAIPlayer(Player player) {
-        if (!player.isAI()) return null;
+        if (player.getType() != PlayerType.AI) return null;
         return aiPlayerCache.computeIfAbsent(player.getPlayerId(), id -> {
             AIPlayer ai = new AIPlayer(id);
             ai.setHand(player.getHandCards());
@@ -326,28 +328,58 @@ public class GameController implements GameActionHandler {
     /**
      * 触发 AI 行动。如果当前玩家是 AI，则延迟 3 秒后再出牌，让高亮停留更长时间。
      */
-    public void triggerAITurn() {
-        if (gameEngine.isGameOver()) {
-            return;
-        }
-        GameState state = gameEngine.getGameState();
-        if (state == null) return;
-        Player current = state.getCurrentPlayer();
+//    public void triggerAITurn() {
+//        if (gameEngine.isGameOver()) {
+//            return;
+//        }
+//        GameState state = gameEngine.getGameState();
+//        if (state == null) return;
+//        Player current = state.getCurrentPlayer();
+//        if (current == null) return;
+//
+//        if (!MY_PLAYER_ID.equals(current.getPlayerId())) {
+//            // AI 玩家：延迟 3 秒后再出牌，让 UI 高亮显示足够长时间
+//            long aiThinkTime = 3000; // 3 秒（可根据需要调整）
+//            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+//                // 延迟后再次检查游戏状态和当前玩家，避免状态变化导致错误
+//                if (!gameEngine.isGameOver() && gameEngine.getGameState() != null
+//                        && current.equals(gameEngine.getGameState().getCurrentPlayer())) {
+//                    autoPlayForCurrentPlayer();
+//                } else {
+//                    System.out.println("[CardGame][AI] 延迟出牌时状态已变化，取消出牌");
+//                }
+//            }, aiThinkTime);
+//        }
+//        // 如果当前玩家是真人，什么都不做，等待用户手动操作
+//    }
+
+    public void triggerNextAction() {
+        if (gameEngine.isGameOver()) return;
+        Player current = gameEngine.getGameState().getCurrentPlayer();
         if (current == null) return;
 
-        if (!MY_PLAYER_ID.equals(current.getPlayerId())) {
-            // AI 玩家：延迟 3 秒后再出牌，让 UI 高亮显示足够长时间
-            long aiThinkTime = 3000; // 3 秒（可根据需要调整）
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // 延迟后再次检查游戏状态和当前玩家，避免状态变化导致错误
-                if (!gameEngine.isGameOver() && gameEngine.getGameState() != null
-                        && current.equals(gameEngine.getGameState().getCurrentPlayer())) {
-                    autoPlayForCurrentPlayer();
-                } else {
-                    System.out.println("[CardGame][AI] 延迟出牌时状态已变化，取消出牌");
-                }
-            }, aiThinkTime);
+
+        switch (current.getType()) {
+            case HUMAN:
+                // 什么都不做，等待真人玩家点击界面的出牌/过牌按钮
+                break;
+
+            case AI:
+                // 触发 AI 出牌（带延迟，模拟思考）
+                long aiThinkTime = 3000;
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (current.equals(gameEngine.getGameState().getCurrentPlayer())) {
+                        autoPlayForCurrentPlayer();
+                    }
+                }, aiThinkTime);
+                break;
+
+            case REMOTE:
+                // 触发蓝牙等待
+                // 什么都不做，等待接收局域网内另一台手机发来的蓝牙指令
+                // 收到指令后，蓝牙模块会去调用 gameEngine.executeRemotePlay()
+                System.out.println("[CardGame][BLUETOOTH] 等待远程玩家出牌...");
+                break;
         }
-        // 如果当前玩家是真人，什么都不做，等待用户手动操作
     }
 }
