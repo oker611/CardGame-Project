@@ -10,10 +10,12 @@ public class Player {
     private String playerName;
     private List<Card> handCards;
     private boolean passed;
+    private boolean isAI;  // 新增：是否为AI玩家
 
     public Player() {
         this.handCards = new ArrayList<>();
         this.passed = false;
+        this.isAI = false;
     }
 
     public Player(String playerId, String playerName) {
@@ -21,6 +23,7 @@ public class Player {
         this.playerName = playerName;
         this.handCards = new ArrayList<>();
         this.passed = false;
+        this.isAI = false;
     }
 
     public Player(String playerId, String playerName, List<Card> handCards, boolean passed) {
@@ -28,6 +31,16 @@ public class Player {
         this.playerName = playerName;
         this.handCards = handCards != null ? new ArrayList<>(handCards) : new ArrayList<>();
         this.passed = passed;
+        this.isAI = false;
+    }
+
+    // 新增：支持设置是否AI的构造方法（可选）
+    public Player(String playerId, String playerName, boolean isAI) {
+        this.playerId = playerId;
+        this.playerName = playerName;
+        this.handCards = new ArrayList<>();
+        this.passed = false;
+        this.isAI = isAI;
     }
 
     public String getPlayerId() {
@@ -60,6 +73,15 @@ public class Player {
 
     public void setPassed(boolean passed) {
         this.passed = passed;
+    }
+
+    // 新增：AI标识的getter/setter
+    public boolean isAI() {
+        return isAI;
+    }
+
+    public void setAI(boolean AI) {
+        isAI = AI;
     }
 
     public void addCard(Card card) {
@@ -159,6 +181,7 @@ public class Player {
                 ", playerName='" + playerName + '\'' +
                 ", handCards=" + handCards +
                 ", passed=" + passed +
+                ", isAI=" + isAI +
                 '}';
     }
 
