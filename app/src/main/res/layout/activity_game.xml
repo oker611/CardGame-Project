@@ -49,10 +49,9 @@
 
         <!-- 出牌区（头像下方） -->
         <FrameLayout
-            android:layout_width="150dp"
-            android:layout_height="60dp"
-            android:layout_marginTop="8dp"
-            android:background="#80FF0000">
+            android:layout_width="200dp"
+            android:layout_height="75dp"
+            android:layout_marginTop="8dp">
             <LinearLayout
                 android:id="@+id/play_area_top"
                 android:layout_width="match_parent"
@@ -98,10 +97,9 @@
 
         <!-- 出牌区（头像右侧） -->
         <FrameLayout
-            android:layout_width="150dp"
-            android:layout_height="60dp"
-            android:layout_marginStart="8dp"
-            android:background="#8000FF00">
+            android:layout_width="200dp"
+            android:layout_height="75dp"
+            android:layout_marginStart="8dp">
             <LinearLayout
                 android:id="@+id/play_area_left"
                 android:layout_width="match_parent"
@@ -125,10 +123,9 @@
 
         <!-- 出牌区（头像左侧） -->
         <FrameLayout
-            android:layout_width="150dp"
-            android:layout_height="60dp"
-            android:layout_marginEnd="8dp"
-            android:background="#800000FF">
+            android:layout_width="200dp"
+            android:layout_height="75dp"
+            android:layout_marginEnd="8dp">
             <LinearLayout
                 android:id="@+id/play_area_right"
                 android:layout_width="match_parent"
@@ -203,10 +200,9 @@
 
     <!-- 自己的出牌区（手牌区上方） -->
     <FrameLayout
-        android:layout_width="150dp"
-        android:layout_height="60dp"
+        android:layout_width="200dp"
+        android:layout_height="75dp"
         android:layout_marginBottom="8dp"
-        android:background="#80FFFF00"
         app:layout_constraintBottom_toTopOf="@id/rv_hand_cards"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

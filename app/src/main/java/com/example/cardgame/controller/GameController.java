@@ -16,6 +16,7 @@ import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.RuleConfig;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,10 +29,8 @@ public class GameController implements GameActionHandler {
 
     private static final String MY_PLAYER_ID = "P1";
 
-    // 缓存 AI 玩家实例
     private final Map<String, AIPlayer> aiPlayerCache = new ConcurrentHashMap<>();
 
-    // UI 刷新回调
     private Runnable uiRefreshCallback;
 
     public GameController(GameEngine gameEngine) {
@@ -53,21 +52,20 @@ public class GameController implements GameActionHandler {
         System.out.println("[CardGame][CONTROLLER] startNewGame called");
 
         List<Player> players = new ArrayList<>();
-        // 创建玩家并设置是否为 AI
         Player p1 = new Player("P1", "Alice");
-        p1.setType(PlayerType.HUMAN); // 真人玩家
+        p1.setType(PlayerType.HUMAN);
         players.add(p1);
 
         Player p2 = new Player("P2", "Bob");
-        p2.setType(PlayerType.AI);    // AI 机器人
+        p2.setType(PlayerType.AI);
         players.add(p2);
 
         Player p3 = new Player("P3", "Cindy");
-        p3.setType(PlayerType.AI);    // AI 机器人
+        p3.setType(PlayerType.AI);
         players.add(p3);
 
         Player p4 = new Player("P4", "David");
-        p4.setType(PlayerType.AI);    // AI 机器人
+        p4.setType(PlayerType.AI);
         players.add(p4);
 
         RuleConfig ruleConfig = new RuleConfig();
@@ -75,7 +73,6 @@ public class GameController implements GameActionHandler {
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
 
-        // 清空 AI 缓存（新游戏重新创建）
         aiPlayerCache.clear();
 
         triggerNextAction();
@@ -102,7 +99,6 @@ public class GameController implements GameActionHandler {
         List<String> cardsToPlay;
 
         if (currentPlayerId.equals(MY_PLAYER_ID)) {
-            // 真人：将 UI 层的展示字符串映射回底层真实的 CardId
             cardsToPlay = new ArrayList<>();
             Player me = state.getPlayerById(MY_PLAYER_ID);
             if (me != null && this.selectedCardIds != null) {
@@ -117,7 +113,6 @@ public class GameController implements GameActionHandler {
                 }
             }
         } else {
-            // AI：调用者直接传入了 cardId 列表，无需映射
             cardsToPlay = new ArrayList<>(selectedCardIds);
         }
 
@@ -139,7 +134,6 @@ public class GameController implements GameActionHandler {
             notifyUiRefresh();
 
             if (!gameEngine.isGameOver()) {
-                // 真人出牌后延迟很短（100ms）触发下一个回合检查；AI 出牌后延迟 0 毫秒（因为 AI 回合内的延迟已在 triggerAITurn 中处理）
                 long delay = currentPlayerId.equals(MY_PLAYER_ID) ? 100 : 0;
                 new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), delay);
             }
@@ -217,7 +211,7 @@ public class GameController implements GameActionHandler {
                     p.getHandCards().size(),
                     p.equals(currentPlayer),
                     p.isPassed(),
-                    p.getType() == com.example.cardgame.model.PlayerType.HUMAN
+                    p.getType() == PlayerType.HUMAN
             ));
         }
 
@@ -236,6 +230,24 @@ public class GameController implements GameActionHandler {
                 .map(card -> card.getSuit().getSymbol() + card.getRank().getDisplayName())
                 .collect(Collectors.toList());
 
+        // ✅ 构建每个玩家最后出牌的映射（转为展示字符串）
+        Map<String, List<String>> playerLastPlayCards = new HashMap<>();
+        Map<String, List<Card>> rawMap = state.getLastPlayByPlayer();
+        if (rawMap != null) {
+            for (Map.Entry<String, List<Card>> entry : rawMap.entrySet()) {
+                String pid = entry.getKey();
+                List<Card> cards = entry.getValue();
+                if (cards != null && !cards.isEmpty()) {
+                    List<String> cardStrs = cards.stream()
+                            .map(c -> c.getSuit().getSymbol() + c.getRank().getDisplayName())
+                            .collect(Collectors.toList());
+                    playerLastPlayCards.put(pid, cardStrs);
+                } else {
+                    playerLastPlayCards.put(pid, new ArrayList<>());
+                }
+            }
+        }
+
         return new GameViewData(
                 me.getPlayerId(),
                 me.getPlayerName(),
@@ -244,7 +256,8 @@ public class GameController implements GameActionHandler {
                 myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
-                gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : ""
+                gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",
+                playerLastPlayCards
         );
     }
 
@@ -257,15 +270,13 @@ public class GameController implements GameActionHandler {
                 new ArrayList<>(),
                 "",
                 false,
-                ""
+                "",
+                new HashMap<>()
         );
     }
 
-    // ==================== AI 自动出牌逻辑（使用 AIPlayer 合法决策） ====================
+    // ==================== AI 自动出牌逻辑 ====================
 
-    /**
-     * 获取或创建 AI 玩家实例（缓存）
-     */
     private AIPlayer getOrCreateAIPlayer(Player player) {
         if (player.getType() != PlayerType.AI) return null;
         return aiPlayerCache.computeIfAbsent(player.getPlayerId(), id -> {
@@ -285,13 +296,11 @@ public class GameController implements GameActionHandler {
             return;
         }
         if (MY_PLAYER_ID.equals(currentPlayer.getPlayerId())) {
-            return; // 真人玩家不自动出牌
+            return;
         }
 
-        // 确保 AI 玩家的手牌是最新的
         AIPlayer aiPlayer = getOrCreateAIPlayer(currentPlayer);
         if (aiPlayer == null) {
-            // 如果玩家不是 AI（理论上不会进入），降级使用随机
             List<Card> randomCards = currentPlayer.getRandomCards(2);
             if (randomCards.isEmpty()) {
                 passTurn();
@@ -302,70 +311,34 @@ public class GameController implements GameActionHandler {
             return;
         }
 
-        // 同步 AI 手牌（因为手牌可能变化）
         aiPlayer.setHand(currentPlayer.getHandCards());
 
-        // 获取决策所需状态
         List<Card> lastPlayCards = gameEngine.getLastPlayCards();
         boolean isFirstRound = gameEngine.isFirstRound();
         boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
 
-        // AI 选择出牌
         List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
 
         if (chosenCards == null || chosenCards.isEmpty()) {
-            // 无合法牌，Pass
             System.out.println("[CardGame][AI] " + currentPlayer.getPlayerId() + " 选择 Pass");
             passTurn();
         } else {
-            // 出牌：将 Card 对象转为 cardId 列表
             List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
             System.out.println("[CardGame][AI] " + currentPlayer.getPlayerId() + " 出牌: " + cardIds);
             submitPlay(cardIds);
         }
     }
 
-    /**
-     * 触发 AI 行动。如果当前玩家是 AI，则延迟 3 秒后再出牌，让高亮停留更长时间。
-     */
-//    public void triggerAITurn() {
-//        if (gameEngine.isGameOver()) {
-//            return;
-//        }
-//        GameState state = gameEngine.getGameState();
-//        if (state == null) return;
-//        Player current = state.getCurrentPlayer();
-//        if (current == null) return;
-//
-//        if (!MY_PLAYER_ID.equals(current.getPlayerId())) {
-//            // AI 玩家：延迟 3 秒后再出牌，让 UI 高亮显示足够长时间
-//            long aiThinkTime = 3000; // 3 秒（可根据需要调整）
-//            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-//                // 延迟后再次检查游戏状态和当前玩家，避免状态变化导致错误
-//                if (!gameEngine.isGameOver() && gameEngine.getGameState() != null
-//                        && current.equals(gameEngine.getGameState().getCurrentPlayer())) {
-//                    autoPlayForCurrentPlayer();
-//                } else {
-//                    System.out.println("[CardGame][AI] 延迟出牌时状态已变化，取消出牌");
-//                }
-//            }, aiThinkTime);
-//        }
-//        // 如果当前玩家是真人，什么都不做，等待用户手动操作
-//    }
-
     public void triggerNextAction() {
         if (gameEngine.isGameOver()) return;
         Player current = gameEngine.getGameState().getCurrentPlayer();
         if (current == null) return;
 
-
         switch (current.getType()) {
             case HUMAN:
-                // 什么都不做，等待真人玩家点击界面的出牌/过牌按钮
                 break;
 
             case AI:
-                // 触发 AI 出牌（带延迟，模拟思考）
                 long aiThinkTime = 3000;
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (current.equals(gameEngine.getGameState().getCurrentPlayer())) {
@@ -375,9 +348,6 @@ public class GameController implements GameActionHandler {
                 break;
 
             case REMOTE:
-                // 触发蓝牙等待
-                // 什么都不做，等待接收局域网内另一台手机发来的蓝牙指令
-                // 收到指令后，蓝牙模块会去调用 gameEngine.executeRemotePlay()
                 System.out.println("[CardGame][BLUETOOTH] 等待远程玩家出牌...");
                 break;
         }

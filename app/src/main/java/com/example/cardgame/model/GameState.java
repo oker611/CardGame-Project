@@ -1,7 +1,9 @@
 package com.example.cardgame.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GameState {
     private List<Player> players;
@@ -10,6 +12,9 @@ public class GameState {
     private boolean openingTurn;
     private boolean gameOver;
     private String winnerId;
+
+    // 新增：记录每个玩家最后一次出的牌（key = playerId, value = 牌列表）
+    private Map<String, List<Card>> lastPlayByPlayer = new HashMap<>();
 
     public GameState() {
         this.players = new ArrayList<>();
@@ -29,8 +34,10 @@ public class GameState {
         this.openingTurn = openingTurn;
         this.gameOver = gameOver;
         this.winnerId = winnerId;
+        this.lastPlayByPlayer = new HashMap<>();
     }
 
+    // ========== 原有 getter / setter ==========
     public List<Player> getPlayers() {
         return players;
     }
@@ -89,7 +96,6 @@ public class GameState {
         if (playerId == null) {
             return null;
         }
-
         for (Player player : players) {
             if (playerId.equals(player.getPlayerId())) {
                 return player;
@@ -137,6 +143,23 @@ public class GameState {
             }
         }
         return null;
+    }
+
+    // ========== 新增方法：记录/获取每个玩家最后一次出的牌 ==========
+    public void updateLastPlayByPlayer(String playerId, List<Card> cards) {
+        if (cards == null) {
+            lastPlayByPlayer.put(playerId, null);
+        } else {
+            lastPlayByPlayer.put(playerId, new ArrayList<>(cards));
+        }
+    }
+
+    public Map<String, List<Card>> getLastPlayByPlayer() {
+        return lastPlayByPlayer;
+    }
+
+    public void clearAllLastPlayRecords() {
+        lastPlayByPlayer.clear();
     }
 
     @Override
