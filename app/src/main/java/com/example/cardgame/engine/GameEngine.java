@@ -11,6 +11,8 @@ import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.RuleConfig;
 import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.util.Logger;
+import com.example.cardgame.rule.PlayValidator;
+import com.example.cardgame.rule.PatternRecognizer;
 import java.util.List;
 
 /**
@@ -32,7 +34,7 @@ public class GameEngine {
         this.dealManager = new DealManager();
         this.turnManager = new TurnManager();
         this.settlementManager = new SettlementManager();
-        this.ruleEngine = null;
+        this.ruleEngine = new RuleEngine();
     }
 
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
@@ -63,10 +65,26 @@ public class GameEngine {
             return createPlayResult(false, "Please select cards first", gameState);
         }
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
-        Play currentPlay = new Play(playerId, selectedCards, CardPattern.INVALID);
+        // 提取当前对局状态信息
+        List<Card> lastPlayCards = getLastPlayCards();
+        boolean isFirstRound = gameState.isOpeningTurn();
+        boolean isFirstTurn = isFirstTurnOfCurrentRound();
 
-        // 临时逻辑：假设出牌永远合法，强制放行以测试 Engine 主流程
-        currentPlay.setPattern(CardPattern.SINGLE);
+        // 调用规则引擎进行合法性校验
+        PlayValidator.ValidationResult validationResult =
+                ruleEngine.validatePlay(selectedCards, lastPlayCards, isFirstRound, isFirstTurn);
+
+        // 如果校验不通过，直接返回错误信息阻断出牌
+        if (!validationResult.valid) {
+            System.out.println("[CardGame][PLAY] rejected: " + validationResult.reason);
+            return createPlayResult(false, validationResult.reason, gameState);
+        }
+
+        // 识别真实牌型并映射到 Model 层的 CardPattern
+        PatternRecognizer.PatternInfo patternInfo = ruleEngine.recognizePattern(selectedCards);
+        CardPattern finalPattern = mapPatternType(patternInfo.getType());
+
+        Play currentPlay = new Play(playerId, selectedCards, finalPattern);
 
         // 根据 cardId 正确移除手牌
         player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
@@ -74,7 +92,11 @@ public class GameEngine {
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
 
-        // ✅ 新增：记录该玩家最后一次出的牌
+        //  如果是首轮且合法出牌成功，取消首轮标记
+        if (gameState.isOpeningTurn()) {
+            gameState.setOpeningTurn(false);
+        }
+        // 新增：记录该玩家最后一次出的牌
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
 
         System.out.println("[CardGame][PLAY] success playerId=" + playerId
@@ -236,5 +258,15 @@ public class GameEngine {
      */
     public void executeRemotePass(String playerId) {
         // TODO: 周一晚或周二再实现，现在只留空
+    }
+
+    // 辅助方法：将 Rule 层的 PatternType 映射为 Model 层的 CardPattern
+    private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
+        if (type == null) return CardPattern.INVALID;
+        switch (type) {
+            case SINGLE: return CardPattern.SINGLE;
+            case PAIR: return CardPattern.PAIR;
+            default: return CardPattern.INVALID;
+        }
     }
 }
