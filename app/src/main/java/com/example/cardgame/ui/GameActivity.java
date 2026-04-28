@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -15,6 +16,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -28,7 +30,9 @@ import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.dto.PlayerViewData;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class GameActivity extends AppCompatActivity {
@@ -57,17 +61,14 @@ public class GameActivity extends AppCompatActivity {
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
 
-        // ✅ 第二段代码：设置 UI 刷新回调（实现 AI 自动刷新）
         if (gameActionHandler instanceof GameController) {
-            ((GameController) gameActionHandler).setUiRefreshCallback(() -> {
-                runOnUiThread(() -> refreshUI());
-            });
-            Log.d("GameActivity", "✅ UI 刷新回调已设置");
+            ((GameController) gameActionHandler).setUiRefreshCallback(() ->
+                    runOnUiThread(this::refreshUI)
+            );
         }
 
         setupOpponents();
 
-        // 初始化出牌区
         playAreaSelf = findViewById(R.id.play_area_self);
         playAreaTop = findViewById(R.id.play_area_top);
         playAreaLeft = findViewById(R.id.play_area_left);
@@ -80,23 +81,19 @@ public class GameActivity extends AppCompatActivity {
         handCards = new ArrayList<>();
 
         if (gameActionHandler != null) {
-            System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
             gameActionHandler.startNewGame();
             refreshUI();
             Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();
         } else {
-            System.out.println("[CardGame][UI] gameActionHandler is null, fallback to mock mode");
             useMockDataForDemo();
             Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }
 
-        // ✅ 第一段代码：出牌按钮（保留 Toast 和基本逻辑）
         findViewById(R.id.btn_play).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 GameViewData data = gameActionHandler.getGameViewData();
                 if (data != null && data.getPlayers() != null) {
                     for (PlayerViewData player : data.getPlayers()) {
-                        // 【修改】直接调用 isHuman() 进行拦截
                         if (player.isCurrentTurn() && !player.isHuman()) {
                             Toast.makeText(this, "当前是AI或远程玩家的回合，请等待...", Toast.LENGTH_SHORT).show();
                             return;
@@ -106,20 +103,17 @@ public class GameActivity extends AppCompatActivity {
                 PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "出牌功能开发中", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // ✅ 第一段代码：Pass 按钮
         findViewById(R.id.btn_pass).setOnClickListener(v -> {
             if (gameActionHandler != null) {
                 GameViewData data = gameActionHandler.getGameViewData();
                 if (data != null && data.getPlayers() != null) {
                     for (PlayerViewData player : data.getPlayers()) {
-                        // 【修改】直接调用 isHuman() 进行拦截
                         if (player.isCurrentTurn() && !player.isHuman()) {
                             Toast.makeText(this, "当前是AI或远程玩家的回合，请等待...", Toast.LENGTH_SHORT).show();
                             return;
@@ -129,7 +123,6 @@ public class GameActivity extends AppCompatActivity {
                 PassResult result = gameActionHandler.passTurn();
                 if (result != null) {
                     Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-                    // 注意：refreshUI 会通过回调触发，不需要手动调用
                 }
             } else {
                 Toast.makeText(this, "过牌功能开发中", Toast.LENGTH_SHORT).show();
@@ -151,37 +144,22 @@ public class GameActivity extends AppCompatActivity {
         GameViewData data = gameActionHandler.getGameViewData();
         if (data == null) return;
 
-        // 根据游戏状态控制按钮启用/禁用
         Button btnPlay = findViewById(R.id.btn_play);
         Button btnPass = findViewById(R.id.btn_pass);
-        if (data.isGameOver()) {
-            btnPlay.setEnabled(false);
-            btnPass.setEnabled(false);
-        } else {
-            btnPlay.setEnabled(true);
-            btnPass.setEnabled(true);
-        }
-        Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
+        btnPlay.setEnabled(!data.isGameOver());
+        btnPass.setEnabled(!data.isGameOver());
 
-        List<String> myHandCards = data.getMyHandCards();
-        if (myHandCards != null) {
-            handCards = new ArrayList<>(myHandCards);
-        } else {
-            handCards = new ArrayList<>();
-        }
-
+        handCards = (data.getMyHandCards() != null) ? new ArrayList<>(data.getMyHandCards()) : new ArrayList<>();
         selectedCardIds = new ArrayList<>(data.getSelectedCardIds());
 
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
 
-        // ✅ 第一段代码：CardAdapter 创建逻辑（更清晰的注释）
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
                 String cardId = handCards.get(position);
                 if (gameActionHandler != null) {
                     gameActionHandler.toggleCardSelection(cardId);
-                    // toggleCardSelection 内部会通过回调触发刷新
                 }
             });
             rvHandCards.setAdapter(cardAdapter);
@@ -191,28 +169,95 @@ public class GameActivity extends AppCompatActivity {
 
         rvHandCards.post(this::centerHandCards);
 
-        // 检查游戏结束
         if (data.isGameOver() && !gameOverDialogShown) {
             showGameOverDialog(data);
         }
     }
 
-    private void updatePlayAreas(GameViewData data) {
-        // ✅ 采用第一段代码的逻辑：每次都清空，确保不残留旧数据
-        if (playAreaSelf == null) return;
-        playAreaSelf.removeAllViews();
-
-        String lastPlayText = data.getLastPlayText();
-        if (lastPlayText != null && !lastPlayText.isEmpty()) {
-            TextView tv = new TextView(this);
-            tv.setText("出牌: " + lastPlayText);
-            tv.setTextColor(getColor(android.R.color.white));
-            tv.setTextSize(12f);
-            playAreaSelf.addView(tv);
+    private LinearLayout getPlayAreaForPlayer(String playerId) {
+        if (playerId == null) return null;
+        switch (playerId) {
+            case "P1": return playAreaSelf;
+            case "P2": return playAreaTop;
+            case "P3": return playAreaLeft;
+            case "P4": return playAreaRight;
+            default: return null;
         }
+    }
 
-        // 可选：更新其他出牌区（如果需要显示其他玩家的出牌）
-        // 这里保留第一段代码的简洁性，只更新自己的出牌区
+    private void updatePlayAreas(GameViewData data) {
+        if (playAreaSelf != null) playAreaSelf.removeAllViews();
+        if (playAreaTop != null) playAreaTop.removeAllViews();
+        if (playAreaLeft != null) playAreaLeft.removeAllViews();
+        if (playAreaRight != null) playAreaRight.removeAllViews();
+
+        Map<String, List<String>> playerLastPlay = data.getPlayerLastPlayCards();
+        if (playerLastPlay == null) return;
+
+        float density = getResources().getDisplayMetrics().density;
+        int overlapPx = (int) (-8 * density); // 重叠 8dp
+        // 强制设定小卡片尺寸（单位 px）
+        int cardWidthPx = (int) (40 * density);
+        int cardHeightPx = (int) (64 * density);
+
+        for (Map.Entry<String, List<String>> entry : playerLastPlay.entrySet()) {
+            String playerId = entry.getKey();
+            List<String> cards = entry.getValue();
+            LinearLayout targetArea = getPlayAreaForPlayer(playerId);
+            if (targetArea == null || cards == null || cards.isEmpty()) continue;
+
+            for (int i = 0; i < cards.size(); i++) {
+                String cardStr   = cards.get(i);
+
+                // 加载小卡片布局
+                View cardView = getLayoutInflater().inflate(R.layout.item_play_card, targetArea, false);
+                // 获取 CardView 容器（注意布局文件中 id 为 card_view）
+                CardView cv = cardView.findViewById(R.id.card_view);
+                // 设置 CardView 的尺寸和左边距
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(cardWidthPx, cardHeightPx);
+                if (i > 0) {
+                    params.leftMargin = overlapPx;
+                } else {
+                    params.leftMargin = 0;
+                }
+                params.gravity = Gravity.CENTER_VERTICAL;
+                cv.setLayoutParams(params);
+
+                // 设置牌面图片
+                ImageView iv = cardView.findViewById(R.id.iv_play_card);
+                int resId = getCardDrawableResource(cardStr);
+                iv.setImageResource(resId != 0 ? resId : android.R.drawable.ic_menu_gallery);
+                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+                targetArea.addView(cardView);
+            }
+            targetArea.setGravity(Gravity.CENTER);
+        }
+    }
+
+    // 获取卡片图片资源ID（与 CardAdapter 逻辑一致）
+    private int getCardDrawableResource(String cardId) {
+        if (cardId == null || cardId.length() < 2) return 0;
+        String suitPart = "";
+        String rankPart = "";
+        char suitChar = cardId.charAt(0);
+        switch (suitChar) {
+            case '♥': suitPart = "heart"; break;
+            case '♠': suitPart = "spade"; break;
+            case '♦': suitPart = "diamond"; break;
+            case '♣': suitPart = "club"; break;
+            default: return 0;
+        }
+        String rank = cardId.substring(1);
+        switch (rank) {
+            case "A": rankPart = "ace"; break;
+            case "J": rankPart = "jack"; break;
+            case "Q": rankPart = "queen"; break;
+            case "K": rankPart = "king"; break;
+            default: rankPart = rank; break;
+        }
+        String fileName = suitPart + "_" + rankPart;
+        return getResources().getIdentifier(fileName, "drawable", getPackageName());
     }
 
     private void updateOpponentsFromViewData(GameViewData data) {
@@ -224,13 +269,12 @@ public class GameActivity extends AppCompatActivity {
         PlayerViewData opponentRight = players.get(3);
 
         TextView nameTop = findViewById(R.id.tv_name_top);
-        nameTop.setText(opponentTop.getPlayerName() + " (" + opponentTop.getRemainingCardCount() + ")");
-
         TextView nameLeft = findViewById(R.id.tv_name_left);
-        nameLeft.setText(opponentLeft.getPlayerName() + " (" + opponentLeft.getRemainingCardCount() + ")");
-
         TextView nameRight = findViewById(R.id.tv_name_right);
-        nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + ")");
+
+        nameTop.setText(opponentTop.getPlayerName() + " (" + opponentTop.getRemainingCardCount() + "张)");
+        nameLeft.setText(opponentLeft.getPlayerName() + " (" + opponentLeft.getRemainingCardCount() + "张)");
+        nameRight.setText(opponentRight.getPlayerName() + " (" + opponentRight.getRemainingCardCount() + "张)");
 
         int colorTurn = getColor(android.R.color.holo_orange_dark);
         int colorNormal = getColor(android.R.color.white);
@@ -252,7 +296,7 @@ public class GameActivity extends AppCompatActivity {
             } else {
                 selectedCardIds.add(card);
             }
-            refreshUI(); // Mock 模式下需要手动刷新
+            refreshUI();
         });
 
         rvHandCards.setAdapter(cardAdapter);
@@ -294,7 +338,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void sortHandByRule(List<String> hand) {
-        java.util.Map<String, Integer> rankPriority = new java.util.HashMap<>();
+        Map<String, Integer> rankPriority = new HashMap<>();
         rankPriority.put("2", 13);
         rankPriority.put("A", 12);
         rankPriority.put("K", 11);
@@ -309,19 +353,19 @@ public class GameActivity extends AppCompatActivity {
         rankPriority.put("4", 2);
         rankPriority.put("3", 1);
 
-        java.util.Map<String, Integer> suitPriority = new java.util.HashMap<>();
+        Map<String, Integer> suitPriority = new HashMap<>();
         suitPriority.put("♠", 4);
         suitPriority.put("♥", 3);
         suitPriority.put("♣", 2);
         suitPriority.put("♦", 1);
 
         hand.sort((card1, card2) -> {
-            String suit1 = card1.substring(0, 1);
             String rank1 = card1.substring(1);
-            String suit2 = card2.substring(0, 1);
             String rank2 = card2.substring(1);
             int rankCompare = rankPriority.get(rank2) - rankPriority.get(rank1);
             if (rankCompare != 0) return rankCompare;
+            String suit1 = card1.substring(0, 1);
+            String suit2 = card2.substring(0, 1);
             return suitPriority.get(suit2) - suitPriority.get(suit1);
         });
     }
@@ -350,11 +394,9 @@ public class GameActivity extends AppCompatActivity {
         List<PlayerViewData> players = data.getPlayers();
         if (players == null || players.isEmpty()) return;
 
-        // 按剩余牌数排序（升序，剩余牌数少排名高）
         List<PlayerViewData> sorted = new ArrayList<>(players);
         sorted.sort((a, b) -> Integer.compare(a.getRemainingCardCount(), b.getRemainingCardCount()));
 
-        // 构建对话框
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_game_over, null);
         builder.setView(dialogView);
@@ -362,27 +404,22 @@ public class GameActivity extends AppCompatActivity {
 
         AlertDialog dialog = builder.create();
 
-        // 设置自定义字体（游戏结束标题）
         TextView tvTitle = dialogView.findViewById(R.id.tv_game_over_title);
         try {
             Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
             tvTitle.setTypeface(typeface);
         } catch (Exception e) {
-            // 字体文件不存在时使用默认字体
             Log.w("GameActivity", "自定义字体加载失败", e);
         }
 
-        // 设置获胜者名称
         TextView tvWinner = dialogView.findViewById(R.id.tv_winner);
         tvWinner.setText(data.getWinnerName());
 
-        // 设置排名列表
         RecyclerView rvRanking = dialogView.findViewById(R.id.rv_ranking);
         rvRanking.setLayoutManager(new LinearLayoutManager(this));
         RankingAdapter adapter = new RankingAdapter(sorted);
         rvRanking.setAdapter(adapter);
 
-        // 返回按钮（圆形 ImageButton）
         ImageButton btnBackHome = dialogView.findViewById(R.id.btn_back_home);
         btnBackHome.setOnClickListener(v -> {
             dialog.dismiss();

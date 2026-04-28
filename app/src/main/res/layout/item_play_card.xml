@@ -1,17 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="40dp"
-    android:layout_height="56dp"
-    android:layout_marginStart="-6dp"
-    app:cardCornerRadius="4dp"
+    android:id="@+id/card_view"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="6dp"
     app:cardElevation="4dp"
     app:cardBackgroundColor="#FFFFFF">
 
-    <ImageView
-        android:id="@+id/iv_played_card"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:adjustViewBounds="true" />
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/iv_play_card"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter" />
+
+        <!-- 右侧阴影层 -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="@drawable/shadow_right" />
+
+    </FrameLayout>
 
 </androidx.cardview.widget.CardView>

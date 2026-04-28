@@ -16,12 +16,9 @@ import java.util.List;
 /**
  * Core game engine class that coordinates game flow and managers.
  */
-
 public class GameEngine {
 
-    // ==================== 调试开关（已关闭，自动出牌由 Controller 统一调度） ====================
-    private static final boolean DEBUG_AUTO_PLAY = false;   // 关闭 Engine 自动出牌
-    // =================================================
+    private static final boolean DEBUG_AUTO_PLAY = false;
 
     private GameState gameState;
     private RuleConfig ruleConfig;
@@ -49,7 +46,6 @@ public class GameEngine {
     public void dealCards() {
         if (gameState != null) {
             dealManager.dealCards(gameState);
-            // 不再主动调用自动出牌，由 Controller 控制
         }
     }
 
@@ -72,11 +68,14 @@ public class GameEngine {
         // 临时逻辑：假设出牌永远合法，强制放行以测试 Engine 主流程
         currentPlay.setPattern(CardPattern.SINGLE);
 
-        // 根据 cardId 正确移除手牌（使用你的 removeIf 方式，保留它）
+        // 根据 cardId 正确移除手牌
         player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
 
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
+
+        // ✅ 新增：记录该玩家最后一次出的牌
+        gameState.updateLastPlayByPlayer(playerId, selectedCards);
 
         System.out.println("[CardGame][PLAY] success playerId=" + playerId
                 + ", cards=" + selectedCardIds
@@ -85,9 +84,7 @@ public class GameEngine {
         settlementManager.checkAndSettle(gameState);
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
-            // 不再主动调用自动出牌，由 Controller 控制
-        }
-        else {
+        } else {
             Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
         }
         return createPlayResult(true, "PLAY_OK", gameState);
@@ -117,18 +114,14 @@ public class GameEngine {
         if (gameState.areAllOtherPlayersPassed(gameState.getCurrentPlayerId())) {
             gameState.setLastPlay(null);
             gameState.clearAllPassStatus();
-            System.out.println("[CardGame][PASS] all other players passed, reset round state");
+            // ✅ 新增：连续Pass重置桌面时，清空所有玩家的出牌记录
+            gameState.clearAllLastPlayRecords();
+            System.out.println("[CardGame][PASS] all other players passed, reset round state and clear last play records");
         }
 
-        // 合并后的 return：保留你的注释，同时使用 main 的日志和返回消息格式
         System.out.println("[CardGame][PASS] success playerId=" + playerId);
-        // 不再主动调用自动出牌，由 Controller 控制
         return createPassResult(true, "PASS_OK", gameState);
     }
-
-    // ==================== 以下方法不再被调用，但保留以防万一 ====================
-    // private void autoPlayForCurrentPlayer() { ... }   // 已注释，不再使用
-    // ====================================================
 
     private PlayResult createPlayResult(boolean success, String msg, GameState state) {
         return new PlayResult(success, msg, state);
@@ -151,9 +144,6 @@ public class GameEngine {
     }
 
     // ========== 为 AI 提供的状态查询接口 ==========
-    /**
-     * 获取当前桌面上最后出的牌（可能为 null）
-     */
     public List<Card> getLastPlayCards() {
         if (gameState == null || gameState.getLastPlay() == null) {
             return null;
@@ -161,33 +151,20 @@ public class GameEngine {
         return gameState.getLastPlay().getCards();
     }
 
-    /**
-     * 是否为游戏第一轮（首轮强制方块3）
-     */
     public boolean isFirstRound() {
         return gameState != null && gameState.isOpeningTurn();
     }
 
-    /**
-     * 当前轮次当前玩家是否为第一个出牌者
-     * 判断依据：当前轮次还没有任何有效出牌（即 lastPlay == null）
-     */
     public boolean isFirstTurnOfCurrentRound() {
         if (gameState == null) return true;
         List<Card> lastPlayCards = getLastPlayCards();
         return lastPlayCards == null || lastPlayCards.isEmpty();
     }
 
-    /**
-     * 获取当前玩家ID
-     */
     public String getCurrentPlayerId() {
         return gameState != null ? gameState.getCurrentPlayerId() : null;
     }
 
-    /**
-     * 获取某个玩家的手牌（返回真实列表，调用方不应修改）
-     */
     public List<Card> getPlayerHand(String playerId) {
         Player player = gameState != null ? gameState.getPlayerById(playerId) : null;
         return player != null ? player.getHandCards() : null;
@@ -261,4 +238,3 @@ public class GameEngine {
         // TODO: 周一晚或周二再实现，现在只留空
     }
 }
-
