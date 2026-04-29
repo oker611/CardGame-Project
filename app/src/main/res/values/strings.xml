@@ -1,3 +1,54 @@
 <resources>
-    <string name="app_name">MyFirstApp</string>
+    <string name="app_name">CardGame</string>
+    <string name="rules_text">
+
+1. 牌型大小\n
+   点数从大到小：2 > A > K > Q > J > 10 > 9 > 8 > 7 > 6 > 5 > 4 > 3\n
+   花色从大到小：♠ > ♥ > ♣ > ♦\n
+2. 牌型种类（只支持单张、对子）\n
+   单张：任一张牌\n
+   对子：两张点数相同、花色可不同的牌\n
+3. 首轮出牌\n
+   第一回合必须由持有方块3的玩家先出\n
+   第一手牌可以出任意合法牌型（单张或对子）\n
+4. 出牌规则\n
+   后出牌者必须出与前一家相同牌型的牌，且点数更大\n
+   若无法压牌，可选择过牌\n
+   某玩家过牌后，本回合不能再出牌\n
+5. 回合结束\n
+   除一人外其余玩家均过牌时，该玩家获得新一轮出牌权，可自由出牌\n
+6. 胜负判定\n
+   最先出完手中所有牌的玩家获胜\n
+   其余玩家按剩余手牌数排名（剩余牌数少者排名靠前）\n
+7. 特殊说明\n
+   禁止出不符合牌型的组合\n
+   本规则为基础版本，仅支持单张和对子
+    </string>
+
+   <string name="back_home">返回主页</string>
+   <string name="room_lobby_title">房间准备</string>
+   <string name="back">返回</string>
+   <string name="add_ai_to_fill">添加AI补齐人数</string>
+   <string name="still_need">还需 %d 人</string>
+   <string name="add_ai">+ AI</string>
+   <string name="start_game">开始游戏</string>
+   <string name="disconnect">断开连接</string>
+   <string name="waiting_join">等待加入</string>
+   <string name="not_connected">未连接</string>
+   <string name="connected">已连接</string>
+   <string name="ai_player">AI 玩家</string>
+   <string name="host_name">房主</string>
+   <string name="full">已满员</string>
+
+   <string name="bluetooth_help_title">蓝牙连接帮助</string>
+   <string name="bluetooth_help_message">
+1. 开启蓝牙\n
+   请确保手机蓝牙已开启，并在系统设置中允许“可被发现”。\n\n
+2. 搜索设备\n
+   点击“重新搜索”按钮刷新设备列表，等待扫描到房主的设备。\n\n
+3. 连接设备\n
+   在列表中找到目标设备（如 CardGame-Host），点击右侧“连接”按钮。\n\n
+4. 加入房间\n
+   连接成功后，会自动进入房间大厅，等待房主开始游戏。
+</string>
 </resources>

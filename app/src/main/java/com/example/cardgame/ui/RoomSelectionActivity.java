@@ -27,10 +27,17 @@ public class RoomSelectionActivity extends AppCompatActivity {
         btnCreateRoom.setTypeface(typeface);
         btnJoinRoom.setTypeface(typeface);
 
-        // 三个按钮都跳转到游戏界面
         btnPractice.setOnClickListener(v -> startGame());
-        btnCreateRoom.setOnClickListener(v -> startGame());
-        btnJoinRoom.setOnClickListener(v -> startGame());
+
+        btnCreateRoom.setOnClickListener(v -> {
+            Intent intent = new Intent(RoomSelectionActivity.this, RoomSettingsActivity.class);
+            startActivity(intent);
+        });
+
+        btnJoinRoom.setOnClickListener(v -> {
+            Intent intent = new Intent(RoomSelectionActivity.this, SearchDeviceActivity.class);
+            startActivity(intent);
+        });
 
         // 返回主菜单
         btnBackHome.setOnClickListener(v -> {

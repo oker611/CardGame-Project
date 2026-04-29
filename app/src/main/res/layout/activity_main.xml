@@ -39,7 +39,17 @@
             android:id="@+id/btn_settings"
             android:layout_width="200dp"
             android:layout_height="56dp"
-            android:text="设置"
+            android:text="设置ID"
+            android:textSize="18sp"
+            android:backgroundTint="#750000"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 新增：查看规则按钮 -->
+        <Button
+            android:id="@+id/btn_rules"
+            android:layout_width="200dp"
+            android:layout_height="56dp"
+            android:text="查看规则"
             android:textSize="18sp"
             android:backgroundTint="#750000"
             android:layout_marginBottom="16dp" />

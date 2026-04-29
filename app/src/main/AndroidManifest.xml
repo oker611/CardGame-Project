@@ -25,11 +25,26 @@
 
         <activity
             android:name=".ui.RoomSelectionActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.SearchDeviceActivity"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".ui.GameActivity"
             android:screenOrientation="landscape" />
+
+        <activity
+            android:name=".ui.RulesActivity"
+            android:screenOrientation="portrait" />
+
+        <activity android:name=".ui.RoomSettingsActivity"
+            android:screenOrientation="portrait" />
+
+        <activity android:name=".ui.RoomLobbyActivity"
+            android:screenOrientation="portrait"/>
+
 
     </application>
 
