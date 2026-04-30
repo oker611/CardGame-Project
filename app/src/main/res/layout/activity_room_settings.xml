@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#EAF5FF">
+
+    <!-- 顶部标题栏（无返回按钮） -->
+    <LinearLayout
+        android:id="@+id/title_bar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="房间设置"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#1E2A36"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- 滚动内容区 -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/title_bar"
+        app:layout_constraintBottom_toTopOf="@id/button_bar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- 局数卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:elevation="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="局数"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E2A36"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/rg_rounds"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rb_8_rounds"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="8 局"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3" />
+
+                    <RadioButton
+                        android:id="@+id/rb_16_rounds"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="16 局"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3"
+                        android:checked="true" />
+
+                    <RadioButton
+                        android:id="@+id/rb_32_rounds"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="32 局"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- 规则卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:elevation="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="规则"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E2A36"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/rg_rule"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rb_south_rule"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="南方规则"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3"
+                        android:checked="true" />
+
+                    <RadioButton
+                        android:id="@+id/rb_north_rule"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="北方规则"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- 玩法卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:elevation="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="玩法"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E2A36"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/rg_play_style"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rb_soft"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="软锄"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3"
+                        android:checked="true" />
+
+                    <RadioButton
+                        android:id="@+id/rb_hard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="硬锄"
+                        android:textSize="14sp"
+                        android:buttonTint="#2196F3" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- 可选项卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:elevation="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="可选项"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E2A36"
+                    android:layout_marginBottom="12dp" />
+
+                <CheckBox
+                    android:id="@+id/cb_card_tracker"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="记牌器"
+                    android:textSize="14sp"
+                    android:buttonTint="#2196F3" />
+
+                <CheckBox
+                    android:id="@+id/cb_anti_cheat"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="防作弊"
+                    android:textSize="14sp"
+                    android:buttonTint="#2196F3" />
+
+                <CheckBox
+                    android:id="@+id/cb_timeout_dismiss"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="超时解散 (5分钟)"
+                    android:textSize="14sp"
+                    android:buttonTint="#2196F3" />
+
+                <CheckBox
+                    android:id="@+id/cb_swap_cards"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="换牌"
+                    android:textSize="14sp"
+                    android:buttonTint="#2196F3" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 底部按钮栏 -->
+    <LinearLayout
+        android:id="@+id/button_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center"
+        android:background="#EAF5FF"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <Button
+            android:id="@+id/btn_back_settings"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="返回"
+            android:textSize="16sp"
+            android:backgroundTint="#757575"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btn_start_bluetooth"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="开始蓝牙连接"
+            android:textSize="16sp"
+            android:backgroundTint="#2196F3"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#EAF5FF"
+    android:padding="16dp">
+
+    <!-- 1. 顶部导航栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_revert"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="返回" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="搜索设备"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#1E2A36"
+            android:gravity="center" />
+
+        <ImageButton
+            android:id="@+id/btn_help"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_help"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="帮助" />
+    </LinearLayout>
+
+    <!-- 2. 蓝牙搜索状态区 -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="#FFFFFF">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <!-- 左侧蓝牙图标（脉冲动画） -->
+            <FrameLayout
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginEnd="16dp">
+                <View
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="@drawable/circle_blue_bg"
+                    android:alpha="0.3"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:animateLayoutChanges="true" />
+                <ImageView
+                    android:id="@+id/iv_bluetooth_pulse"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_bluetooth_blue" />
+            </FrameLayout>
+
+            <!-- 右侧文字 + 按钮 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_search_state"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="正在搜索附近蓝牙设备"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E2A36" />
+
+                <TextView
+                    android:id="@+id/tv_search_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="请确保目标设备已开启蓝牙并处于可被发现状态"
+                    android:textSize="12sp"
+                    android:textColor="#888888"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_refresh"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="重新搜索"
+                android:backgroundTint="#2196F3"
+                android:textColor="#FFFFFF"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- 3. 可用设备列表标题 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="可用设备"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#1E2A36" />
+
+        <TextView
+            android:id="@+id/tv_device_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="共 0 个设备"
+            android:textSize="14sp"
+            android:textColor="#888888" />
+
+        <ProgressBar
+            android:id="@+id/progress_loading"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 设备列表 RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_device_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp" />
+
+    <!-- 4. 底部引导提示栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:elevation="2dp">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_poker_cards"
+            android:tint="#2196F3" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="请选择设备进行连接"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#1E2A36" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="连接后将加入房间，与好友一起游戏"
+                android:textSize="12sp"
+                android:textColor="#888888" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_bluetooth_gray"
+            android:tint="#B0BEC5" />
+    </LinearLayout>
+
+</LinearLayout>
