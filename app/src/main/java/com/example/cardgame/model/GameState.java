@@ -12,6 +12,10 @@ public class GameState {
     private boolean openingTurn;
     private boolean gameOver;
     private String winnerId;
+    private String lastWinnerId;
+
+    public String getLastWinnerId() { return lastWinnerId; }
+    public void setLastWinnerId(String lastWinnerId) { this.lastWinnerId = lastWinnerId; }
 
     // 新增：记录每个玩家最后一次出的牌（key = playerId, value = 牌列表）
     private Map<String, List<Card>> lastPlayByPlayer = new HashMap<>();
