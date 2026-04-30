@@ -91,54 +91,44 @@ public class GameController implements GameActionHandler {
 
         GameState state = gameEngine.getGameState();
         if (state == null || state.getCurrentPlayer() == null) {
-            System.out.println("[CardGame][CONTROLLER] submitPlay failed: game state not ready");
             return new PlayResult(false, "Game state not ready.", state);
         }
 
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
-        List<String> cardsToPlay;
+        Player currentPlayer = state.getCurrentPlayer();
+        // 必须是当前玩家且是真人，否则拒绝
+        if (!MY_PLAYER_ID.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+            System.out.println("[CardGame][CONTROLLER] submitPlay rejected: not human or not my turn");
+            return new PlayResult(false, "不是您的回合", state);
+        }
 
-        if (currentPlayerId.equals(MY_PLAYER_ID)) {
-            cardsToPlay = new ArrayList<>();
-            Player me = state.getPlayerById(MY_PLAYER_ID);
-            if (me != null && this.selectedCardIds != null) {
-                for (String uiCardStr : this.selectedCardIds) {
-                    for (Card c : me.getHandCards()) {
-                        String matchStr = c.getSuit().getSymbol() + c.getRank().getDisplayName();
-                        if (matchStr.equals(uiCardStr)) {
-                            cardsToPlay.add(c.getCardId());
-                            break;
-                        }
+        // 构建牌ID列表（仅自己回合）
+        List<String> cardsToPlay = new ArrayList<>();
+        Player me = state.getPlayerById(MY_PLAYER_ID);
+        if (me != null && this.selectedCardIds != null) {
+            for (String uiCardStr : this.selectedCardIds) {
+                for (Card c : me.getHandCards()) {
+                    if ((c.getSuit().getSymbol() + c.getRank().getDisplayName()).equals(uiCardStr)) {
+                        cardsToPlay.add(c.getCardId());
+                        break;
                     }
                 }
             }
-        } else {
-            cardsToPlay = new ArrayList<>(selectedCardIds);
         }
 
-        if (cardsToPlay == null || cardsToPlay.isEmpty()) {
-            System.out.println("[CardGame][CONTROLLER] No cards to play, auto pass");
-            passTurn();
-            return new PlayResult(true, "Auto pass", gameEngine.getGameState());
+        // 如果没有选牌，直接返回错误（不自动 pass）
+        if (cardsToPlay.isEmpty()) {
+            System.out.println("[CardGame][CONTROLLER] No cards selected");
+            return new PlayResult(false, "请先选择要出的牌", state);
         }
 
-        PlayResult result = gameEngine.playCards(currentPlayerId, cardsToPlay);
-
-        System.out.println("[CardGame][CONTROLLER] submitPlay result="
-                + (result != null ? result.getMessage() : "null"));
-
-        if (result != null && result.isSuccess()) {
-            if (currentPlayerId.equals(MY_PLAYER_ID)) {
-                this.selectedCardIds.clear();
-            }
+        PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
+        if (result.isSuccess()) {
+            this.selectedCardIds.clear();
             notifyUiRefresh();
-
             if (!gameEngine.isGameOver()) {
-                long delay = currentPlayerId.equals(MY_PLAYER_ID) ? 100 : 0;
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), delay);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
             }
         }
-
         return result;
     }
 
@@ -148,24 +138,22 @@ public class GameController implements GameActionHandler {
 
         GameState state = gameEngine.getGameState();
         if (state == null || state.getCurrentPlayer() == null) {
-            System.out.println("[CardGame][CONTROLLER] passTurn failed: game state not ready");
             return new PassResult(false, "Game state not ready.", state);
         }
 
-        String currentPlayerId = state.getCurrentPlayer().getPlayerId();
-        PassResult result = gameEngine.passTurn(currentPlayerId);
-
-        System.out.println("[CardGame][CONTROLLER] passTurn result="
-                + (result != null ? result.getMessage() : "null"));
-
-        if (result != null && result.isSuccess()) {
-            notifyUiRefresh();
-            if (!gameEngine.isGameOver()) {
-                long delay = currentPlayerId.equals(MY_PLAYER_ID) ? 100 : 0;
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), delay);
-            }
+        Player currentPlayer = state.getCurrentPlayer();
+        if (!MY_PLAYER_ID.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+            System.out.println("[CardGame][CONTROLLER] passTurn rejected: not human or not my turn");
+            return new PassResult(false, "不是您的回合", state);
         }
 
+        PassResult result = gameEngine.passTurn(currentPlayer.getPlayerId());
+        if (result.isSuccess()) {
+            notifyUiRefresh();
+            if (!gameEngine.isGameOver()) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
+            }
+        }
         return result;
     }
 
@@ -320,12 +308,10 @@ public class GameController implements GameActionHandler {
         List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
 
         if (chosenCards == null || chosenCards.isEmpty()) {
-            System.out.println("[CardGame][AI] " + currentPlayer.getPlayerId() + " 选择 Pass");
-            passTurn();
+            gameEngine.passTurn(currentPlayer.getPlayerId());
         } else {
             List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
-            System.out.println("[CardGame][AI] " + currentPlayer.getPlayerId() + " 出牌: " + cardIds);
-            submitPlay(cardIds);
+            gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
         }
     }
 

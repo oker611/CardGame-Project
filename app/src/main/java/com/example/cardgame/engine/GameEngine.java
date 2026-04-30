@@ -15,9 +15,6 @@ import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import java.util.List;
 
-/**
- * Core game engine class that coordinates game flow and managers.
- */
 public class GameEngine {
 
     private static final boolean DEBUG_AUTO_PLAY = false;
@@ -25,7 +22,6 @@ public class GameEngine {
     private GameState gameState;
     private RuleConfig ruleConfig;
     private RuleEngine ruleEngine;
-
     private final DealManager dealManager;
     private final TurnManager turnManager;
     private final SettlementManager settlementManager;
@@ -46,9 +42,7 @@ public class GameEngine {
     }
 
     public void dealCards() {
-        if (gameState != null) {
-            dealManager.dealCards(gameState);
-        }
+        if (gameState != null) dealManager.dealCards(gameState);
     }
 
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
@@ -65,38 +59,32 @@ public class GameEngine {
             return createPlayResult(false, "Please select cards first", gameState);
         }
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
-        // 提取当前对局状态信息
         List<Card> lastPlayCards = getLastPlayCards();
         boolean isFirstRound = gameState.isOpeningTurn();
         boolean isFirstTurn = isFirstTurnOfCurrentRound();
 
-        // 调用规则引擎进行合法性校验
         PlayValidator.ValidationResult validationResult =
                 ruleEngine.validatePlay(selectedCards, lastPlayCards, isFirstRound, isFirstTurn);
 
-        // 如果校验不通过，直接返回错误信息阻断出牌
         if (!validationResult.valid) {
             System.out.println("[CardGame][PLAY] rejected: " + validationResult.reason);
             return createPlayResult(false, validationResult.reason, gameState);
         }
 
-        // 识别真实牌型并映射到 Model 层的 CardPattern
         PatternRecognizer.PatternInfo patternInfo = ruleEngine.recognizePattern(selectedCards);
         CardPattern finalPattern = mapPatternType(patternInfo.getType());
 
         Play currentPlay = new Play(playerId, selectedCards, finalPattern);
 
-        // 根据 cardId 正确移除手牌
         player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
 
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
 
-        //  如果是首轮且合法出牌成功，取消首轮标记
-        if (gameState.isOpeningTurn()) {
-            gameState.setOpeningTurn(false);
-        }
-        // 新增：记录该玩家最后一次出的牌
+        // 记录上一赢家
+        gameState.setLastWinnerId(playerId);
+
+        if (gameState.isOpeningTurn()) gameState.setOpeningTurn(false);
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
 
         System.out.println("[CardGame][PLAY] success playerId=" + playerId
@@ -130,15 +118,35 @@ public class GameEngine {
             System.out.println("[CardGame][PASS] rejected: opening turn cannot pass");
             return createPassResult(false, "Cannot pass on opening turn", gameState);
         }
-        player.setPassed(true);
-        turnManager.switchPlayer(gameState);
 
-        if (gameState.areAllOtherPlayersPassed(gameState.getCurrentPlayerId())) {
+        // 标记当前玩家为 pass，并清除其个人出牌记录（让 UI 显示“不出”）
+        player.setPassed(true);
+        gameState.updateLastPlayByPlayer(playerId, null);
+
+        // 检查是否所有其他玩家都已 Pass（连续三人 Pass）
+        if (gameState.areAllOtherPlayersPassed(playerId)) {
+            // 获取上一轮赢家
+            String winnerId = gameState.getLastWinnerId();
+
+            // 1. 先清空桌面牌、所有玩家 Pass 状态、所有玩家出牌记录（彻底清空）
             gameState.setLastPlay(null);
-            gameState.clearAllPassStatus();
-            // ✅ 新增：连续Pass重置桌面时，清空所有玩家的出牌记录
-            gameState.clearAllLastPlayRecords();
-            System.out.println("[CardGame][PASS] all other players passed, reset round state and clear last play records");
+            gameState.clearAllPassStatus();        // 重置所有玩家的 passed 为 false
+            gameState.clearAllLastPlayRecords();   // 清空所有玩家的上一次出牌记录
+
+            // 2. 设置下一轮出牌的玩家（上一赢家）
+            if (winnerId != null && !gameState.isOpeningTurn()) {
+                gameState.setCurrentPlayerId(winnerId);
+                System.out.println("[CardGame][PASS] 重置回合，新出牌玩家（上轮赢家）: " + winnerId);
+            } else {
+                // 降级：按顺序切换（基本不会触发，仅做保护）
+                turnManager.switchPlayer(gameState);
+                System.out.println("[CardGame][PASS] 降级：按顺序切换玩家");
+            }
+
+            System.out.println("[CardGame][PASS] 桌面已完全清空，新回合开始");
+        } else {
+            // 正常 Pass，切换到下一个玩家
+            turnManager.switchPlayer(gameState);
         }
 
         System.out.println("[CardGame][PASS] success playerId=" + playerId);
@@ -153,114 +161,59 @@ public class GameEngine {
         return new PassResult(success, msg, state);
     }
 
-    public boolean isGameOver() {
-        return gameState != null && gameState.isGameOver();
-    }
+    public boolean isGameOver() { return gameState != null && gameState.isGameOver(); }
+    public String getWinnerId() { return gameState != null ? gameState.getWinnerId() : null; }
+    public GameState getGameState() { return gameState; }
 
-    public String getWinnerId() {
-        return (gameState != null) ? gameState.getWinnerId() : null;
-    }
-
-    public GameState getGameState() {
-        return gameState;
-    }
-
-    // ========== 为 AI 提供的状态查询接口 ==========
     public List<Card> getLastPlayCards() {
-        if (gameState == null || gameState.getLastPlay() == null) {
-            return null;
-        }
+        if (gameState == null || gameState.getLastPlay() == null) return null;
         return gameState.getLastPlay().getCards();
     }
-
-    public boolean isFirstRound() {
-        return gameState != null && gameState.isOpeningTurn();
-    }
-
+    public boolean isFirstRound() { return gameState != null && gameState.isOpeningTurn(); }
     public boolean isFirstTurnOfCurrentRound() {
         if (gameState == null) return true;
         List<Card> lastPlayCards = getLastPlayCards();
         return lastPlayCards == null || lastPlayCards.isEmpty();
     }
-
-    public String getCurrentPlayerId() {
-        return gameState != null ? gameState.getCurrentPlayerId() : null;
-    }
-
+    public String getCurrentPlayerId() { return gameState != null ? gameState.getCurrentPlayerId() : null; }
     public List<Card> getPlayerHand(String playerId) {
         Player player = gameState != null ? gameState.getPlayerById(playerId) : null;
         return player != null ? player.getHandCards() : null;
     }
-    // ===========================================
 
     private boolean containsThreeOfDiamonds(List<Card> cards) {
-        for (Card card : cards) {
-            if (card != null && card.isThreeOfDiamonds()) {
-                return true;
-            }
-        }
+        for (Card c : cards) if (c.isThreeOfDiamonds()) return true;
         return false;
     }
 
     private CardPattern guessPattern(List<Card> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return CardPattern.INVALID;
-        }
-        if (cards.size() == 1) {
-            return CardPattern.SINGLE;
-        }
-        if (cards.size() == 2 && sameRank(cards)) {
-            return CardPattern.PAIR;
-        }
-        if (cards.size() == 3 && sameRank(cards)) {
-            return CardPattern.TRIPLE;
-        }
+        if (cards == null || cards.isEmpty()) return CardPattern.INVALID;
+        if (cards.size() == 1) return CardPattern.SINGLE;
+        if (cards.size() == 2 && sameRank(cards)) return CardPattern.PAIR;
+        if (cards.size() == 3 && sameRank(cards)) return CardPattern.TRIPLE;
         return CardPattern.INVALID;
     }
 
     private boolean sameRank(List<Card> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return false;
-        }
         Card first = cards.get(0);
-        for (Card card : cards) {
-            if (card == null || first.getRank() != card.getRank()) {
-                return false;
-            }
-        }
+        for (Card c : cards) if (c.getRank() != first.getRank()) return false;
         return true;
     }
 
     private String formatCards(List<Card> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return "[]";
-        }
+        if (cards == null || cards.isEmpty()) return "[]";
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < cards.size(); i++) {
             sb.append(cards.get(i).getDisplayText());
-            if (i < cards.size() - 1) {
-                sb.append(", ");
-            }
+            if (i < cards.size() - 1) sb.append(", ");
         }
         sb.append("]");
         return sb.toString();
     }
 
-    /**
-     * 接收远程（蓝牙）出牌指令的入口
-     */
-    public void executeRemotePlay(Play play) {
-        // TODO: 周一晚或周二再实现，现在只留空
-    }
+    public void executeRemotePlay(Play play) { /* TODO */ }
+    public void executeRemotePass(String playerId) { /* TODO */ }
 
-    /**
-     * 接收远程（蓝牙）过牌指令的入口
-     */
-    public void executeRemotePass(String playerId) {
-        // TODO: 周一晚或周二再实现，现在只留空
-    }
-
-    // 辅助方法：将 Rule 层的 PatternType 映射为 Model 层的 CardPattern
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
         if (type == null) return CardPattern.INVALID;
         switch (type) {
