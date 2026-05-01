@@ -291,27 +291,30 @@ public class GameController implements GameActionHandler {
         if (aiPlayer == null) {
             List<Card> randomCards = currentPlayer.getRandomCards(2);
             if (randomCards.isEmpty()) {
-                passTurn();
-                return;
+                gameEngine.passTurn(currentPlayer.getPlayerId());
+            } else {
+                List<String> cardIds = randomCards.stream().map(Card::getCardId).collect(Collectors.toList());
+                gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
             }
-            List<String> cardIds = randomCards.stream().map(Card::getCardId).collect(Collectors.toList());
-            submitPlay(cardIds);
-            return;
+        } else {
+            aiPlayer.setHand(currentPlayer.getHandCards());
+            List<Card> lastPlayCards = gameEngine.getLastPlayCards();
+            boolean isFirstRound = gameEngine.isFirstRound();
+            boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
+            List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
+
+            if (chosenCards == null || chosenCards.isEmpty()) {
+                gameEngine.passTurn(currentPlayer.getPlayerId());
+            } else {
+                List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
+                gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+            }
         }
 
-        aiPlayer.setHand(currentPlayer.getHandCards());
-
-        List<Card> lastPlayCards = gameEngine.getLastPlayCards();
-        boolean isFirstRound = gameEngine.isFirstRound();
-        boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
-
-        List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
-
-        if (chosenCards == null || chosenCards.isEmpty()) {
-            gameEngine.passTurn(currentPlayer.getPlayerId());
-        } else {
-            List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
-            gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+        // 关键：AI 动作后必须刷新 UI 并继续游戏流程
+        notifyUiRefresh();
+        if (!gameEngine.isGameOver()) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
         }
     }
 
