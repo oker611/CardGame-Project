@@ -311,6 +311,7 @@ public class GameController implements GameActionHandler {
             }
         }
 
+
         // 关键：AI 动作后必须刷新 UI 并继续游戏流程
         notifyUiRefresh();
         if (!gameEngine.isGameOver()) {

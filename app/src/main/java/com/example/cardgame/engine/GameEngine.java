@@ -83,6 +83,8 @@ public class GameEngine {
 
         // 记录上一赢家
         gameState.setLastWinnerId(playerId);
+        // 重置连续 Pass 计数器（因为有人出牌了）
+        gameState.resetConsecutivePassCount();
 
         if (gameState.isOpeningTurn()) gameState.setOpeningTurn(false);
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
@@ -119,30 +121,31 @@ public class GameEngine {
             return createPassResult(false, "Cannot pass on opening turn", gameState);
         }
 
-        // 标记当前玩家为 pass，并清除其个人出牌记录（让 UI 显示“不出”）
+        // 标记当前玩家为 pass，并清除其个人出牌记录
         player.setPassed(true);
         gameState.updateLastPlayByPlayer(playerId, null);
+        gameState.incrementConsecutivePassCount();   // 连续 Pass 计数加1
 
-        // 检查是否所有其他玩家都已 Pass（连续三人 Pass）
-        if (gameState.areAllOtherPlayersPassed(playerId)) {
+        // 检查是否连续三人 Pass（计数器 >= 3）
+        if (gameState.getConsecutivePassCount() >= 3) {
             // 获取上一轮赢家
             String winnerId = gameState.getLastWinnerId();
 
-            // 1. 先清空桌面牌、所有玩家 Pass 状态、所有玩家出牌记录（彻底清空）
+            // 清空桌面、所有玩家 Pass 状态、所有出牌记录
             gameState.setLastPlay(null);
-            gameState.clearAllPassStatus();        // 重置所有玩家的 passed 为 false
-            gameState.clearAllLastPlayRecords();   // 清空所有玩家的上一次出牌记录
+            gameState.clearAllPassStatus();
+            gameState.clearAllLastPlayRecords();
+            gameState.resetConsecutivePassCount();   // 重置计数器
 
-            // 2. 设置下一轮出牌的玩家（上一赢家）
+            // 设置下一轮出牌的玩家为上一赢家
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
-                System.out.println("[CardGame][PASS] 重置回合，新出牌玩家（上轮赢家）: " + winnerId);
+                System.out.println("[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
-                // 降级：按顺序切换（基本不会触发，仅做保护）
+                // 降级：按顺序切换（基本不会触发）
                 turnManager.switchPlayer(gameState);
                 System.out.println("[CardGame][PASS] 降级：按顺序切换玩家");
             }
-
             System.out.println("[CardGame][PASS] 桌面已完全清空，新回合开始");
         } else {
             // 正常 Pass，切换到下一个玩家
