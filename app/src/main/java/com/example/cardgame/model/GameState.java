@@ -13,6 +13,13 @@ public class GameState {
     private boolean gameOver;
     private String winnerId;
     private String lastWinnerId;
+    private int consecutivePassCount = 0;
+
+    public int getConsecutivePassCount() { return consecutivePassCount; }
+    public void setConsecutivePassCount(int count) { this.consecutivePassCount = count; }
+    public void incrementConsecutivePassCount() { consecutivePassCount++; }
+    public void resetConsecutivePassCount() { consecutivePassCount = 0; }
+
 
     public String getLastWinnerId() { return lastWinnerId; }
     public void setLastWinnerId(String lastWinnerId) { this.lastWinnerId = lastWinnerId; }
