@@ -83,8 +83,10 @@ public class GameEngine {
 
         // 记录上一赢家
         gameState.setLastWinnerId(playerId);
+
         // 重置连续 Pass 计数器（因为有人出牌了）
         gameState.resetConsecutivePassCount();
+
 
         if (gameState.isOpeningTurn()) gameState.setOpeningTurn(false);
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
@@ -121,6 +123,7 @@ public class GameEngine {
             return createPassResult(false, "Cannot pass on opening turn", gameState);
         }
 
+
         // 标记当前玩家为 pass，并清除其个人出牌记录
         player.setPassed(true);
         gameState.updateLastPlayByPlayer(playerId, null);
@@ -146,6 +149,7 @@ public class GameEngine {
                 turnManager.switchPlayer(gameState);
                 System.out.println("[CardGame][PASS] 降级：按顺序切换玩家");
             }
+
             System.out.println("[CardGame][PASS] 桌面已完全清空，新回合开始");
         } else {
             // 正常 Pass，切换到下一个玩家

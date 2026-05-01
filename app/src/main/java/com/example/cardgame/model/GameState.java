@@ -20,6 +20,7 @@ public class GameState {
     public void incrementConsecutivePassCount() { consecutivePassCount++; }
     public void resetConsecutivePassCount() { consecutivePassCount = 0; }
 
+
     public String getLastWinnerId() { return lastWinnerId; }
     public void setLastWinnerId(String lastWinnerId) { this.lastWinnerId = lastWinnerId; }
 
