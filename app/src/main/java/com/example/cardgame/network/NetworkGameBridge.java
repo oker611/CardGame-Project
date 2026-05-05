@@ -3,6 +3,7 @@ package com.example.cardgame.network;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Play;
 import com.example.cardgame.network.payload.ErrorPayload;
@@ -71,6 +72,19 @@ public class NetworkGameBridge {
             InitGamePayload payload =
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
 
+            if (payload.getGameState() != null) {
+                GameState syncedState = payload.getGameState();
+
+                invokeEngineMethod(
+                        "rebuildGameState",
+                        new Class[]{GameState.class},
+                        syncedState
+                );
+
+                notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
+                return;
+            }
+
             List<Card> myHand = payload.getRemoteHandCards();
             List<Card> opponentHand = payload.getLocalHandCards();
             String currentPlayerId = payload.getCurrentPlayerId();
@@ -83,7 +97,7 @@ public class NetworkGameBridge {
                     currentPlayerId
             );
 
-            notifyReceived(MessageType.INIT_GAME, "开局状态已重建");
+            notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
         } catch (Exception exception) {
             notifyError("Failed to handle INIT_GAME", exception);
         }
@@ -130,7 +144,7 @@ public class NetworkGameBridge {
 
             if (!executed) {
                 invokeEngineMethod(
-                        "pass",
+                        "passTurn",
                         new Class[]{String.class},
                         payload.getPlayerId()
                 );
