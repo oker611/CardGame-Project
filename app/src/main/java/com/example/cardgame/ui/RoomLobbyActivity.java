@@ -37,8 +37,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private boolean isHost;
     private boolean gameStarted = false;
     private int currentPlayerCount;
-    private boolean[] isAi = new boolean[4];
-    private boolean[] isConnected = new boolean[4];
+    private final boolean[] isAi = new boolean[4];
+    private final boolean[] isConnected = new boolean[4];
 
     private static final int MAX_PLAYERS = 4;
 

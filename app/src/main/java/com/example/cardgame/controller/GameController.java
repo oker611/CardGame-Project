@@ -293,7 +293,9 @@ public class GameController implements GameActionHandler {
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
             int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
-            if (rankCompare != 0) return rankCompare;
+            if (rankCompare != 0) {
+                return rankCompare;
+            }
             return Integer.compare(c2.getSuit().getWeight(), c1.getSuit().getWeight());
         });
 
