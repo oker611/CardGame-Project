@@ -204,6 +204,28 @@ public class RoomLobbyActivity extends AppCompatActivity {
         return count;
     }
 
+    /**
+     * 判断当前房间里是否真的存在蓝牙客户端。
+     *
+     * 注意：
+     * 添加 AI 会把 isConnected[i] 设为 true，但那只是 UI 层“占位已满”，
+     * 不能当作真实蓝牙远程玩家。
+     *
+     * 只有 BluetoothViewData.isConnected() 为 true，才说明 P2 是真实客户端。
+     */
+    private boolean hasRealRemotePlayer() {
+        if (bluetoothActionHandler == null) {
+            return false;
+        }
+
+        BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
+        if (viewData == null) {
+            return false;
+        }
+
+        return viewData.isConnected();
+    }
+
     private void initViews() {
         tvTitle = findViewById(R.id.tv_title);
         btnBack = findViewById(R.id.btn_back);
@@ -271,10 +293,31 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
                 handler.removeCallbacks(refreshBluetoothStateRunnable);
 
+                boolean hasRealRemotePlayer = hasRealRemotePlayer();
+
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
-                intent.putExtra("is_bluetooth_game", true);
-                intent.putExtra("is_host", true);
-                intent.putExtra("local_player_id", "P1");
+
+                if (hasRealRemotePlayer) {
+                    // 房主 + 客户端 + AI：蓝牙对局
+                    intent.putExtra("is_bluetooth_game", true);
+                    intent.putExtra("is_host", true);
+                    intent.putExtra("local_player_id", "P1");
+
+                    Toast.makeText(this, "蓝牙对局开始", Toast.LENGTH_SHORT).show();
+                } else {
+                    // 房主 + 3AI：本地 AI 对局
+                    // 不再把 Bob(P2) 当成 REMOTE，否则 Bob 会一直等待远程操作而不会出牌。
+                    if (bluetoothActionHandler != null) {
+                        bluetoothActionHandler.disconnectBluetooth();
+                    }
+
+                    intent.putExtra("is_bluetooth_game", false);
+                    intent.putExtra("is_host", false);
+                    intent.putExtra("local_player_id", "P1");
+
+                    Toast.makeText(this, "本地 AI 对局开始", Toast.LENGTH_SHORT).show();
+                }
+
                 startActivity(intent);
                 finish();
             } else {
