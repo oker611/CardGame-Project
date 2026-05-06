@@ -22,7 +22,9 @@ public class CardGameApplication extends Application {
         gameEngine = new GameEngine();
         gameActionHandler = new GameController(gameEngine);
 
-        System.out.println("[CardGame][APP] Application initialized, GameActionHandler ready.");
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "[DEBUG] [APP] Application initialized | GameActionHandler ready.");
+        }
     }
 
     public static GameActionHandler getGameActionHandler() {
