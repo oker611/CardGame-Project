@@ -54,8 +54,17 @@ public class GameController implements GameActionHandler {
     @Override
     public void setBluetoothMode(boolean bluetoothMode, boolean hostMode, String localPlayerId) {
         this.bluetoothMode = bluetoothMode;
+
+        if (!bluetoothMode) {
+            this.hostMode = false;
+            this.myPlayerId = "P1";
+
+            System.out.println("[CardGame][CONTROLLER] Normal mode, localPlayerId=P1");
+            return;
+        }
+
         this.hostMode = hostMode;
-        this.myPlayerId = localPlayerId != null ? localPlayerId : "P1";
+        this.myPlayerId = localPlayerId != null ? localPlayerId : (hostMode ? "P1" : "P2");
 
         if (gameEngine.getGameState() != null) {
             gameEngine.configureBluetoothPlayerTypes(
@@ -81,6 +90,10 @@ public class GameController implements GameActionHandler {
     @Override
     public void startNewGame() {
         System.out.println("[CardGame][CONTROLLER] startNewGame called");
+
+        if (!bluetoothMode) {
+            myPlayerId = "P1";
+        }
 
         List<Player> players = new ArrayList<>();
 
