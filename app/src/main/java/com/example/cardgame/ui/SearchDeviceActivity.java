@@ -41,6 +41,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private boolean connecting = false;
+    private boolean searching = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,10 +72,10 @@ public class SearchDeviceActivity extends AppCompatActivity {
             return;
         }
 
-        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+        if (!BluetoothPermissionHelper.hasClientBluetoothPermissions(this)) {
             ActivityCompat.requestPermissions(
                     this,
-                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    BluetoothPermissionHelper.getClientBluetoothPermissions(),
                     REQUEST_BLUETOOTH_PERMISSION
             );
             return;
@@ -103,12 +104,31 @@ public class SearchDeviceActivity extends AppCompatActivity {
             return;
         }
 
-        Toast.makeText(this, "正在搜索已配对蓝牙设备...", Toast.LENGTH_SHORT).show();
+        searching = true;
+        deviceList.clear();
+        deviceAdapter.notifyDataSetChanged();
+
+        Toast.makeText(this, "正在搜索可加入的手机或平板...", Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.searchBluetoothDevices();
 
-        handler.postDelayed(this::refreshDeviceListFromController, 1000);
-        handler.postDelayed(this::refreshDeviceListFromController, 1800);
+        handler.postDelayed(this::refreshDeviceListFromController, 1500);
+        handler.postDelayed(this::refreshDeviceListFromController, 5000);
+        handler.postDelayed(this::refreshDeviceListFromController, 9000);
+        handler.postDelayed(this::finishSearchAndRefresh, 13500);
+    }
+
+    private void finishSearchAndRefresh() {
+        searching = false;
+        refreshDeviceListFromController();
+
+        if (deviceList.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "未发现可加入的手机/平板。请确认房主已创建房间，并允许设备被发现。",
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
     private void refreshDeviceListFromController() {
@@ -140,15 +160,8 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
         deviceAdapter.notifyDataSetChanged();
 
-        if (deviceList.isEmpty()) {
-            String errorMessage = viewData.getErrorMessage();
-            if (errorMessage != null && !errorMessage.trim().isEmpty()) {
-                Toast.makeText(this, "搜索失败：" + errorMessage, Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "未发现已配对设备，请先在系统蓝牙中配对", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Toast.makeText(this, "搜索完成，共发现 " + deviceList.size() + " 个设备", Toast.LENGTH_SHORT).show();
+        if (!searching && !deviceList.isEmpty()) {
+            Toast.makeText(this, "搜索完成，共发现 " + deviceList.size() + " 个可加入设备", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -163,10 +176,10 @@ public class SearchDeviceActivity extends AppCompatActivity {
             return;
         }
 
-        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+        if (!BluetoothPermissionHelper.hasClientBluetoothPermissions(this)) {
             ActivityCompat.requestPermissions(
                     this,
-                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    BluetoothPermissionHelper.getClientBluetoothPermissions(),
                     REQUEST_BLUETOOTH_PERMISSION
             );
             return;
@@ -188,8 +201,8 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
         bluetoothActionHandler.connectToDevice("P2", device.getDeviceAddress());
 
-        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 1500);
-        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 3000);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 2000);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 4500);
     }
 
     private void checkConnectionResultAndEnterLobby() {
@@ -226,7 +239,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+            if (BluetoothPermissionHelper.hasClientBluetoothPermissions(this)) {
                 startSearchFlow();
             } else {
                 Toast.makeText(this, "缺少蓝牙权限，无法搜索或连接设备", Toast.LENGTH_LONG).show();

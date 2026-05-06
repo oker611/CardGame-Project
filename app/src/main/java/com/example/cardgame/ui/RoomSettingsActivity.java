@@ -23,12 +23,15 @@ public class RoomSettingsActivity extends AppCompatActivity {
 
     private static final int REQUEST_BLUETOOTH_PERMISSION = 2001;
     private static final int REQUEST_ENABLE_BLUETOOTH = 2002;
+    private static final int REQUEST_DISCOVERABLE = 2003;
+    private static final int DISCOVERABLE_DURATION_SECONDS = 300;
 
     private RadioGroup rgRounds, rgRule, rgPlayStyle;
     private CheckBox cbCardTracker, cbAntiCheat, cbTimeoutDismiss, cbSwapCards;
     private Button btnBack, btnStartBluetooth;
 
     private BluetoothActionHandler bluetoothActionHandler;
+    private boolean waitingDiscoverableResult = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,10 +65,10 @@ public class RoomSettingsActivity extends AppCompatActivity {
             return;
         }
 
-        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+        if (!BluetoothPermissionHelper.hasHostBluetoothPermissions(this)) {
             ActivityCompat.requestPermissions(
                     this,
-                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    BluetoothPermissionHelper.getHostBluetoothPermissions(),
                     REQUEST_BLUETOOTH_PERMISSION
             );
             return;
@@ -76,7 +79,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
             return;
         }
 
-        createBluetoothRoomAndEnterLobby();
+        requestDiscoverableBeforeCreateRoom();
     }
 
     private void requestEnableBluetooth() {
@@ -88,13 +91,29 @@ public class RoomSettingsActivity extends AppCompatActivity {
         }
     }
 
+    private void requestDiscoverableBeforeCreateRoom() {
+        try {
+            waitingDiscoverableResult = true;
+
+            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+            discoverableIntent.putExtra(
+                    BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,
+                    DISCOVERABLE_DURATION_SECONDS
+            );
+            startActivityForResult(discoverableIntent, REQUEST_DISCOVERABLE);
+        } catch (Exception e) {
+            waitingDiscoverableResult = false;
+            Toast.makeText(this, "无法设置设备可被发现，请检查蓝牙权限", Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void createBluetoothRoomAndEnterLobby() {
         if (bluetoothActionHandler == null) {
             Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Toast.makeText(this, "正在创建蓝牙房间...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "正在创建蓝牙房间，等待其他玩家加入...", Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.createBluetoothRoom("P1");
 
@@ -112,7 +131,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+            if (BluetoothPermissionHelper.hasHostBluetoothPermissions(this)) {
                 startBluetoothRoomFlow();
             } else {
                 Toast.makeText(this, "缺少蓝牙权限，无法创建房间", Toast.LENGTH_LONG).show();
@@ -132,6 +151,18 @@ public class RoomSettingsActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "蓝牙未开启，无法创建房间", Toast.LENGTH_LONG).show();
             }
+            return;
+        }
+
+        if (requestCode == REQUEST_DISCOVERABLE) {
+            waitingDiscoverableResult = false;
+
+            if (resultCode == RESULT_CANCELED) {
+                Toast.makeText(this, "未允许设备被发现，其他玩家可能搜不到房间", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            createBluetoothRoomAndEnterLobby();
         }
     }
 

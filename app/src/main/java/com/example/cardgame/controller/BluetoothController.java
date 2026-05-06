@@ -54,24 +54,29 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         updateBluetoothStatus();
 
         bluetoothViewData.clearErrorMessage();
-        bluetoothViewData.setStatusText("正在搜索附近蓝牙设备");
+        bluetoothViewData.setDevices(new ArrayList<>());
+        bluetoothViewData.setStatusText("正在搜索可加入的手机或平板");
 
         new Thread(() -> {
             List<BluetoothDeviceInfo> devices = bluetoothGateway.searchDevices();
             List<BluetoothDeviceViewData> viewDevices = new ArrayList<>();
 
             for (BluetoothDeviceInfo device : devices) {
+                if (!device.isJoinableCandidate()) {
+                    continue;
+                }
+
                 viewDevices.add(new BluetoothDeviceViewData(
                         device.getDeviceName(),
                         device.getDeviceAddress(),
                         device.isBonded(),
                         false,
-                        "可连接"
+                        device.isBonded() ? "已配对，可尝试加入" : "新发现，可尝试加入"
                 ));
             }
 
             bluetoothViewData.setDevices(viewDevices);
-            bluetoothViewData.setStatusText("搜索完成");
+            bluetoothViewData.setStatusText("搜索完成，可加入候选设备：" + viewDevices.size());
         }).start();
     }
 
