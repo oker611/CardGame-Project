@@ -88,16 +88,15 @@ public class NetworkGameBridge {
                         syncedState
                 );
 
-                invokeEngineMethod(
-                        "configureBluetoothPlayerTypes",
-                        new Class[]{String.class, String.class},
-                        localPlayerId,
-                        remotePlayerId
-                );
+            invokeEngineMethod(
+                    "configureBluetoothPlayerTypes",
+                    new Class[]{String.class, String.class},
+                    localPlayerId,
+                    remotePlayerId
+            );
 
-                notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
-                return;
-            }
+            notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
+            return;
 
             List<Card> myHand = payload.getRemoteHandCards();
             List<Card> opponentHand = payload.getLocalHandCards();

@@ -29,16 +29,16 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private TextView tvNeedCount;
     private LinearLayout llAiControl;
 
-    private CardView[] playerCards = new CardView[4];
-    private TextView[] tvNames = new TextView[4];
-    private TextView[] tvStatus = new TextView[4];
-    private View[] ivCrowns = new View[4];
+    private final CardView[] playerCards = new CardView[4];
+    private final TextView[] tvNames = new TextView[4];
+    private final TextView[] tvStatus = new TextView[4];
+    private final View[] ivCrowns = new View[4];
 
     private boolean isHost;
     private boolean gameStarted = false;
     private int currentPlayerCount;
-    private boolean[] isAi = new boolean[4];
-    private boolean[] isConnected = new boolean[4];
+    private final boolean[] isAi = new boolean[4];
+    private final boolean[] isConnected = new boolean[4];
 
     private static final int MAX_PLAYERS = 4;
 
@@ -59,7 +59,6 @@ public class RoomLobbyActivity extends AppCompatActivity {
         setContentView(R.layout.activity_room_lobby);
 
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
-
         isHost = getIntent().getBooleanExtra("is_host", false);
 
         initViews();
@@ -154,6 +153,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
             if (viewData.isConnected()) {
                 isConnected[0] = true;
+                isAi[0] = false;
 
                 String deviceName = viewData.getConnectedDeviceName();
                 tvNames[0].setText(deviceName == null || deviceName.trim().isEmpty()
@@ -166,7 +166,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
         currentPlayerCount = countConnectedPlayers();
 
-        if (viewData.getErrorMessage() != null && !viewData.getErrorMessage().trim().isEmpty()) {
+        if (viewData.getErrorMessage() != null
+                && !viewData.getErrorMessage().trim().isEmpty()) {
             System.out.println("[CardGame][UI][BLUETOOTH] error=" + viewData.getErrorMessage());
         }
 
@@ -273,8 +274,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
                 intent.putExtra("is_bluetooth_game", true);
-                intent.putExtra("is_host", true);
-                intent.putExtra("local_player_id", "P1");
+                intent.putExtra("is_host", isHost);
+                intent.putExtra("local_player_id", isHost ? "P1" : "P2");
                 startActivity(intent);
                 finish();
             } else {

@@ -305,7 +305,9 @@ public class GameEngine {
         System.out.println("[CardGame][BLUETOOTH] executeRemotePass playerId=" + playerId);
         return passTurn(playerId);
     }
-
+    /**
+     * Configure player types for bluetooth game mode.
+     */
     public void configureBluetoothPlayerTypes(String localPlayerId, String remotePlayerId) {
         if (gameState == null || gameState.getPlayers() == null) {
             return;
@@ -327,6 +329,21 @@ public class GameEngine {
 
         System.out.println("[CardGame][BLUETOOTH] Player types configured | local="
                 + localPlayerId + ", remote=" + remotePlayerId);
+    }
+
+    private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
+        if (type == null) {
+            return CardPattern.INVALID;
+        }
+
+        switch (type) {
+            case SINGLE:
+                return CardPattern.SINGLE;
+            case PAIR:
+                return CardPattern.PAIR;
+            default:
+                return CardPattern.INVALID;
+        }
     }
 
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {

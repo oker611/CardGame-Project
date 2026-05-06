@@ -2,6 +2,7 @@ package com.example.cardgame;
 
 import android.app.Application;
 import android.content.Context;
+import android.util.Log;
 
 import com.example.cardgame.controller.BluetoothActionHandler;
 import com.example.cardgame.controller.BluetoothController;
@@ -22,7 +23,9 @@ public class CardGameApplication extends Application {
         gameEngine = new GameEngine();
         gameActionHandler = new GameController(gameEngine);
 
-        System.out.println("[CardGame][APP] Application initialized, GameActionHandler ready.");
+        if (BuildConfig.DEBUG) {
+            Log.d("CardGame", "[DEBUG] [APP] Application initialized | GameActionHandler ready.");
+        }
     }
 
     public static GameActionHandler getGameActionHandler() {
@@ -39,7 +42,12 @@ public class CardGameApplication extends Application {
                     context.getApplicationContext(),
                     gameEngine
             );
+
+            if (BuildConfig.DEBUG) {
+                Log.d("CardGame", "[DEBUG] [APP] BluetoothActionHandler initialized | BluetoothController ready.");
+            }
         }
+
         return bluetoothActionHandler;
     }
 }
