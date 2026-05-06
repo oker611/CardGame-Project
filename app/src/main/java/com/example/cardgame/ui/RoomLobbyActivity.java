@@ -29,20 +29,21 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private TextView tvNeedCount;
     private LinearLayout llAiControl;
 
-    private CardView[] playerCards = new CardView[4];
-    private TextView[] tvNames = new TextView[4];
-    private TextView[] tvStatus = new TextView[4];
-    private View[] ivCrowns = new View[4];
+    private final CardView[] playerCards = new CardView[4];
+    private final TextView[] tvNames = new TextView[4];
+    private final TextView[] tvStatus = new TextView[4];
+    private final View[] ivCrowns = new View[4];
 
     private boolean isHost;
+    private boolean gameStarted = false;
     private int currentPlayerCount;
-    private boolean[] isAi = new boolean[4];
-    private boolean[] isConnected = new boolean[4];
+    private final boolean[] isAi = new boolean[4];
+    private final boolean[] isConnected = new boolean[4];
 
     private static final int MAX_PLAYERS = 4;
 
     private BluetoothActionHandler bluetoothActionHandler;
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     private final Runnable refreshBluetoothStateRunnable = new Runnable() {
         @Override
@@ -58,7 +59,6 @@ public class RoomLobbyActivity extends AppCompatActivity {
         setContentView(R.layout.activity_room_lobby);
 
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
-
         isHost = getIntent().getBooleanExtra("is_host", false);
 
         initViews();
@@ -123,38 +123,70 @@ public class RoomLobbyActivity extends AppCompatActivity {
     }
 
     private void refreshBluetoothState() {
-        if (bluetoothActionHandler == null) return;
+        if (bluetoothActionHandler == null) {
+            return;
+        }
 
         BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
-        if (viewData == null) return;
+        if (viewData == null) {
+            return;
+        }
 
         if (isHost) {
-            tvStatus[0].setText(viewData.getStatusText() == null ? "房主 / 本机" : viewData.getStatusText());
+            String statusText = viewData.getStatusText();
+            tvStatus[0].setText(statusText == null ? "房主 / 本机" : statusText);
 
             if (viewData.isConnected()) {
                 isConnected[1] = true;
                 isAi[1] = false;
-                tvNames[1].setText(viewData.getConnectedDeviceName() == null
+
+                String deviceName = viewData.getConnectedDeviceName();
+                tvNames[1].setText(deviceName == null || deviceName.trim().isEmpty()
                         ? "远程玩家"
-                        : viewData.getConnectedDeviceName());
+                        : deviceName);
+
                 tvStatus[1].setText("已连接");
-                currentPlayerCount = countConnectedPlayers();
             }
         } else {
-            tvStatus[1].setText(viewData.getStatusText() == null ? "本机" : viewData.getStatusText());
+            String statusText = viewData.getStatusText();
+            tvStatus[1].setText(statusText == null ? "本机" : statusText);
 
             if (viewData.isConnected()) {
                 isConnected[0] = true;
-                tvNames[0].setText(viewData.getConnectedDeviceName() == null
+                isAi[0] = false;
+
+                String deviceName = viewData.getConnectedDeviceName();
+                tvNames[0].setText(deviceName == null || deviceName.trim().isEmpty()
                         ? "房主"
-                        : viewData.getConnectedDeviceName());
+                        : deviceName);
+
                 tvStatus[0].setText("已连接");
-                currentPlayerCount = countConnectedPlayers();
             }
         }
 
-        if (viewData.getErrorMessage() != null && !viewData.getErrorMessage().trim().isEmpty()) {
+        currentPlayerCount = countConnectedPlayers();
+
+        if (viewData.getErrorMessage() != null
+                && !viewData.getErrorMessage().trim().isEmpty()) {
             System.out.println("[CardGame][UI][BLUETOOTH] error=" + viewData.getErrorMessage());
+        }
+
+        if (!isHost
+                && !gameStarted
+                && "INIT_GAME".equals(viewData.getLastReceivedMessageType())) {
+            gameStarted = true;
+
+            Toast.makeText(this, "房主已开始游戏", Toast.LENGTH_SHORT).show();
+
+            handler.removeCallbacks(refreshBluetoothStateRunnable);
+
+            Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
+            intent.putExtra("is_bluetooth_game", true);
+            intent.putExtra("is_host", false);
+            intent.putExtra("local_player_id", "P2");
+            startActivity(intent);
+            finish();
+            return;
         }
 
         updateAiControl();
@@ -163,11 +195,13 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
     private int countConnectedPlayers() {
         int count = 0;
+
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (isConnected[i] || isAi[i]) {
                 count++;
             }
         }
+
         return count;
     }
 
@@ -228,10 +262,20 @@ public class RoomLobbyActivity extends AppCompatActivity {
         });
 
         btnStartGame.setOnClickListener(v -> {
+            if (!isHost) {
+                Toast.makeText(this, "等待房主开始游戏", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (currentPlayerCount == MAX_PLAYERS) {
+                gameStarted = true;
+
+                handler.removeCallbacks(refreshBluetoothStateRunnable);
+
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
                 intent.putExtra("is_bluetooth_game", true);
                 intent.putExtra("is_host", isHost);
+                intent.putExtra("local_player_id", isHost ? "P1" : "P2");
                 startActivity(intent);
                 finish();
             } else {
@@ -243,6 +287,11 @@ public class RoomLobbyActivity extends AppCompatActivity {
     }
 
     private void addAiPlayer() {
+        if (!isHost) {
+            Toast.makeText(this, "只有房主可以添加 AI", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (!isConnected[i] && !isAi[i]) {
                 isAi[i] = true;
@@ -250,6 +299,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 tvNames[i].setText("AI 玩家");
                 tvStatus[i].setText("已连接");
                 ivCrowns[i].setVisibility(View.GONE);
+
                 currentPlayerCount = countConnectedPlayers();
                 updateAiControl();
                 updateStartButtonState();
@@ -264,7 +314,9 @@ public class RoomLobbyActivity extends AppCompatActivity {
         }
 
         int need = MAX_PLAYERS - currentPlayerCount;
-        if (need < 0) need = 0;
+        if (need < 0) {
+            need = 0;
+        }
 
         tvNeedCount.setText("还需 " + need + " 人");
 
@@ -278,12 +330,14 @@ public class RoomLobbyActivity extends AppCompatActivity {
     }
 
     private void updateStartButtonState() {
-        btnStartGame.setEnabled(currentPlayerCount == MAX_PLAYERS);
-
         if (!isHost) {
             btnStartGame.setText("等待房主开始");
             btnStartGame.setEnabled(false);
+            return;
         }
+
+        btnStartGame.setText("开始游戏");
+        btnStartGame.setEnabled(currentPlayerCount == MAX_PLAYERS);
     }
 
     private String getPlayerName() {

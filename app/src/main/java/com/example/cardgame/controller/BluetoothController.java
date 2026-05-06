@@ -94,6 +94,11 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     }
 
     @Override
+    public void sendGameOver(String winnerId, String winnerName) {
+        bluetoothGateway.sendGameOver(winnerId, winnerName);
+    }
+
+    @Override
     public BluetoothViewData getBluetoothViewData() {
         return bluetoothViewData;
     }
