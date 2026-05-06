@@ -102,11 +102,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             return new ArrayList<>();
         }
 
-        connectionManager.startDiscovery();
+        List<BluetoothDeviceInfo> devices = connectionManager.discoverJoinableMobileDevices();
 
-        List<BluetoothDeviceInfo> devices = connectionManager.getBondedDevices();
-
-        Log.i("CardGame", "[INFO] [蓝牙] 搜索设备完成 | 数量:" + devices.size());
+        Log.i("CardGame", "[INFO] [蓝牙] 可加入设备搜索完成 | 数量:" + devices.size());
 
         return devices;
     }
