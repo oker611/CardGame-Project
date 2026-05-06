@@ -2,7 +2,9 @@ package com.example.cardgame.ui;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -41,6 +43,11 @@ public class SearchDeviceActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private boolean connecting = false;
+
+    private BluetoothActionHandler bluetoothActionHandler;
+    private Handler handler = new Handler(Looper.getMainLooper());
+
+    private TextView tvTitle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
