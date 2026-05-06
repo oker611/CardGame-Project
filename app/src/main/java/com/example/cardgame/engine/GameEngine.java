@@ -13,9 +13,10 @@ import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.util.Logger;
-
-import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
+
+
 
 public class GameEngine {
 
@@ -44,9 +45,8 @@ public class GameEngine {
     }
 
     public void dealCards() {
-        if (gameState != null) {
-            dealManager.dealCards(gameState);
-        }
+        if (gameState != null) dealManager.dealCards(gameState);
+
     }
 
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
@@ -338,7 +338,6 @@ public class GameEngine {
         }
 
         List<String> cardIds = new ArrayList<>();
-
         for (Card card : play.getCards()) {
             if (card != null && card.getCardId() != null) {
                 cardIds.add(card.getCardId());
@@ -361,9 +360,6 @@ public class GameEngine {
         return passTurn(playerId);
     }
 
-    /**
-     * Configure player types for bluetooth game mode.
-     */
     public void configureBluetoothPlayerTypes(String localPlayerId, String remotePlayerId) {
         if (gameState == null || gameState.getPlayers() == null) {
             return;
@@ -402,3 +398,4 @@ public class GameEngine {
         }
     }
 }
+

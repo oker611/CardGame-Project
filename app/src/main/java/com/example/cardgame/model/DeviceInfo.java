@@ -7,7 +7,11 @@ public class DeviceInfo {
     private boolean paired;
     private int signalStrength; // 0: 弱, 1: 中, 2: 强
 
-    public DeviceInfo(String deviceName, String deviceAddress, int deviceType, boolean paired, int signalStrength) {
+    public DeviceInfo(String deviceName,
+                      String deviceAddress,
+                      int deviceType,
+                      boolean paired,
+                      int signalStrength) {
         this.deviceName = deviceName;
         this.deviceAddress = deviceAddress;
         this.deviceType = deviceType;

@@ -5,6 +5,7 @@ import java.util.List;
 
 public class BluetoothViewData {
 
+    private boolean bluetoothAvailable;
     private boolean bluetoothEnabled;
     private boolean connected;
     private boolean connecting;
@@ -19,6 +20,7 @@ public class BluetoothViewData {
 
     private String statusText;
     private String errorMessage;
+    private String permissionStatus;
 
     private String lastSentMessageType;
     private String lastSentSummary;
@@ -28,13 +30,24 @@ public class BluetoothViewData {
     private List<BluetoothDeviceViewData> devices;
 
     public BluetoothViewData() {
+        this.bluetoothAvailable = false;
         this.bluetoothEnabled = false;
         this.connected = false;
         this.connecting = false;
         this.hosting = false;
         this.role = "NONE";
         this.statusText = "未连接";
+        this.errorMessage = "";
+        this.permissionStatus = "";
         this.devices = new ArrayList<>();
+    }
+
+    public boolean isBluetoothAvailable() {
+        return bluetoothAvailable;
+    }
+
+    public void setBluetoothAvailable(boolean bluetoothAvailable) {
+        this.bluetoothAvailable = bluetoothAvailable;
     }
 
     public boolean isBluetoothEnabled() {
@@ -125,6 +138,14 @@ public class BluetoothViewData {
         this.errorMessage = errorMessage;
     }
 
+    public String getPermissionStatus() {
+        return permissionStatus;
+    }
+
+    public void setPermissionStatus(String permissionStatus) {
+        this.permissionStatus = permissionStatus;
+    }
+
     public String getLastSentMessageType() {
         return lastSentMessageType;
     }
@@ -162,6 +183,10 @@ public class BluetoothViewData {
     }
 
     public void setDevices(List<BluetoothDeviceViewData> devices) {
-        this.devices = devices;
+        this.devices = devices != null ? devices : new ArrayList<>();
+    }
+
+    public void clearErrorMessage() {
+        this.errorMessage = "";
     }
 }

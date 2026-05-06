@@ -1,6 +1,6 @@
 package com.example.cardgame.ui;
 
-import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -12,17 +12,19 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.example.cardgame.CardGameApplication;
 import com.example.cardgame.R;
 import com.example.cardgame.controller.BluetoothActionHandler;
+import com.example.cardgame.util.BluetoothPermissionHelper;
 
 public class RoomSettingsActivity extends AppCompatActivity {
 
     private static final int REQUEST_BLUETOOTH_PERMISSION = 2001;
+    private static final int REQUEST_ENABLE_BLUETOOTH = 2002;
 
     private RadioGroup rgRounds, rgRule, rgPlayStyle;
     private CheckBox cbCardTracker, cbAntiCheat, cbTimeoutDismiss, cbSwapCards;
@@ -53,12 +55,44 @@ public class RoomSettingsActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
 
-        btnStartBluetooth.setOnClickListener(v -> startBluetoothRoom());
+        btnStartBluetooth.setOnClickListener(v -> startBluetoothRoomFlow());
     }
 
-    private void startBluetoothRoom() {
-        if (!hasBluetoothPermissions()) {
-            requestBluetoothPermissions();
+    private void startBluetoothRoomFlow() {
+        if (!BluetoothPermissionHelper.isBluetoothAvailable()) {
+            Toast.makeText(this, "当前设备不支持蓝牙", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    REQUEST_BLUETOOTH_PERMISSION
+            );
+            return;
+        }
+
+        if (!BluetoothPermissionHelper.isBluetoothEnabled()) {
+            requestEnableBluetooth();
+            return;
+        }
+
+        createBluetoothRoomAndEnterLobby();
+    }
+
+    private void requestEnableBluetooth() {
+        try {
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开蓝牙，请到系统设置中手动开启", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void createBluetoothRoomAndEnterLobby() {
+        if (bluetoothActionHandler == null) {
+            Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -73,37 +107,6 @@ public class RoomSettingsActivity extends AppCompatActivity {
         finish();
     }
 
-    private boolean hasBluetoothPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                    == PackageManager.PERMISSION_GRANTED
-                    && ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestBluetoothPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                            Manifest.permission.BLUETOOTH_SCAN
-                    },
-                    REQUEST_BLUETOOTH_PERMISSION
-            );
-        } else {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    REQUEST_BLUETOOTH_PERMISSION
-            );
-        }
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String[] permissions,
@@ -111,10 +114,25 @@ public class RoomSettingsActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (hasBluetoothPermissions()) {
-                startBluetoothRoom();
+            if (BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+                startBluetoothRoomFlow();
             } else {
-                Toast.makeText(this, "缺少蓝牙权限，无法创建房间", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "缺少蓝牙权限，无法创建房间", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,
+                                    int resultCode,
+                                    @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_ENABLE_BLUETOOTH) {
+            if (BluetoothPermissionHelper.isBluetoothEnabled()) {
+                startBluetoothRoomFlow();
+            } else {
+                Toast.makeText(this, "蓝牙未开启，无法创建房间", Toast.LENGTH_LONG).show();
             }
         }
     }

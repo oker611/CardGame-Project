@@ -1,6 +1,6 @@
 package com.example.cardgame.ui;
 
-import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -12,10 +12,10 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -25,17 +25,24 @@ import com.example.cardgame.controller.BluetoothActionHandler;
 import com.example.cardgame.dto.BluetoothDeviceViewData;
 import com.example.cardgame.dto.BluetoothViewData;
 import com.example.cardgame.model.DeviceInfo;
+import com.example.cardgame.util.BluetoothPermissionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SearchDeviceActivity extends AppCompatActivity {
 
-    private static final int REQUEST_BLUETOOTH_PERMISSION = 2002;
+    private static final int REQUEST_BLUETOOTH_PERMISSION = 2101;
+    private static final int REQUEST_ENABLE_BLUETOOTH = 2102;
 
     private RecyclerView rvDeviceList;
     private DeviceAdapter deviceAdapter;
-    private List<DeviceInfo> deviceList = new ArrayList<>();
+    private final List<DeviceInfo> deviceList = new ArrayList<>();
+
+    private BluetoothActionHandler bluetoothActionHandler;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private boolean connecting = false;
 
     private BluetoothActionHandler bluetoothActionHandler;
     private Handler handler = new Handler(Looper.getMainLooper());
@@ -49,7 +56,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
 
-        tvTitle = findViewById(R.id.tv_title);
+        TextView tvTitle = findViewById(R.id.tv_title);
         Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
         tvTitle.setTypeface(typeface);
 
@@ -59,26 +66,63 @@ public class SearchDeviceActivity extends AppCompatActivity {
         rvDeviceList = findViewById(R.id.rv_device_list);
         rvDeviceList.setLayoutManager(new LinearLayoutManager(this));
 
-        deviceAdapter = new DeviceAdapter(deviceList, device -> connectToDevice(device));
+        deviceAdapter = new DeviceAdapter(deviceList, this::connectToDevice);
         rvDeviceList.setAdapter(deviceAdapter);
 
-        startSearch();
+        startSearchFlow();
     }
 
-    private void startSearch() {
-        if (!hasBluetoothPermissions()) {
-            requestBluetoothPermissions();
+    private void startSearchFlow() {
+        if (!BluetoothPermissionHelper.isBluetoothAvailable()) {
+            Toast.makeText(this, "当前设备不支持蓝牙", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Toast.makeText(this, "正在搜索蓝牙设备...", Toast.LENGTH_SHORT).show();
+        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    REQUEST_BLUETOOTH_PERMISSION
+            );
+            return;
+        }
+
+        if (!BluetoothPermissionHelper.isBluetoothEnabled()) {
+            requestEnableBluetooth();
+            return;
+        }
+
+        searchBluetoothDevices();
+    }
+
+    private void requestEnableBluetooth() {
+        try {
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开蓝牙，请到系统设置中手动开启", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void searchBluetoothDevices() {
+        if (bluetoothActionHandler == null) {
+            Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Toast.makeText(this, "正在搜索已配对蓝牙设备...", Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.searchBluetoothDevices();
 
-        handler.postDelayed(this::refreshDeviceListFromController, 1200);
+        handler.postDelayed(this::refreshDeviceListFromController, 1000);
+        handler.postDelayed(this::refreshDeviceListFromController, 1800);
     }
 
     private void refreshDeviceListFromController() {
+        if (bluetoothActionHandler == null) {
+            return;
+        }
+
         BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
 
         if (viewData == null) {
@@ -104,82 +148,81 @@ public class SearchDeviceActivity extends AppCompatActivity {
         deviceAdapter.notifyDataSetChanged();
 
         if (deviceList.isEmpty()) {
-            Toast.makeText(this, "未发现已配对设备，请先在系统蓝牙中配对", Toast.LENGTH_LONG).show();
+            String errorMessage = viewData.getErrorMessage();
+            if (errorMessage != null && !errorMessage.trim().isEmpty()) {
+                Toast.makeText(this, "搜索失败：" + errorMessage, Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "未发现已配对设备，请先在系统蓝牙中配对", Toast.LENGTH_LONG).show();
+            }
         } else {
             Toast.makeText(this, "搜索完成，共发现 " + deviceList.size() + " 个设备", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void connectToDevice(DeviceInfo device) {
+        if (connecting) {
+            Toast.makeText(this, "正在连接，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         if (device == null || device.getDeviceAddress() == null) {
             Toast.makeText(this, "设备地址无效", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (!hasBluetoothPermissions()) {
-            requestBluetoothPermissions();
+        if (!BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    BluetoothPermissionHelper.getRequiredBluetoothPermissions(),
+                    REQUEST_BLUETOOTH_PERMISSION
+            );
             return;
         }
+
+        if (!BluetoothPermissionHelper.isBluetoothEnabled()) {
+            requestEnableBluetooth();
+            return;
+        }
+
+        if (bluetoothActionHandler == null) {
+            Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        connecting = true;
 
         Toast.makeText(this, "正在连接：" + device.getDeviceName(), Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.connectToDevice("P2", device.getDeviceAddress());
 
-        handler.postDelayed(() -> {
-            BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
-
-            if (viewData != null && viewData.isConnected()) {
-                Intent intent = new Intent(SearchDeviceActivity.this, RoomLobbyActivity.class);
-                intent.putExtra("is_host", false);
-                intent.putExtra("local_player_id", "P2");
-                startActivity(intent);
-                finish();
-                return;
-            }
-
-            String errorMessage = viewData != null ? viewData.getErrorMessage() : null;
-            if (errorMessage != null && !errorMessage.trim().isEmpty()) {
-                Toast.makeText(this, "连接失败：" + errorMessage, Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "连接中，请稍候...", Toast.LENGTH_SHORT).show();
-
-                Intent intent = new Intent(SearchDeviceActivity.this, RoomLobbyActivity.class);
-                intent.putExtra("is_host", false);
-                intent.putExtra("local_player_id", "P2");
-                startActivity(intent);
-                finish();
-            }
-        }, 1500);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 1500);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 3000);
     }
 
-    private boolean hasBluetoothPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                    == PackageManager.PERMISSION_GRANTED
-                    && ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
-                    == PackageManager.PERMISSION_GRANTED;
+    private void checkConnectionResultAndEnterLobby() {
+        if (!connecting || bluetoothActionHandler == null) {
+            return;
         }
 
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED;
-    }
+        BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
 
-    private void requestBluetoothPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                            Manifest.permission.BLUETOOTH_SCAN
-                    },
-                    REQUEST_BLUETOOTH_PERMISSION
-            );
-        } else {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    REQUEST_BLUETOOTH_PERMISSION
-            );
+        if (viewData != null && viewData.isConnected()) {
+            connecting = false;
+
+            Toast.makeText(this, "蓝牙连接成功", Toast.LENGTH_SHORT).show();
+
+            Intent intent = new Intent(SearchDeviceActivity.this, RoomLobbyActivity.class);
+            intent.putExtra("is_host", false);
+            intent.putExtra("local_player_id", "P2");
+            startActivity(intent);
+            finish();
+            return;
+        }
+
+        String errorMessage = viewData != null ? viewData.getErrorMessage() : null;
+        if (errorMessage != null && !errorMessage.trim().isEmpty()) {
+            connecting = false;
+            Toast.makeText(this, "连接失败：" + errorMessage, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -190,10 +233,25 @@ public class SearchDeviceActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (hasBluetoothPermissions()) {
-                startSearch();
+            if (BluetoothPermissionHelper.hasBluetoothPermissions(this)) {
+                startSearchFlow();
             } else {
-                Toast.makeText(this, "缺少蓝牙权限，无法搜索设备", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "缺少蓝牙权限，无法搜索或连接设备", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,
+                                    int resultCode,
+                                    @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_ENABLE_BLUETOOTH) {
+            if (BluetoothPermissionHelper.isBluetoothEnabled()) {
+                startSearchFlow();
+            } else {
+                Toast.makeText(this, "蓝牙未开启，无法搜索设备", Toast.LENGTH_LONG).show();
             }
         }
     }
