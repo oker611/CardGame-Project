@@ -29,6 +29,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private String remotePlayerId;
     private String role;
 
+    private volatile boolean communicationReady = false;
+
     public BluetoothGateway(Context context, GameEngine gameEngine) {
         this.connectionManager = new BluetoothConnectionManager(context);
         this.messageCodec = new BluetoothMessageCodec();
@@ -45,6 +47,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.localPlayerId = localPlayerId;
         this.remotePlayerId = "P2";
         this.role = "HOST";
+        this.communicationReady = false;
 
         networkGameBridge.setPlayerContext(this.localPlayerId, this.remotePlayerId);
 
@@ -55,8 +58,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             setupCommunicationChannel();
 
             notifyConnected();
-
             sendHeartbeat();
+
+            Log.i("CardGame", "[INFO] [蓝牙] 房主通道已就绪 | 本机:" + this.localPlayerId
+                    + " 对方:" + this.remotePlayerId);
         } catch (Exception exception) {
             handleConnectionError("创建蓝牙房间失败", exception);
         }
@@ -66,6 +71,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.localPlayerId = localPlayerId;
         this.remotePlayerId = "P1";
         this.role = "CLIENT";
+        this.communicationReady = false;
 
         networkGameBridge.setPlayerContext(this.localPlayerId, this.remotePlayerId);
 
@@ -76,8 +82,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             setupCommunicationChannel();
 
             notifyConnected();
-
             sendHeartbeat();
+
+            Log.i("CardGame", "[INFO] [蓝牙] 客户端通道已就绪 | 本机:" + this.localPlayerId
+                    + " 对方:" + this.remotePlayerId);
         } catch (Exception exception) {
             handleConnectionError("连接蓝牙设备失败", exception);
         }
@@ -104,6 +112,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void setupCommunicationChannel() throws IOException {
+        if (connectionManager.getOutputStream() == null || connectionManager.getInputStream() == null) {
+            throw new IOException("Bluetooth stream is null");
+        }
+
         sender = new BluetoothSender(
                 connectionManager.getOutputStream(),
                 messageCodec
@@ -116,12 +128,22 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         );
 
         receiver.startListening();
+        communicationReady = true;
+
+        Log.i("CardGame", "[INFO] [蓝牙] 通信通道建立 | 角色:" + role
+                + " 本机:" + localPlayerId
+                + " 对方:" + remotePlayerId);
     }
 
     @Override
     public void sendPlayAction(Play play) {
+        if (play == null) {
+            Log.w("CardGame", "[WARN] [蓝牙] [发送] 出牌消息为空 | play:null");
+            return;
+        }
+
         PlayActionPayload payload = new PlayActionPayload(
-                localPlayerId,
+                play.getPlayerId(),
                 new ArrayList<>(),
                 play
         );
@@ -132,11 +154,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 payload
         );
 
-        sendBluetoothMessage(message, "本地玩家出牌:" + localPlayerId);
+        sendBluetoothMessage(message, "本地玩家出牌:" + play.getPlayerId());
     }
 
     @Override
     public void sendPassAction(String playerId) {
+        if (playerId == null || playerId.trim().isEmpty()) {
+            Log.w("CardGame", "[WARN] [蓝牙] [发送] Pass玩家为空 | playerId:null");
+            return;
+        }
+
         PassActionPayload payload = new PassActionPayload(playerId);
 
         BluetoothMessage message = messageCodec.buildPassActionMessage(
@@ -150,8 +177,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     @Override
     public void syncGameState(GameState gameState) {
+        if (gameState == null) {
+            Log.w("CardGame", "[WARN] [蓝牙] [发送] 同步状态为空 | gameState:null");
+            return;
+        }
+
         InitGamePayload payload = new InitGamePayload(
-                gameState != null ? gameState.getCurrentPlayerId() : null,
+                gameState.getCurrentPlayerId(),
                 localPlayerId,
                 remotePlayerId,
                 null,
@@ -165,10 +197,15 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 payload
         );
 
-        sendBluetoothMessage(message, "同步游戏状态");
+        sendBluetoothMessage(message, "同步游戏状态 currentPlayer:" + gameState.getCurrentPlayerId());
     }
 
     public void sendInitGamePayload(InitGamePayload payload) {
+        if (payload == null) {
+            Log.w("CardGame", "[WARN] [蓝牙] [发送] 开局Payload为空 | payload:null");
+            return;
+        }
+
         BluetoothMessage message = messageCodec.buildInitGameMessage(
                 localPlayerId,
                 remotePlayerId,
@@ -179,6 +216,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     public void sendGameOver(String winnerId, String winnerName) {
+        if (winnerId == null || winnerId.trim().isEmpty()) {
+            Log.w("CardGame", "[WARN] [蓝牙] [发送] 游戏结束胜者为空 | winnerId:null");
+            return;
+        }
+
         GameOverPayload payload = new GameOverPayload(winnerId, winnerName);
 
         BluetoothMessage message = messageCodec.buildGameOverMessage(
@@ -201,8 +243,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     private void sendBluetoothMessage(BluetoothMessage message, String summary) {
         try {
-            if (sender == null || !sender.isActive()) {
-                throw new IOException("Bluetooth sender is not ready");
+            if (!isReadyToSend()) {
+                throw new IOException("Bluetooth channel is not ready");
             }
 
             sender.sendMessage(message);
@@ -219,12 +261,24 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 eventListener.onMessageSent(message.getMessageType(), summary);
             }
         } catch (Exception exception) {
-            handleConnectionError("发送蓝牙消息失败", exception);
+            handleConnectionError("发送蓝牙消息失败: " + summary, exception);
         }
+    }
+
+    private boolean isReadyToSend() {
+        return communicationReady
+                && sender != null
+                && sender.isActive()
+                && connectionManager.isConnected();
     }
 
     @Override
     public void onMessageReceived(BluetoothMessage message) {
+        if (message == null) {
+            Log.w("CardGame", "[WARN] [蓝牙] [接收] 空消息 | message:null");
+            return;
+        }
+
         Log.d(
                 "CardGame",
                 "[DEBUG] [蓝牙] [接收] 消息接收 | 类型:"
@@ -257,12 +311,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     public void disconnect() {
+        communicationReady = false;
+
         if (receiver != null) {
             receiver.stopListening();
+            receiver = null;
         }
 
         if (sender != null) {
             sender.stop();
+            sender = null;
         }
 
         connectionManager.close();
@@ -298,6 +356,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void handleConnectionError(String message, Exception exception) {
+        communicationReady = false;
+
         Log.e("CardGame", "[ERROR] [蓝牙] 连接断开 | 原因:" + message, exception);
 
         if (eventListener != null) {
