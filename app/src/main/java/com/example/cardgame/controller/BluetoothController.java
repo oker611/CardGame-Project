@@ -1,5 +1,6 @@
 package com.example.cardgame.controller;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 
 import com.example.cardgame.dto.BluetoothDeviceViewData;
@@ -18,19 +19,31 @@ import java.util.List;
 public class BluetoothController implements BluetoothActionHandler, BluetoothEventListener {
 
     private final BluetoothGateway bluetoothGateway;
-    private BluetoothViewData bluetoothViewData;
+    private final BluetoothViewData bluetoothViewData;
 
     public BluetoothController(Context context, GameEngine gameEngine) {
         this.bluetoothViewData = new BluetoothViewData();
+        updateBluetoothStatus();
         this.bluetoothGateway = new BluetoothGateway(context, gameEngine);
         this.bluetoothGateway.setBluetoothEventListener(this);
     }
 
+    private void updateBluetoothStatus() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothViewData.setBluetoothAvailable(adapter != null);
+        bluetoothViewData.setBluetoothEnabled(adapter != null && adapter.isEnabled());
+    }
+
     @Override
     public void createBluetoothRoom(String localPlayerId) {
+        updateBluetoothStatus();
+
+        bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
+        bluetoothViewData.setRemotePlayerId("P2");
         bluetoothViewData.setRole("HOST");
         bluetoothViewData.setHosting(true);
+        bluetoothViewData.setConnecting(false);
         bluetoothViewData.setStatusText("正在创建蓝牙房间");
 
         new Thread(() -> bluetoothGateway.startAsHost(localPlayerId)).start();
@@ -38,6 +51,9 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
     @Override
     public void searchBluetoothDevices() {
+        updateBluetoothStatus();
+
+        bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setStatusText("正在搜索附近蓝牙设备");
 
         new Thread(() -> {
@@ -61,9 +77,14 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
     @Override
     public void connectToDevice(String localPlayerId, String deviceAddress) {
+        updateBluetoothStatus();
+
+        bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
+        bluetoothViewData.setRemotePlayerId("P1");
         bluetoothViewData.setRole("CLIENT");
         bluetoothViewData.setConnecting(true);
+        bluetoothViewData.setConnected(false);
         bluetoothViewData.setStatusText("正在连接对方设备");
 
         new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress)).start();
@@ -72,9 +93,12 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     @Override
     public void disconnectBluetooth() {
         bluetoothGateway.disconnect();
+
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setConnecting(false);
         bluetoothViewData.setHosting(false);
+        bluetoothViewData.setConnectedDeviceName(null);
+        bluetoothViewData.setConnectedDeviceAddress(null);
         bluetoothViewData.setStatusText("蓝牙连接已断开");
     }
 
@@ -100,13 +124,16 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
     @Override
     public BluetoothViewData getBluetoothViewData() {
+        updateBluetoothStatus();
         return bluetoothViewData;
     }
 
     @Override
     public void onConnected(String deviceName, String deviceAddress) {
+        bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setConnected(true);
         bluetoothViewData.setConnecting(false);
+        bluetoothViewData.setHosting(false);
         bluetoothViewData.setConnectedDeviceName(deviceName);
         bluetoothViewData.setConnectedDeviceAddress(deviceAddress);
         bluetoothViewData.setStatusText("蓝牙连接成功");
@@ -116,19 +143,24 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     public void onDisconnected(String reason) {
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setConnecting(false);
+        bluetoothViewData.setHosting(false);
         bluetoothViewData.setStatusText("蓝牙连接断开");
         bluetoothViewData.setErrorMessage(reason);
     }
 
     @Override
     public void onMessageSent(MessageType messageType, String summary) {
-        bluetoothViewData.setLastSentMessageType(messageType.name());
+        if (messageType != null) {
+            bluetoothViewData.setLastSentMessageType(messageType.name());
+        }
         bluetoothViewData.setLastSentSummary(summary);
     }
 
     @Override
     public void onMessageReceived(MessageType messageType, String summary) {
-        bluetoothViewData.setLastReceivedMessageType(messageType.name());
+        if (messageType != null) {
+            bluetoothViewData.setLastReceivedMessageType(messageType.name());
+        }
         bluetoothViewData.setLastReceivedSummary(summary);
     }
 
