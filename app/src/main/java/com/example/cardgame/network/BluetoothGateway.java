@@ -43,8 +43,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     public void startAsHost(String localPlayerId) {
         this.localPlayerId = localPlayerId;
-        this.remotePlayerId = "player_2";
+        this.remotePlayerId = "P2";
         this.role = "HOST";
+
+        networkGameBridge.setPlayerContext(this.localPlayerId, this.remotePlayerId);
 
         try {
             Log.i("CardGame", "[INFO] [蓝牙] 创建房间 | 本机玩家:" + localPlayerId);
@@ -62,8 +64,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     public void connectAsClient(String localPlayerId, String deviceAddress) {
         this.localPlayerId = localPlayerId;
-        this.remotePlayerId = "player_1";
+        this.remotePlayerId = "P1";
         this.role = "CLIENT";
+
+        networkGameBridge.setPlayerContext(this.localPlayerId, this.remotePlayerId);
 
         try {
             Log.i("CardGame", "[INFO] [蓝牙] 发起连接 | 目标设备:" + deviceAddress);
@@ -147,7 +151,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     @Override
     public void syncGameState(GameState gameState) {
         InitGamePayload payload = new InitGamePayload(
-                null,
+                gameState != null ? gameState.getCurrentPlayerId() : null,
                 localPlayerId,
                 remotePlayerId,
                 null,

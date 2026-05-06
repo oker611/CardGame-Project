@@ -20,6 +20,8 @@ public class NetworkGameBridge {
     private final GameEngine gameEngine;
     private final BluetoothMessageCodec messageCodec;
     private BluetoothEventListener eventListener;
+    private String localPlayerId;
+    private String remotePlayerId;
 
     public NetworkGameBridge(GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
         this.gameEngine = gameEngine;
@@ -28,6 +30,11 @@ public class NetworkGameBridge {
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
         this.eventListener = eventListener;
+    }
+
+    public void setPlayerContext(String localPlayerId, String remotePlayerId) {
+        this.localPlayerId = localPlayerId;
+        this.remotePlayerId = remotePlayerId;
     }
 
     public void handleMessage(BluetoothMessage message) {
@@ -81,6 +88,13 @@ public class NetworkGameBridge {
                         syncedState
                 );
 
+                invokeEngineMethod(
+                        "configureBluetoothPlayerTypes",
+                        new Class[]{String.class, String.class},
+                        localPlayerId,
+                        remotePlayerId
+                );
+
                 notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
                 return;
             }
@@ -95,6 +109,13 @@ public class NetworkGameBridge {
                     myHand,
                     opponentHand,
                     currentPlayerId
+            );
+
+            invokeEngineMethod(
+                    "configureBluetoothPlayerTypes",
+                    new Class[]{String.class, String.class},
+                    localPlayerId,
+                    remotePlayerId
             );
 
             notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");

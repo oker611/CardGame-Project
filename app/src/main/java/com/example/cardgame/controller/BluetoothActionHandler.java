@@ -20,5 +20,7 @@ public interface BluetoothActionHandler {
 
     void syncGameState(GameState gameState);
 
+    void sendGameOver(String winnerId, String winnerName);
+
     BluetoothViewData getBluetoothViewData();
 }

@@ -46,6 +46,7 @@ public class GameEngine {
 
     public void dealCards() {
         if (gameState != null) dealManager.dealCards(gameState);
+
     }
 
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
@@ -305,6 +306,29 @@ public class GameEngine {
         return passTurn(playerId);
     }
 
+    public void configureBluetoothPlayerTypes(String localPlayerId, String remotePlayerId) {
+        if (gameState == null || gameState.getPlayers() == null) {
+            return;
+        }
+
+        for (Player player : gameState.getPlayers()) {
+            if (player == null) {
+                continue;
+            }
+
+            if (player.getPlayerId().equals(localPlayerId)) {
+                player.setType(PlayerType.HUMAN);
+            } else if (player.getPlayerId().equals(remotePlayerId)) {
+                player.setType(PlayerType.REMOTE);
+            } else {
+                player.setType(PlayerType.AI);
+            }
+        }
+
+        System.out.println("[CardGame][BLUETOOTH] Player types configured | local="
+                + localPlayerId + ", remote=" + remotePlayerId);
+    }
+
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
         if (type == null) return CardPattern.INVALID;
         switch (type) {
@@ -314,3 +338,4 @@ public class GameEngine {
         }
     }
 }
+
