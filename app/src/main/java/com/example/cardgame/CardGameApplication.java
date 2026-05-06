@@ -12,6 +12,8 @@ import com.example.cardgame.engine.GameEngine;
 
 public class CardGameApplication extends Application {
 
+    private static final String TAG = "CardGame";
+
     private static GameEngine gameEngine;
     private static GameActionHandler gameActionHandler;
     private static BluetoothActionHandler bluetoothActionHandler;
@@ -24,7 +26,7 @@ public class CardGameApplication extends Application {
         gameActionHandler = new GameController(gameEngine);
 
         if (BuildConfig.DEBUG) {
-            Log.d("CardGame", "[DEBUG] [APP] Application initialized | GameActionHandler ready.");
+            Log.d(TAG, "[DEBUG] [APP] Application initialized | GameActionHandler ready.");
         }
     }
 
@@ -44,7 +46,7 @@ public class CardGameApplication extends Application {
             );
 
             if (BuildConfig.DEBUG) {
-                Log.d("CardGame", "[DEBUG] [APP] BluetoothActionHandler initialized | BluetoothController ready.");
+                Log.d(TAG, "[DEBUG] [APP] BluetoothActionHandler initialized | BluetoothController ready.");
             }
         }
 

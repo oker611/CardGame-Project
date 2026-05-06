@@ -94,7 +94,9 @@ public class GameActivity extends AppCompatActivity {
         isHost = getIntent().getBooleanExtra("is_host", false);
         localPlayerId = getIntent().getStringExtra("local_player_id");
 
-        if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
+        if (!isBluetoothGame) {
+            localPlayerId = "P1";
+        } else if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
             localPlayerId = isHost ? "P1" : "P2";
         }
 
@@ -121,7 +123,12 @@ public class GameActivity extends AppCompatActivity {
             bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
 
             gameActionHandler.setBluetoothActionHandler(bluetoothActionHandler);
-            gameActionHandler.setBluetoothMode(isBluetoothGame, isHost, localPlayerId);
+
+            if (isBluetoothGame) {
+                gameActionHandler.setBluetoothMode(true, isHost, localPlayerId);
+            } else {
+                gameActionHandler.setBluetoothMode(false, false, "P1");
+            }
 
             if (isBluetoothGame) {
                 System.out.println("[CardGame][UI] Bluetooth game mode, host="

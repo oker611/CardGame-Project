@@ -14,7 +14,7 @@ public class BluetoothReceiver {
     private final BluetoothMessageCodec messageCodec;
     private final BluetoothMessageListener messageListener;
 
-    private boolean listening;
+    private volatile boolean listening;
     private Thread receiveThread;
 
     public BluetoothReceiver(
@@ -32,10 +32,17 @@ public class BluetoothReceiver {
             return;
         }
 
+        if (inputStream == null) {
+            notifyReceiveError(new IOException("Bluetooth inputStream is null"));
+            return;
+        }
+
         listening = true;
 
-        receiveThread = new Thread(this::receiveLoop);
+        receiveThread = new Thread(this::receiveLoop, "CardGame-BluetoothReceiver");
         receiveThread.start();
+
+        Log.i("CardGame", "[INFO] [蓝牙] [接收] 接收线程启动 | 状态:started");
     }
 
     public void stopListening() {
@@ -45,6 +52,8 @@ public class BluetoothReceiver {
             receiveThread.interrupt();
             receiveThread = null;
         }
+
+        Log.i("CardGame", "[INFO] [蓝牙] [接收] 接收线程停止 | 状态:stopped");
     }
 
     private void receiveLoop() {
@@ -57,23 +66,46 @@ public class BluetoothReceiver {
                 String rawJson = reader.readLine();
 
                 if (rawJson == null) {
-                    throw new IOException("Bluetooth input stream closed");
+                    if (listening) {
+                        throw new IOException("Bluetooth input stream closed");
+                    }
+                    return;
                 }
 
                 Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息接收 | 内容:" + rawJson);
                 handleRawMessage(rawJson);
             }
         } catch (Exception exception) {
-            listening = false;
-            messageListener.onReceiveError(exception);
+            if (listening) {
+                listening = false;
+                notifyReceiveError(exception);
+            } else {
+                Log.i("CardGame", "[INFO] [蓝牙] [接收] 主动停止接收 | 原因:receiver stopped");
+            }
         }
     }
 
     private void handleRawMessage(String rawJson) {
         try {
             BluetoothMessage message = messageCodec.decode(rawJson);
-            messageListener.onMessageReceived(message);
+
+            if (message == null || message.getMessageType() == null) {
+                throw new IOException("Invalid bluetooth message: " + rawJson);
+            }
+
+            if (messageListener != null) {
+                messageListener.onMessageReceived(message);
+            }
         } catch (Exception exception) {
+            notifyReceiveError(exception);
+        }
+    }
+
+    private void notifyReceiveError(Exception exception) {
+        Log.e("CardGame", "[ERROR] [蓝牙] [接收] 接收异常 | 原因:"
+                + (exception == null ? "unknown" : exception.getMessage()), exception);
+
+        if (messageListener != null) {
             messageListener.onReceiveError(exception);
         }
     }
