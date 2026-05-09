@@ -79,12 +79,21 @@ public class PlayValidator {
             return new ValidationResult(false, "上家牌型无效");
         }
         if (currentInfo.getType() != lastInfo.getType()) {
-            return new ValidationResult(false, "必须出与上家相同牌型");
+            if (isFiveCardPattern(currentInfo.getType()) && isFiveCardPattern(lastInfo.getType())) {
+                if (getFiveCardPriority(currentInfo.getType()) > getFiveCardPriority(lastInfo.getType())) {
+                    return new ValidationResult(true, "高级牌型压制（如铁支压葫芦）");
+                } else {
+                    return new ValidationResult(false, "牌型优先级不足以压制上家");
+                }
+            }
+            return new ValidationResult(false, "必须出与上家相同的牌型");
         }
+
+        // 7. 同牌型比较大小
         if (currentInfo.getCompareValue() > lastInfo.getCompareValue()) {
             return new ValidationResult(true, "合法");
         } else {
-            return new ValidationResult(false, "牌点必须大于上家");
+            return new ValidationResult(false, "牌面必须大于上家");
         }
     }
 
@@ -96,5 +105,28 @@ public class PlayValidator {
             }
         }
         return false;
+    }
+
+    private boolean isFiveCardPattern(PatternType type) {
+        return type == PatternType.STRAIGHT || type == PatternType.FLUSH ||
+                type == PatternType.FULL_HOUSE || type == PatternType.IRON_BRANCH ||
+                type == PatternType.STRAIGHT_FLUSH;
+    }
+
+    private int getFiveCardPriority(PatternType type) {
+        switch (type) {
+            case STRAIGHT:
+                return 1;
+            case FLUSH:
+                return 2;
+            case FULL_HOUSE:
+                return 3;
+            case IRON_BRANCH:
+                return 4;
+            case STRAIGHT_FLUSH:
+                return 5;
+            default:
+                return 0;
+        }
     }
 }

@@ -172,21 +172,37 @@ public class GameEngine {
         return new PassResult(success, msg, state);
     }
 
-    public boolean isGameOver() { return gameState != null && gameState.isGameOver(); }
-    public String getWinnerId() { return gameState != null ? gameState.getWinnerId() : null; }
-    public GameState getGameState() { return gameState; }
+    public boolean isGameOver() {
+        return gameState != null && gameState.isGameOver();
+    }
+
+    public String getWinnerId() {
+        return gameState != null ? gameState.getWinnerId() : null;
+    }
+
+    public GameState getGameState() {
+        return gameState;
+    }
 
     public List<Card> getLastPlayCards() {
         if (gameState == null || gameState.getLastPlay() == null) return null;
         return gameState.getLastPlay().getCards();
     }
-    public boolean isFirstRound() { return gameState != null && gameState.isOpeningTurn(); }
+
+    public boolean isFirstRound() {
+        return gameState != null && gameState.isOpeningTurn();
+    }
+
     public boolean isFirstTurnOfCurrentRound() {
         if (gameState == null) return true;
         List<Card> lastPlayCards = getLastPlayCards();
         return lastPlayCards == null || lastPlayCards.isEmpty();
     }
-    public String getCurrentPlayerId() { return gameState != null ? gameState.getCurrentPlayerId() : null; }
+
+    public String getCurrentPlayerId() {
+        return gameState != null ? gameState.getCurrentPlayerId() : null;
+    }
+
     public List<Card> getPlayerHand(String playerId) {
         Player player = gameState != null ? gameState.getPlayerById(playerId) : null;
         return player != null ? player.getHandCards() : null;
@@ -195,14 +211,6 @@ public class GameEngine {
     private boolean containsThreeOfDiamonds(List<Card> cards) {
         for (Card c : cards) if (c.isThreeOfDiamonds()) return true;
         return false;
-    }
-
-    private CardPattern guessPattern(List<Card> cards) {
-        if (cards == null || cards.isEmpty()) return CardPattern.INVALID;
-        if (cards.size() == 1) return CardPattern.SINGLE;
-        if (cards.size() == 2 && sameRank(cards)) return CardPattern.PAIR;
-        if (cards.size() == 3 && sameRank(cards)) return CardPattern.TRIPLE;
-        return CardPattern.INVALID;
     }
 
     private boolean sameRank(List<Card> cards) {
@@ -332,10 +340,36 @@ public class GameEngine {
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
         if (type == null) return CardPattern.INVALID;
         switch (type) {
-            case SINGLE: return CardPattern.SINGLE;
-            case PAIR: return CardPattern.PAIR;
-            default: return CardPattern.INVALID;
+            case SINGLE:
+                return CardPattern.SINGLE;
+            case PAIR:
+                return CardPattern.PAIR;
+            case TRIPLE:
+                return CardPattern.TRIPLE;
+            case QUADRUPLE:
+                return CardPattern.QUADRUPLE;
+            case STRAIGHT:
+                return CardPattern.STRAIGHT;
+            case FLUSH:
+                return CardPattern.FLUSH;
+            case FULL_HOUSE:
+                return CardPattern.FULL_HOUSE;
+            case IRON_BRANCH:
+                return CardPattern.IRON_BRANCH;
+            case STRAIGHT_FLUSH:
+                return CardPattern.STRAIGHT_FLUSH;
+            default:
+                return CardPattern.INVALID;
         }
     }
-}
 
+    private CardPattern guessPattern(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) return CardPattern.INVALID;
+        int size = cards.size();
+        if (size == 1) return CardPattern.SINGLE;
+        if (size == 2 && sameRank(cards)) return CardPattern.PAIR;
+        if (size == 3 && sameRank(cards)) return CardPattern.TRIPLE;
+        if (size == 4 && sameRank(cards)) return CardPattern.QUADRUPLE;
+        return CardPattern.INVALID;
+    }
+}
