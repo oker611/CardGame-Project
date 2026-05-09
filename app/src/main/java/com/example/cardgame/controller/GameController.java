@@ -11,6 +11,7 @@ import com.example.cardgame.dto.PlayerViewData;
 import com.example.cardgame.engine.GameEngine;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
+import com.example.cardgame.model.Play;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.RuleConfig;
@@ -27,7 +28,10 @@ public class GameController implements GameActionHandler {
     private final GameEngine gameEngine;
     private final List<String> selectedCardIds = new ArrayList<>();
 
-    private static final String MY_PLAYER_ID = "P1";
+    private String myPlayerId = "P1";
+    private boolean bluetoothMode = false;
+    private boolean hostMode = false;
+    private BluetoothActionHandler bluetoothActionHandler;
 
     private final Map<String, AIPlayer> aiPlayerCache = new ConcurrentHashMap<>();
 
@@ -37,8 +41,44 @@ public class GameController implements GameActionHandler {
         this.gameEngine = gameEngine;
     }
 
+    @Override
     public void setUiRefreshCallback(Runnable callback) {
         this.uiRefreshCallback = callback;
+    }
+
+    @Override
+    public void setBluetoothActionHandler(BluetoothActionHandler bluetoothActionHandler) {
+        this.bluetoothActionHandler = bluetoothActionHandler;
+    }
+
+    @Override
+    public void setBluetoothMode(boolean bluetoothMode, boolean hostMode, String localPlayerId) {
+        this.bluetoothMode = bluetoothMode;
+
+        if (!bluetoothMode) {
+            this.hostMode = false;
+            this.myPlayerId = "P1";
+
+            System.out.println("[CardGame][CONTROLLER] Normal mode, localPlayerId=P1");
+            return;
+        }
+
+        this.hostMode = hostMode;
+        this.myPlayerId = localPlayerId != null ? localPlayerId : (hostMode ? "P1" : "P2");
+
+        if (gameEngine.getGameState() != null) {
+            gameEngine.configureBluetoothPlayerTypes(
+                    this.myPlayerId,
+                    "P1".equals(this.myPlayerId) ? "P2" : "P1"
+            );
+        }
+
+        System.out.println("[CardGame][CONTROLLER][BLUETOOTH] mode="
+                + bluetoothMode
+                + ", host="
+                + hostMode
+                + ", localPlayerId="
+                + this.myPlayerId);
     }
 
     private void notifyUiRefresh() {
@@ -51,21 +91,32 @@ public class GameController implements GameActionHandler {
     public void startNewGame() {
         System.out.println("[CardGame][CONTROLLER] startNewGame called");
 
+        if (!bluetoothMode) {
+            myPlayerId = "P1";
+        }
+
         List<Player> players = new ArrayList<>();
+
         Player p1 = new Player("P1", "Alice");
-        p1.setType(PlayerType.HUMAN);
-        players.add(p1);
-
         Player p2 = new Player("P2", "Bob");
-        p2.setType(PlayerType.AI);
-        players.add(p2);
-
         Player p3 = new Player("P3", "Cindy");
-        p3.setType(PlayerType.AI);
-        players.add(p3);
-
         Player p4 = new Player("P4", "David");
-        p4.setType(PlayerType.AI);
+
+        if (bluetoothMode) {
+            p1.setType("P1".equals(myPlayerId) ? PlayerType.HUMAN : PlayerType.REMOTE);
+            p2.setType("P2".equals(myPlayerId) ? PlayerType.HUMAN : PlayerType.REMOTE);
+            p3.setType(PlayerType.AI);
+            p4.setType(PlayerType.AI);
+        } else {
+            p1.setType(PlayerType.HUMAN);
+            p2.setType(PlayerType.AI);
+            p3.setType(PlayerType.AI);
+            p4.setType(PlayerType.AI);
+        }
+
+        players.add(p1);
+        players.add(p2);
+        players.add(p3);
         players.add(p4);
 
         RuleConfig ruleConfig = new RuleConfig();
@@ -73,16 +124,28 @@ public class GameController implements GameActionHandler {
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
 
-        aiPlayerCache.clear();
+        if (bluetoothMode) {
+            gameEngine.configureBluetoothPlayerTypes(
+                    myPlayerId,
+                    "P1".equals(myPlayerId) ? "P2" : "P1"
+            );
+        }
 
-        triggerNextAction();
+        aiPlayerCache.clear();
 
         GameState state = gameEngine.getGameState();
         if (state != null && state.getCurrentPlayer() != null) {
             System.out.println("[CardGame][CONTROLLER] startNewGame finished, currentPlayer="
                     + state.getCurrentPlayer().getPlayerId());
         }
+
+        if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
+            bluetoothActionHandler.syncGameState(gameEngine.getGameState());
+            System.out.println("[CardGame][BLUETOOTH] INIT_GAME sent by host");
+        }
+
         notifyUiRefresh();
+        triggerNextAction();
     }
 
     @Override
@@ -95,15 +158,14 @@ public class GameController implements GameActionHandler {
         }
 
         Player currentPlayer = state.getCurrentPlayer();
-        // 必须是当前玩家且是真人，否则拒绝
-        if (!MY_PLAYER_ID.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+
+        if (!myPlayerId.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
             System.out.println("[CardGame][CONTROLLER] submitPlay rejected: not human or not my turn");
             return new PlayResult(false, "不是您的回合", state);
         }
 
-        // 构建牌ID列表（仅自己回合）
         List<String> cardsToPlay = new ArrayList<>();
-        Player me = state.getPlayerById(MY_PLAYER_ID);
+        Player me = state.getPlayerById(myPlayerId);
         if (me != null && this.selectedCardIds != null) {
             for (String uiCardStr : this.selectedCardIds) {
                 for (Card c : me.getHandCards()) {
@@ -115,7 +177,6 @@ public class GameController implements GameActionHandler {
             }
         }
 
-        // 如果没有选牌，直接返回错误（不自动 pass）
         if (cardsToPlay.isEmpty()) {
             System.out.println("[CardGame][CONTROLLER] No cards selected");
             return new PlayResult(false, "请先选择要出的牌", state);
@@ -124,11 +185,24 @@ public class GameController implements GameActionHandler {
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
         if (result.isSuccess()) {
             this.selectedCardIds.clear();
+
+            if (bluetoothMode && bluetoothActionHandler != null && gameEngine.getGameState() != null) {
+                Play lastPlay = gameEngine.getGameState().getLastPlay();
+                if (lastPlay != null) {
+                    bluetoothActionHandler.sendLocalPlay(lastPlay);
+                    System.out.println("[CardGame][BLUETOOTH] PLAY_ACTION sent, playerId=" + lastPlay.getPlayerId());
+                }
+
+                sendGameOverIfNeeded();
+            }
+
             notifyUiRefresh();
+
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
         }
+
         return result;
     }
 
@@ -142,29 +216,38 @@ public class GameController implements GameActionHandler {
         }
 
         Player currentPlayer = state.getCurrentPlayer();
-        if (!MY_PLAYER_ID.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+        if (!myPlayerId.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
             System.out.println("[CardGame][CONTROLLER] passTurn rejected: not human or not my turn");
             return new PassResult(false, "不是您的回合", state);
         }
 
         PassResult result = gameEngine.passTurn(currentPlayer.getPlayerId());
         if (result.isSuccess()) {
+            if (bluetoothMode && bluetoothActionHandler != null) {
+                bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
+                System.out.println("[CardGame][BLUETOOTH] PASS_ACTION sent, playerId=" + currentPlayer.getPlayerId());
+            }
+
             notifyUiRefresh();
+
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
         }
+
         return result;
     }
 
     @Override
     public void toggleCardSelection(String cardId) {
         System.out.println("[CardGame][CONTROLLER] toggleCardSelection called, cardId=" + cardId);
+
         if (selectedCardIds.contains(cardId)) {
             selectedCardIds.remove(cardId);
         } else {
             selectedCardIds.add(cardId);
         }
+
         System.out.println("[CardGame][CONTROLLER] current selectedCardIds=" + selectedCardIds);
         notifyUiRefresh();
     }
@@ -185,7 +268,7 @@ public class GameController implements GameActionHandler {
             return emptyViewData();
         }
 
-        Player me = state.getPlayerById(MY_PLAYER_ID);
+        Player me = state.getPlayerById(myPlayerId);
         if (me == null) {
             System.out.println("[CardGame][CONTROLLER] getGameViewData failed: me is null");
             return emptyViewData();
@@ -218,13 +301,14 @@ public class GameController implements GameActionHandler {
                 .map(card -> card.getSuit().getSymbol() + card.getRank().getDisplayName())
                 .collect(Collectors.toList());
 
-        // ✅ 构建每个玩家最后出牌的映射（转为展示字符串）
         Map<String, List<String>> playerLastPlayCards = new HashMap<>();
         Map<String, List<Card>> rawMap = state.getLastPlayByPlayer();
+
         if (rawMap != null) {
             for (Map.Entry<String, List<Card>> entry : rawMap.entrySet()) {
                 String pid = entry.getKey();
                 List<Card> cards = entry.getValue();
+
                 if (cards != null && !cards.isEmpty()) {
                     List<String> cardStrs = cards.stream()
                             .map(c -> c.getSuit().getSymbol() + c.getRank().getDisplayName())
@@ -263,10 +347,11 @@ public class GameController implements GameActionHandler {
         );
     }
 
-    // ==================== AI 自动出牌逻辑 ====================
-
     private AIPlayer getOrCreateAIPlayer(Player player) {
-        if (player.getType() != PlayerType.AI) return null;
+        if (player.getType() != PlayerType.AI) {
+            return null;
+        }
+
         return aiPlayerCache.computeIfAbsent(player.getPlayerId(), id -> {
             AIPlayer ai = new AIPlayer(id);
             ai.setHand(player.getHandCards());
@@ -279,52 +364,134 @@ public class GameController implements GameActionHandler {
         if (state == null || gameEngine.isGameOver()) {
             return;
         }
+
         Player currentPlayer = state.getCurrentPlayer();
         if (currentPlayer == null) {
             return;
         }
-        if (MY_PLAYER_ID.equals(currentPlayer.getPlayerId())) {
+
+        if (myPlayerId.equals(currentPlayer.getPlayerId())) {
             return;
         }
 
         AIPlayer aiPlayer = getOrCreateAIPlayer(currentPlayer);
+
         if (aiPlayer == null) {
             List<Card> randomCards = currentPlayer.getRandomCards(2);
-            if (randomCards.isEmpty()) {
-                gameEngine.passTurn(currentPlayer.getPlayerId());
+
+            if (randomCards == null || randomCards.isEmpty()) {
+                PassResult passResult = gameEngine.passTurn(currentPlayer.getPlayerId());
+                syncAiPassIfNeeded(currentPlayer, passResult);
             } else {
-                List<String> cardIds = randomCards.stream().map(Card::getCardId).collect(Collectors.toList());
-                gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+                List<String> cardIds = randomCards.stream()
+                        .map(Card::getCardId)
+                        .collect(Collectors.toList());
+
+                PlayResult playResult = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+                syncAiPlayIfNeeded(playResult);
             }
         } else {
             aiPlayer.setHand(currentPlayer.getHandCards());
+
             List<Card> lastPlayCards = gameEngine.getLastPlayCards();
             boolean isFirstRound = gameEngine.isFirstRound();
             boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
+
             List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
 
             if (chosenCards == null || chosenCards.isEmpty()) {
-                gameEngine.passTurn(currentPlayer.getPlayerId());
+                PassResult passResult = gameEngine.passTurn(currentPlayer.getPlayerId());
+                syncAiPassIfNeeded(currentPlayer, passResult);
             } else {
-                List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
-                gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+                List<String> cardIds = chosenCards.stream()
+                        .map(Card::getCardId)
+                        .collect(Collectors.toList());
+
+                PlayResult playResult = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+                syncAiPlayIfNeeded(playResult);
             }
         }
 
-
-
-        // 关键：AI 动作后必须刷新 UI 并继续游戏流程
         notifyUiRefresh();
-        if (!gameEngine.isGameOver()) {
-            new Handler(Looper.getMainLooper()).postDelayed(() -> triggerNextAction(), 100);
 
+        if (!gameEngine.isGameOver()) {
+            new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
         }
     }
 
+    private void syncAiPassIfNeeded(Player currentPlayer, PassResult passResult) {
+        if (bluetoothMode
+                && hostMode
+                && bluetoothActionHandler != null
+                && passResult != null
+                && passResult.isSuccess()) {
+            bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
+            System.out.println("[CardGame][BLUETOOTH] AI PASS_ACTION sent, playerId="
+                    + currentPlayer.getPlayerId());
+        }
+    }
+
+    private void syncAiPlayIfNeeded(PlayResult playResult) {
+        if (bluetoothMode
+                && hostMode
+                && bluetoothActionHandler != null
+                && playResult != null
+                && playResult.isSuccess()) {
+            Play lastPlay = gameEngine.getGameState() != null
+                    ? gameEngine.getGameState().getLastPlay()
+                    : null;
+
+            if (lastPlay != null) {
+                bluetoothActionHandler.sendLocalPlay(lastPlay);
+                System.out.println("[CardGame][BLUETOOTH] AI PLAY_ACTION sent, playerId="
+                        + lastPlay.getPlayerId());
+            }
+
+            sendGameOverIfNeeded();
+        }
+    }
+
+    private void sendGameOverIfNeeded() {
+        if (!bluetoothMode || bluetoothActionHandler == null) {
+            return;
+        }
+
+        if (!gameEngine.isGameOver()) {
+            return;
+        }
+
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getWinnerId() == null) {
+            return;
+        }
+
+        Player winner = state.getPlayerById(state.getWinnerId());
+        String winnerName = winner != null ? winner.getPlayerName() : state.getWinnerId();
+
+        bluetoothActionHandler.sendGameOver(state.getWinnerId(), winnerName);
+
+        System.out.println("[CardGame][BLUETOOTH] GAME_OVER sent, winnerId="
+                + state.getWinnerId());
+    }
+
+    @Override
     public void triggerNextAction() {
-        if (gameEngine.isGameOver()) return;
+        if (gameEngine.isGameOver()) {
+            return;
+        }
+
+        if (gameEngine.getGameState() == null) {
+            return;
+        }
+
         Player current = gameEngine.getGameState().getCurrentPlayer();
-        if (current == null) return;
+        if (current == null) {
+            return;
+        }
+
+        if (bluetoothMode && !hostMode && current.getType() != PlayerType.HUMAN) {
+            return;
+        }
 
         switch (current.getType()) {
             case HUMAN:
@@ -333,7 +500,8 @@ public class GameController implements GameActionHandler {
             case AI:
                 long aiThinkTime = 3000;
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (current.equals(gameEngine.getGameState().getCurrentPlayer())) {
+                    if (gameEngine.getGameState() != null
+                            && current.equals(gameEngine.getGameState().getCurrentPlayer())) {
                         autoPlayForCurrentPlayer();
                     }
                 }, aiThinkTime);

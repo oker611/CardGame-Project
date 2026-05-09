@@ -18,6 +18,18 @@ public interface GameActionHandler {
 
     GameViewData getGameViewData();
 
+    default void setBluetoothActionHandler(BluetoothActionHandler bluetoothActionHandler) {
+        // default no-op
+    }
+
+    default void setBluetoothMode(boolean bluetoothMode, boolean hostMode, String localPlayerId) {
+        // default no-op
+    }
+
+    default void triggerNextAction() {
+        // default no-op
+    }
+
     /**
      * UI 刷新回调。
      *

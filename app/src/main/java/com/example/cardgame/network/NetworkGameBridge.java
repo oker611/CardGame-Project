@@ -3,6 +3,7 @@ package com.example.cardgame.network;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Play;
 import com.example.cardgame.network.payload.ErrorPayload;
@@ -19,6 +20,8 @@ public class NetworkGameBridge {
     private final GameEngine gameEngine;
     private final BluetoothMessageCodec messageCodec;
     private BluetoothEventListener eventListener;
+    private String localPlayerId;
+    private String remotePlayerId;
 
     public NetworkGameBridge(GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
         this.gameEngine = gameEngine;
@@ -27,6 +30,11 @@ public class NetworkGameBridge {
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
         this.eventListener = eventListener;
+    }
+
+    public void setPlayerContext(String localPlayerId, String remotePlayerId) {
+        this.localPlayerId = localPlayerId;
+        this.remotePlayerId = remotePlayerId;
     }
 
     public void handleMessage(BluetoothMessage message) {
@@ -71,6 +79,26 @@ public class NetworkGameBridge {
             InitGamePayload payload =
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
 
+            if (payload.getGameState() != null) {
+                GameState syncedState = payload.getGameState();
+
+                invokeEngineMethod(
+                        "rebuildGameState",
+                        new Class[]{GameState.class},
+                        syncedState
+                );
+
+                invokeEngineMethod(
+                        "configureBluetoothPlayerTypes",
+                        new Class[]{String.class, String.class},
+                        localPlayerId,
+                        remotePlayerId
+                );
+
+                notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
+                return;
+            }
+
             List<Card> myHand = payload.getRemoteHandCards();
             List<Card> opponentHand = payload.getLocalHandCards();
             String currentPlayerId = payload.getCurrentPlayerId();
@@ -83,7 +111,14 @@ public class NetworkGameBridge {
                     currentPlayerId
             );
 
-            notifyReceived(MessageType.INIT_GAME, "开局状态已重建");
+            invokeEngineMethod(
+                    "configureBluetoothPlayerTypes",
+                    new Class[]{String.class, String.class},
+                    localPlayerId,
+                    remotePlayerId
+            );
+
+            notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
         } catch (Exception exception) {
             notifyError("Failed to handle INIT_GAME", exception);
         }
@@ -130,7 +165,7 @@ public class NetworkGameBridge {
 
             if (!executed) {
                 invokeEngineMethod(
-                        "pass",
+                        "passTurn",
                         new Class[]{String.class},
                         payload.getPlayerId()
                 );
