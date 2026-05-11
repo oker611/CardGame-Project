@@ -54,7 +54,15 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         try {
             Log.i("CardGame", "[INFO] [蓝牙] 创建房间 | 本机玩家:" + localPlayerId);
 
-            connectionManager.acceptConnectionAsServer();
+            // 第一步：创建服务端 Socket（非阻塞），此时房间已可被发现
+            connectionManager.startServer();
+
+            // 通知 UI：房间已创建，等待玩家加入
+            notifyServerReady();
+
+            // 第二步：阻塞等待客户端连接
+            connectionManager.waitForClient();
+
             setupCommunicationChannel();
 
             notifyConnected();
@@ -342,6 +350,14 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     connectionManager.getConnectedDeviceName(),
                     connectionManager.getConnectedDeviceAddress()
             );
+        }
+    }
+
+    private void notifyServerReady() {
+        Log.i("CardGame", "[INFO] [蓝牙] 服务端就绪 | 等待客户端连接...");
+
+        if (eventListener != null) {
+            eventListener.onServerReady();
         }
     }
 

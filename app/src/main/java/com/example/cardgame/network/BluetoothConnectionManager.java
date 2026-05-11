@@ -329,8 +329,12 @@ public class BluetoothConnectionManager {
         }
     }
 
+    /**
+     * 仅创建蓝牙服务端 Socket 并开始监听（非阻塞）。房间此时已可被发现。
+     * 调用此方法后应调用 {@link #waitForClient()} 等待客户端连接。
+     */
     @SuppressLint("MissingPermission")
-    public void acceptConnectionAsServer() throws IOException {
+    public void startServer() throws IOException {
         if (bluetoothAdapter == null) {
             throw new IOException("Bluetooth is not available");
         }
@@ -340,9 +344,29 @@ public class BluetoothConnectionManager {
                 SERVICE_UUID
         );
 
+        Log.i("CardGame", "[INFO] [蓝牙] 服务端 Socket 已创建，等待客户端连接...");
+    }
+
+    /**
+     * 阻塞等待客户端连接，连上后建立输入输出流。
+     * 调用前必须先调用 {@link #startServer()}。
+     */
+    @SuppressLint("MissingPermission")
+    public void waitForClient() throws IOException {
+        if (serverSocket == null) {
+            throw new IOException("Server socket not started. Call startServer() first.");
+        }
+
         bluetoothSocket = serverSocket.accept();
 
+        Log.i("CardGame", "[INFO] [蓝牙] 客户端已连接");
         setupStreams();
+    }
+
+    @SuppressLint("MissingPermission")
+    public void acceptConnectionAsServer() throws IOException {
+        startServer();
+        waitForClient();
     }
 
     @SuppressLint("MissingPermission")
