@@ -145,6 +145,15 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     }
 
     @Override
+    public void onServerReady() {
+        bluetoothViewData.clearErrorMessage();
+        bluetoothViewData.setConnected(false);
+        bluetoothViewData.setConnecting(false);
+        bluetoothViewData.setHosting(true);
+        bluetoothViewData.setStatusText("房间已创建，等待加入");
+    }
+
+    @Override
     public void onDisconnected(String reason) {
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setConnecting(false);
