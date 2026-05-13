@@ -64,12 +64,25 @@ public class AIPlayer {
             return null; // 上家牌型异常，AI Pass
         }
 
-        if (lastType == PatternRecognizer.PatternType.SINGLE) {
-            return findHigherSingle(lastPlay.get(0));
-        } else if (lastType == PatternRecognizer.PatternType.PAIR) {
-            return findHigherPair(lastPlay);
+        // Route to specific pattern finders based on last play type
+        switch (lastType) {
+            case SINGLE:
+                return findHigherSingle(lastPlay.get(0));
+            case PAIR:
+                return findHigherPair(lastPlay);
+            case TRIPLE:
+                return findHigherTriple(lastPlay);
+            case QUADRUPLE:
+                return findHigherQuadruple(lastPlay);
+            case STRAIGHT:
+            case FLUSH:
+            case FULL_HOUSE:
+            case IRON_BRANCH:
+            case STRAIGHT_FLUSH:
+                return findHigherFiveCardPattern(lastPlay, isFirstRound, isFirstTurn);
+            default:
+                return null;
         }
-        return null;
     }
 
     // ---------- 辅助方法 ----------
@@ -145,5 +158,157 @@ public class AIPlayer {
         if (validPairs.isEmpty()) return null;
         validPairs.sort(Comparator.comparingInt(p -> patternRecognizer.recognizePattern(p).getCompareValue()));
         return validPairs.get(0);
+    }
+
+    private List<Card> findHigherTriple(List<Card> lastTriple) {
+        PatternRecognizer.PatternInfo lastInfo = patternRecognizer.recognizePattern(lastTriple);
+        int lastCompareValue = lastInfo.getCompareValue();
+
+        Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+        List<List<Card>> validTriples = new ArrayList<>();
+        for (Map.Entry<Rank, List<Card>> entry : rankMap.entrySet()) {
+            if (entry.getValue().size() >= 3) {
+                List<Card> triple = entry.getValue().subList(0, 3);
+                PatternRecognizer.PatternInfo tripleInfo = patternRecognizer.recognizePattern(triple);
+                if (tripleInfo.getCompareValue() > lastCompareValue) {
+                    validTriples.add(triple);
+                }
+            }
+        }
+        if (validTriples.isEmpty()) return null;
+        validTriples.sort(Comparator.comparingInt(t -> patternRecognizer.recognizePattern(t).getCompareValue()));
+        return validTriples.get(0);
+    }
+
+    private List<Card> findHigherQuadruple(List<Card> lastQuadruple) {
+        PatternRecognizer.PatternInfo lastInfo = patternRecognizer.recognizePattern(lastQuadruple);
+        int lastCompareValue = lastInfo.getCompareValue();
+
+        Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+        List<List<Card>> validQuadruples = new ArrayList<>();
+        for (Map.Entry<Rank, List<Card>> entry : rankMap.entrySet()) {
+            if (entry.getValue().size() >= 4) {
+                List<Card> quadruple = entry.getValue().subList(0, 4);
+                PatternRecognizer.PatternInfo quadInfo = patternRecognizer.recognizePattern(quadruple);
+                if (quadInfo.getCompareValue() > lastCompareValue) {
+                    validQuadruples.add(quadruple);
+                }
+            }
+        }
+        if (validQuadruples.isEmpty()) return null;
+        validQuadruples.sort(Comparator.comparingInt(q -> patternRecognizer.recognizePattern(q).getCompareValue()));
+        return validQuadruples.get(0);
+    }
+
+    /**
+     * Finds the lowest valid 5-card combination from hand that can beat the last 5-card play.
+     */
+    private List<Card> findHigherFiveCardPattern(List<Card> lastPlay, boolean isFirstRound, boolean isFirstTurn) {
+        if (hand.size() < 5) return null;
+
+        List<List<Card>> allCombinations = new ArrayList<>();
+        generateCombinations(hand, 5, 0, new ArrayList<>(), allCombinations);
+
+        List<List<Card>> validPlays = new ArrayList<>();
+        for (List<Card> combination : allCombinations) {
+            // Re-use PlayValidator to guarantee absolute correctness of rules
+            PlayValidator.ValidationResult result = playValidator.validatePlay(combination, lastPlay, isFirstRound, isFirstTurn);
+            if (result.valid) {
+                validPlays.add(combination);
+            }
+        }
+
+        if (validPlays.isEmpty()) return null;
+
+        // Sort by pattern priority first, then by internal compare value to play the smallest possible winning hand
+        validPlays.sort((c1, c2) -> {
+            PatternRecognizer.PatternInfo info1 = patternRecognizer.recognizePattern(c1);
+            PatternRecognizer.PatternInfo info2 = patternRecognizer.recognizePattern(c2);
+            int p1 = getFiveCardPriority(info1.getType());
+            int p2 = getFiveCardPriority(info2.getType());
+            if (p1 != p2) {
+                return Integer.compare(p1, p2);
+            }
+            return Integer.compare(info1.getCompareValue(), info2.getCompareValue());
+        });
+
+        return formatPatternOutput(validPlays.get(0));
+    }
+
+    private void generateCombinations(List<Card> source, int combinationSize, int start, List<Card> current, List<List<Card>> result) {
+        if (current.size() == combinationSize) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+        for (int i = start; i < source.size(); i++) {
+            current.add(source.get(i));
+            generateCombinations(source, combinationSize, i + 1, current, result);
+            current.remove(current.size() - 1);
+        }
+    }
+
+    private int getFiveCardPriority(PatternRecognizer.PatternType type) {
+        switch (type) {
+            case STRAIGHT:       return 1;
+            case FLUSH:          return 2;
+            case FULL_HOUSE:     return 3;
+            case IRON_BRANCH:    return 4;
+            case STRAIGHT_FLUSH: return 5;
+            default:             return 0;
+        }
+    }
+
+    private List<Card> formatPatternOutput(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return cards;
+        }
+
+        PatternRecognizer.PatternInfo info = patternRecognizer.recognizePattern(cards);
+        PatternRecognizer.PatternType type = info.getType();
+
+        // 针对三带二（葫芦）进行顺序重排
+        if (type == PatternRecognizer.PatternType.FULL_HOUSE) {
+            Map<Rank, List<Card>> grouped = cards.stream().collect(Collectors.groupingBy(Card::getRank));
+            List<Card> tripleCards = new ArrayList<>();
+            List<Card> pairCards = new ArrayList<>();
+
+            for (List<Card> group : grouped.values()) {
+                if (group.size() == 3) {
+                    tripleCards.addAll(group);
+                } else if (group.size() == 2) {
+                    pairCards.addAll(group);
+                }
+            }
+
+            if (!tripleCards.isEmpty() && !pairCards.isEmpty()) {
+                List<Card> result = new ArrayList<>();
+                result.addAll(tripleCards);
+                result.addAll(pairCards);
+                return result;
+            }
+        }
+        // 针对四带一（铁支）顺便进行展示优化
+        else if (type == PatternRecognizer.PatternType.IRON_BRANCH) {
+            Map<Rank, List<Card>> grouped = cards.stream().collect(Collectors.groupingBy(Card::getRank));
+            List<Card> quadCards = new ArrayList<>();
+            List<Card> singleCard = new ArrayList<>();
+
+            for (List<Card> group : grouped.values()) {
+                if (group.size() == 4) {
+                    quadCards.addAll(group);
+                } else if (group.size() == 1) {
+                    singleCard.addAll(group);
+                }
+            }
+
+            if (!quadCards.isEmpty() && !singleCard.isEmpty()) {
+                List<Card> result = new ArrayList<>();
+                result.addAll(quadCards);
+                result.addAll(singleCard);
+                return result;
+            }
+        }
+
+        return cards;
     }
 }

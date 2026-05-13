@@ -122,9 +122,9 @@ public class GameEngine {
                     + gameState.getCurrentPlayerId());
             return createPassResult(false, "Not your turn", gameState);
         }
-        if (gameState.isOpeningTurn()) {
-            System.out.println("[CardGame][PASS] rejected: opening turn cannot pass");
-            return createPassResult(false, "Cannot pass on opening turn", gameState);
+        if (gameState.isOpeningTurn() || gameState.getLastPlay() == null || gameState.getLastPlay().isEmpty()) {
+            System.out.println("[CardGame][PASS] rejected: new round starter must play cards");
+            return createPassResult(false, "New round starter cannot pass", gameState);
         }
 
 
