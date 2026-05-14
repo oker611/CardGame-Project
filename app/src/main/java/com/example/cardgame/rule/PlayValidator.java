@@ -1,12 +1,17 @@
 package com.example.cardgame.rule;
 
 import com.example.cardgame.model.Card;
+import com.example.cardgame.model.Player;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
 import com.example.cardgame.rule.PatternRecognizer.PatternInfo;
 import com.example.cardgame.rule.PatternRecognizer.PatternType;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 出牌合法性校验器
@@ -16,9 +21,6 @@ public class PlayValidator {
 
     private final PatternRecognizer recognizer = new PatternRecognizer();
 
-    /**
-     * 校验结果封装
-     */
     public static class ValidationResult {
         public final boolean valid;
         public final String reason;
@@ -29,23 +31,14 @@ public class PlayValidator {
         }
     }
 
-    /**
-     * 校验出牌是否合法
-     * @param currentCards  当前玩家要出的牌（如果Pass则传null或空列表）
-     * @param lastPlay      上家出的牌（如果本轮第一个出牌则传null或空列表）
-     * @param isFirstRound  是否为游戏第一轮（需要强制方块3）
-     * @param isFirstTurn   是否为当前轮次的第一个出牌者（决定是否必须压牌）
-     * @return 校验结果
-     */
     public ValidationResult validatePlay(List<Card> currentCards,
                                          List<Card> lastPlay,
                                          boolean isFirstRound,
                                          boolean isFirstTurn) {
         // 1. Pass 处理
         if (currentCards == null || currentCards.isEmpty()) {
-            // 只要是当前轮次的第一个出牌者（包含开局首出及三家Pass后的新一轮首出），都必须出牌，禁止 Pass
-            if (isFirstTurn) {
-                return new ValidationResult(false, "新一轮的首个出牌者必须出牌，不能 Pass");
+            if (isFirstRound && isFirstTurn) {
+                return new ValidationResult(false, "首轮第一个玩家不能 Pass");
             }
             return new ValidationResult(true, "Pass");
         }
@@ -73,7 +66,7 @@ public class PlayValidator {
             return new ValidationResult(true, "合法");
         }
 
-        // 6. 有上家牌：必须压过上家（同牌型且比较值更大）
+        // 6. 有上家牌：必须压过上家
         PatternInfo lastInfo = recognizer.recognizePattern(lastPlay);
         if (lastInfo.getType() == PatternType.INVALID) {
             return new ValidationResult(false, "上家牌型无效");
@@ -81,7 +74,7 @@ public class PlayValidator {
         if (currentInfo.getType() != lastInfo.getType()) {
             if (isFiveCardPattern(currentInfo.getType()) && isFiveCardPattern(lastInfo.getType())) {
                 if (getFiveCardPriority(currentInfo.getType()) > getFiveCardPriority(lastInfo.getType())) {
-                    return new ValidationResult(true, "高级牌型压制（如铁支压葫芦）");
+                    return new ValidationResult(true, "高级牌型压制");
                 } else {
                     return new ValidationResult(false, "牌型优先级不足以压制上家");
                 }
@@ -97,7 +90,67 @@ public class PlayValidator {
         }
     }
 
-    // 检查是否包含方块3
+    // ========== 新增：判断玩家是否有任何合法牌可出（用于倒计时） ==========
+    public boolean hasAnyValidPlay(Player player, List<Card> lastPlay,
+                                   boolean isFirstRound, boolean isFirstTurn) {
+        List<Card> hand = player.getHandCards();
+        if (hand.isEmpty()) return false;
+
+        // 1. 尝试单张
+        for (Card card : hand) {
+            List<Card> single = Collections.singletonList(card);
+            ValidationResult result = validatePlay(single, lastPlay, isFirstRound, isFirstTurn);
+            if (result.valid) return true;
+        }
+
+        // 2. 尝试对子
+        if (hand.size() >= 2) {
+            Map<String, List<Card>> rankMap = hand.stream()
+                    .collect(Collectors.groupingBy(c -> c.getRank().name()));
+            for (List<Card> sameRank : rankMap.values()) {
+                if (sameRank.size() >= 2) {
+                    List<Card> pair = sameRank.subList(0, 2);
+                    ValidationResult result = validatePlay(pair, lastPlay, isFirstRound, isFirstTurn);
+                    if (result.valid) return true;
+                }
+            }
+        }
+
+        // 3. 五张牌型
+        if (hand.size() >= 5) {
+            List<List<Card>> combinations = generateCombinations(hand, 5);
+            for (List<Card> fiveCards : combinations) {
+                PatternInfo curInfo = recognizer.recognizePattern(fiveCards);
+                if (curInfo.getType() != PatternType.INVALID) {
+                    ValidationResult result = validatePlay(fiveCards, lastPlay, isFirstRound, isFirstTurn);
+                    if (result.valid) return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private List<List<Card>> generateCombinations(List<Card> cards, int k) {
+        List<List<Card>> result = new ArrayList<>();
+        combine(cards, 0, k, new ArrayList<>(), result);
+        return result;
+    }
+
+    private void combine(List<Card> cards, int start, int k,
+                         List<Card> current, List<List<Card>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+        for (int i = start; i < cards.size(); i++) {
+            current.add(cards.get(i));
+            combine(cards, i + 1, k, current, result);
+            current.remove(current.size() - 1);
+        }
+    }
+
+    // ---------- 原有私有方法 ----------
     private boolean containsDiamondThree(List<Card> cards) {
         for (Card card : cards) {
             if (card.getRank() == Rank.THREE && card.getSuit() == Suit.DIAMONDS) {
@@ -115,18 +168,12 @@ public class PlayValidator {
 
     private int getFiveCardPriority(PatternType type) {
         switch (type) {
-            case STRAIGHT:
-                return 1;
-            case FLUSH:
-                return 2;
-            case FULL_HOUSE:
-                return 3;
-            case IRON_BRANCH:
-                return 4;
-            case STRAIGHT_FLUSH:
-                return 5;
-            default:
-                return 0;
+            case STRAIGHT: return 1;
+            case FLUSH: return 2;
+            case FULL_HOUSE: return 3;
+            case IRON_BRANCH: return 4;
+            case STRAIGHT_FLUSH: return 5;
+            default: return 0;
         }
     }
 }

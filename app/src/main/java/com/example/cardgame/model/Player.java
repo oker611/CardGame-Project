@@ -12,6 +12,9 @@ public class Player {
     private boolean passed;
     private PlayerType type;
 
+    // 新增：连续无牌可出的次数（用于倒计时功能）
+    private int consecutiveNoPlayCount = 0;
+
     public Player() {
         this.handCards = new ArrayList<>();
         this.passed = false;
@@ -34,7 +37,6 @@ public class Player {
         this.type = (type != null) ? type : PlayerType.HUMAN;
     }
 
-    // 新增：支持设置是否AI的构造方法（可选）
     public Player(String playerId, String playerName, PlayerType type) {
         this.playerId = playerId;
         this.playerName = playerName;
@@ -43,6 +45,7 @@ public class Player {
         this.type = type;
     }
 
+    // ---------- Getter / Setter ----------
     public String getPlayerId() {
         return playerId;
     }
@@ -67,8 +70,14 @@ public class Player {
         this.handCards = handCards != null ? new ArrayList<>(handCards) : new ArrayList<>();
     }
 
-    public PlayerType getType() { return type; }
-    public void setType(PlayerType type) { this.type = type; }
+    public PlayerType getType() {
+        return type;
+    }
+
+    public void setType(PlayerType type) {
+        this.type = type;
+    }
+
     public boolean isPassed() {
         return passed;
     }
@@ -77,6 +86,24 @@ public class Player {
         this.passed = passed;
     }
 
+    // ---------- 倒计时专用方法 ----------
+    public int getConsecutiveNoPlayCount() {
+        return consecutiveNoPlayCount;
+    }
+
+    public void setConsecutiveNoPlayCount(int consecutiveNoPlayCount) {
+        this.consecutiveNoPlayCount = consecutiveNoPlayCount;
+    }
+
+    public void resetConsecutiveNoPlayCount() {
+        this.consecutiveNoPlayCount = 0;
+    }
+
+    public void incrementConsecutiveNoPlayCount() {
+        this.consecutiveNoPlayCount++;
+    }
+
+    // ---------- 手牌操作 ----------
     public void addCard(Card card) {
         if (card != null) {
             handCards.add(card);
@@ -152,11 +179,6 @@ public class Player {
         this.passed = false;
     }
 
-    /**
-     * 随机获取手牌中的 n 张牌（用于调试自动出牌）
-     * @param n 要获取的牌数
-     * @return 随机选出的牌列表，如果手牌不足则返回全部手牌
-     */
     public List<Card> getRandomCards(int n) {
         if (handCards == null || handCards.isEmpty()) {
             return new ArrayList<>();
@@ -175,6 +197,7 @@ public class Player {
                 ", handCards=" + handCards +
                 ", passed=" + passed +
                 ", type=" + type +
+                ", consecutiveNoPlayCount=" + consecutiveNoPlayCount +
                 '}';
     }
 
