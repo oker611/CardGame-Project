@@ -21,6 +21,8 @@ import com.example.cardgame.R;
 import com.example.cardgame.controller.BluetoothActionHandler;
 import com.example.cardgame.dto.BluetoothViewData;
 
+import java.util.List;
+
 public class RoomLobbyActivity extends AppCompatActivity {
 
     private TextView tvTitle;
@@ -45,6 +47,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private BluetoothActionHandler bluetoothActionHandler;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    private String localPlayerId = "P1";
+
     private final Runnable refreshBluetoothStateRunnable = new Runnable() {
         @Override
         public void run() {
@@ -61,6 +65,10 @@ public class RoomLobbyActivity extends AppCompatActivity {
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
 
         isHost = getIntent().getBooleanExtra("is_host", false);
+        localPlayerId = getIntent().getStringExtra("local_player_id");
+        if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
+            localPlayerId = isHost ? "P1" : "CLIENT";  // 客户端身份待 HOST 分配
+        }
 
         initViews();
         setupTitleFont();
@@ -95,19 +103,30 @@ public class RoomLobbyActivity extends AppCompatActivity {
             currentPlayerCount = 1;
             llAiControl.setVisibility(View.VISIBLE);
         } else {
+            // CLIENT 模式：初始只知道房主和自己
             isConnected[0] = true;
             isAi[0] = false;
             tvNames[0].setText("房主");
             tvStatus[0].setText("等待确认");
             ivCrowns[0].setVisibility(View.VISIBLE);
 
-            isConnected[1] = true;
-            isAi[1] = false;
-            tvNames[1].setText(getPlayerName());
-            tvStatus[1].setText("本机");
-            ivCrowns[1].setVisibility(View.GONE);
+            // 根据 playerId 确定初始 slot（P2→1, P3→2, P4→3, 其他→1）
+            int mySlot = 1;
+            if (localPlayerId != null) {
+                switch (localPlayerId) {
+                    case "P3": mySlot = 2; break;
+                    case "P4": mySlot = 3; break;
+                    default: mySlot = 1; break;
+                }
+            }
+            isConnected[mySlot] = true;
+            isAi[mySlot] = false;
+            tvNames[mySlot].setText(getPlayerName());
+            tvStatus[mySlot].setText("本机");
+            ivCrowns[mySlot].setVisibility(View.GONE);
 
-            for (int i = 2; i < MAX_PLAYERS; i++) {
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (isConnected[i]) continue;
                 isConnected[i] = false;
                 isAi[i] = false;
                 tvNames[i].setText("等待加入");
@@ -133,43 +152,61 @@ public class RoomLobbyActivity extends AppCompatActivity {
             return;
         }
 
-        if (isHost) {
-            String statusText = viewData.getStatusText();
-            tvStatus[0].setText(statusText == null ? "房主 / 本机" : statusText);
+        // ——— 从 ConnectedDevices 列表刷新 slot ———
+        List<BluetoothViewData.ConnectedDevice> connectedDevices = viewData.getConnectedDevices();
+        if (connectedDevices != null) {
+            for (BluetoothViewData.ConnectedDevice device : connectedDevices) {
+                int slot = device.slotIndex;
+                if (slot < 0 || slot >= MAX_PLAYERS) continue;
 
-            if (viewData.isConnected()) {
-                isConnected[1] = true;
-                isAi[1] = false;
+                // 跳过自己的 slot
+                if (device.playerId.equals(localPlayerId)) continue;
 
-                String deviceName = viewData.getConnectedDeviceName();
-                tvNames[1].setText(deviceName == null || deviceName.trim().isEmpty()
-                        ? "远程玩家"
-                        : deviceName);
-
-                tvStatus[1].setText("已连接");
+                isConnected[slot] = true;
+                isAi[slot] = false;
+                tvNames[slot].setText(device.deviceName != null && !device.deviceName.isEmpty()
+                        ? device.deviceName
+                        : device.playerId);
+                tvStatus[slot].setText("已连接");
+                ivCrowns[slot].setVisibility(View.GONE);
             }
-        } else {
-            String statusText = viewData.getStatusText();
-            tvStatus[1].setText(statusText == null ? "本机" : statusText);
+        }
 
-            if (viewData.isConnected()) {
-                isConnected[0] = true;
+        // ——— 状态文本 ———
+        String statusText = viewData.getStatusText();
+        if (statusText != null && !statusText.isEmpty()) {
+            if (isHost) {
+                tvStatus[0].setText(statusText);
+            } else {
+                tvStatus[1].setText(statusText);
+            }
+        }
 
-                String deviceName = viewData.getConnectedDeviceName();
-                tvNames[0].setText(deviceName == null || deviceName.trim().isEmpty()
-                        ? "房主"
-                        : deviceName);
-
-                tvStatus[0].setText("已连接");
+        // ——— CLIENT 端：检测 assignedPlayerId ———
+        if (!isHost) {
+            String assignedId = viewData.getAssignedPlayerId();
+            if (assignedId != null && !assignedId.equals(localPlayerId)) {
+                localPlayerId = assignedId;
+                int slot = viewData.getAssignedSlotIndex();
+                if (slot >= 0 && slot < MAX_PLAYERS) {
+                    // 更新本机 slot
+                    isConnected[slot] = true;
+                    isAi[slot] = false;
+                    tvNames[slot].setText(getPlayerName());
+                    tvStatus[slot].setText("本机");
+                    ivCrowns[slot].setVisibility(View.GONE);
+                }
             }
         }
 
         currentPlayerCount = countConnectedPlayers();
 
+        // ——— 错误 ———
         if (viewData.getErrorMessage() != null && !viewData.getErrorMessage().trim().isEmpty()) {
             System.out.println("[CardGame][UI][BLUETOOTH] error=" + viewData.getErrorMessage());
         }
 
+        // ——— CLIENT 端自动进入游戏 ———
         if (!isHost
                 && !gameStarted
                 && "INIT_GAME".equals(viewData.getLastReceivedMessageType())) {
@@ -182,7 +219,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
             Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
             intent.putExtra("is_bluetooth_game", true);
             intent.putExtra("is_host", false);
-            intent.putExtra("local_player_id", "P2");
+            intent.putExtra("local_player_id", localPlayerId);
             startActivity(intent);
             finish();
             return;
@@ -194,25 +231,14 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
     private int countConnectedPlayers() {
         int count = 0;
-
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (isConnected[i] || isAi[i]) {
                 count++;
             }
         }
-
         return count;
     }
 
-    /**
-     * 判断当前房间里是否真的存在蓝牙客户端。
-     *
-     * 注意：
-     * 添加 AI 会把 isConnected[i] 设为 true，但那只是 UI 层“占位已满”，
-     * 不能当作真实蓝牙远程玩家。
-     *
-     * 只有 BluetoothViewData.isConnected() 为 true，才说明 P2 是真实客户端。
-     */
     private boolean hasRealRemotePlayer() {
         if (bluetoothActionHandler == null) {
             return false;
@@ -298,15 +324,14 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
 
                 if (hasRealRemotePlayer) {
-                    // 房主 + 客户端 + AI：蓝牙对局
+                    // HOST + 客户端(们) + AI：蓝牙对局
                     intent.putExtra("is_bluetooth_game", true);
                     intent.putExtra("is_host", true);
                     intent.putExtra("local_player_id", "P1");
 
-                    Toast.makeText(this, "蓝牙对局开始", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "蓝牙对局（4人）开始", Toast.LENGTH_SHORT).show();
                 } else {
-                    // 房主 + 3AI：本地 AI 对局
-                    // 不再把 Bob(P2) 当成 REMOTE，否则 Bob 会一直等待远程操作而不会出牌。
+                    // HOST + 3AI：本地 AI 对局
                     if (bluetoothActionHandler != null) {
                         bluetoothActionHandler.disconnectBluetooth();
                     }

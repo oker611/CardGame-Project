@@ -103,8 +103,9 @@ public class GameController implements GameActionHandler {
         Player p4 = new Player("P4", "David");
 
         if (bluetoothMode) {
-            p1.setType("P1".equals(myPlayerId) ? PlayerType.HUMAN : PlayerType.REMOTE);
-            p2.setType("P2".equals(myPlayerId) ? PlayerType.HUMAN : PlayerType.REMOTE);
+            // 蓝牙模式：初始全部设为 AI，后续根据实际连接情况修正
+            p1.setType(PlayerType.AI);
+            p2.setType(PlayerType.AI);
             p3.setType(PlayerType.AI);
             p4.setType(PlayerType.AI);
         } else {
@@ -125,10 +126,28 @@ public class GameController implements GameActionHandler {
         gameEngine.dealCards();
 
         if (bluetoothMode) {
-            gameEngine.configureBluetoothPlayerTypes(
-                    myPlayerId,
-                    "P1".equals(myPlayerId) ? "P2" : "P1"
-            );
+            // 使用多玩家类型配置
+            List<String> remoteIds = bluetoothActionHandler != null
+                    ? bluetoothActionHandler.getRemotePlayerIds()
+                    : null;
+            if (remoteIds != null && !remoteIds.isEmpty()) {
+                Map<String, String> typeMap = new HashMap<>();
+                typeMap.put(myPlayerId, "HUMAN");
+                for (String remoteId : remoteIds) {
+                    typeMap.put(remoteId, "REMOTE");
+                }
+                gameEngine.configureBluetoothPlayerTypesMulti(typeMap);
+                System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | "
+                        + "local=" + myPlayerId + ", remote=" + remoteIds);
+            } else {
+                // 兼容旧 2 人模式
+                gameEngine.configureBluetoothPlayerTypes(
+                        myPlayerId,
+                        "P1".equals(myPlayerId) ? "P2" : "P1"
+                );
+                System.out.println("[CardGame][BLUETOOTH] Player types configured (legacy) | "
+                        + "local=" + myPlayerId);
+            }
         }
 
         aiPlayerCache.clear();

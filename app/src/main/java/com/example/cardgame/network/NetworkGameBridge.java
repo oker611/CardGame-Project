@@ -3,17 +3,23 @@ package com.example.cardgame.network;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
-import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Card;
+import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
+import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.network.payload.ErrorPayload;
 import com.example.cardgame.network.payload.GameOverPayload;
 import com.example.cardgame.network.payload.InitGamePayload;
+import com.example.cardgame.network.payload.JoinPayload;
 import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
+import com.example.cardgame.network.payload.PlayerLeftPayload;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NetworkGameBridge {
 
@@ -21,7 +27,7 @@ public class NetworkGameBridge {
     private final BluetoothMessageCodec messageCodec;
     private BluetoothEventListener eventListener;
     private String localPlayerId;
-    private String remotePlayerId;
+    private List<String> remotePlayerIds = new ArrayList<>();
 
     public NetworkGameBridge(GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
         this.gameEngine = gameEngine;
@@ -32,9 +38,12 @@ public class NetworkGameBridge {
         this.eventListener = eventListener;
     }
 
-    public void setPlayerContext(String localPlayerId, String remotePlayerId) {
+    /**
+     * 设置玩家上下文（支持多远程玩家）。
+     */
+    public void setPlayerContext(String localPlayerId, List<String> remotePlayerIds) {
         this.localPlayerId = localPlayerId;
-        this.remotePlayerId = remotePlayerId;
+        this.remotePlayerIds = remotePlayerIds != null ? new ArrayList<>(remotePlayerIds) : new ArrayList<>();
     }
 
     public void handleMessage(BluetoothMessage message) {
@@ -69,7 +78,7 @@ public class NetworkGameBridge {
                 break;
 
             default:
-                notifyError("Unsupported message type: " + message.getMessageType(), null);
+                Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息未由Bridge处理 | 类型:" + message.getMessageType());
                 break;
         }
     }
@@ -80,6 +89,7 @@ public class NetworkGameBridge {
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
 
             if (payload.getGameState() != null) {
+                // 完整 GameState 同步（HOST 发牌后广播）
                 GameState syncedState = payload.getGameState();
 
                 invokeEngineMethod(
@@ -88,17 +98,29 @@ public class NetworkGameBridge {
                         syncedState
                 );
 
-                invokeEngineMethod(
-                        "configureBluetoothPlayerTypes",
-                        new Class[]{String.class, String.class},
-                        localPlayerId,
-                        remotePlayerId
-                );
+                configurePlayerTypes();
 
                 notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
                 return;
             }
 
+            // N-player 手牌同步（新格式）
+            Map<String, List<Card>> playerHandCards = payload.getPlayerHandCards();
+            if (playerHandCards != null && !playerHandCards.isEmpty()) {
+                invokeEngineMethod(
+                        "rebuildGameStateMulti",
+                        new Class[]{Map.class, String.class},
+                        playerHandCards,
+                        payload.getCurrentPlayerId()
+                );
+
+                configurePlayerTypes();
+
+                notifyReceived(MessageType.INIT_GAME, "多人手牌已同步");
+                return;
+            }
+
+            // 兼容旧2-player格式
             List<Card> myHand = payload.getRemoteHandCards();
             List<Card> opponentHand = payload.getLocalHandCards();
             String currentPlayerId = payload.getCurrentPlayerId();
@@ -111,12 +133,7 @@ public class NetworkGameBridge {
                     currentPlayerId
             );
 
-            invokeEngineMethod(
-                    "configureBluetoothPlayerTypes",
-                    new Class[]{String.class, String.class},
-                    localPlayerId,
-                    remotePlayerId
-            );
+            configurePlayerTypes();
 
             notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
         } catch (Exception exception) {
@@ -200,6 +217,31 @@ public class NetworkGameBridge {
             notifyError(payload.getErrorMessage(), null);
         } catch (Exception exception) {
             notifyError("Failed to handle ERROR message", exception);
+        }
+    }
+
+    /**
+     * 配置 GameEngine 中的玩家类型：本机=HUMAN，远程=REMOTE，其余=AI。
+     */
+    private void configurePlayerTypes() {
+        try {
+            Map<String, String> typeMap = new HashMap<>();
+            typeMap.put(localPlayerId, PlayerType.HUMAN.name());
+
+            for (String remoteId : remotePlayerIds) {
+                typeMap.put(remoteId, PlayerType.REMOTE.name());
+            }
+
+            invokeEngineMethod(
+                    "configureBluetoothPlayerTypesMulti",
+                    new Class[]{Map.class},
+                    typeMap
+            );
+
+            Log.d("CardGame", "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
+                    + ", remote=" + remotePlayerIds);
+        } catch (Exception e) {
+            Log.w("CardGame", "[WARN] [蓝牙] configureBluetoothPlayerTypesMulti 不可用", e);
         }
     }
 

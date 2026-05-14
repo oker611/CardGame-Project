@@ -3,8 +3,10 @@ package com.example.cardgame.network;
 import com.example.cardgame.network.payload.ErrorPayload;
 import com.example.cardgame.network.payload.GameOverPayload;
 import com.example.cardgame.network.payload.InitGamePayload;
+import com.example.cardgame.network.payload.JoinPayload;
 import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
+import com.example.cardgame.network.payload.PlayerLeftPayload;
 import com.google.gson.Gson;
 
 import java.util.UUID;
@@ -106,6 +108,63 @@ public class BluetoothMessageCodec {
         );
     }
 
+    public BluetoothMessage buildJoinMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            JoinPayload payload
+    ) {
+        return buildMessage(
+                MessageType.JOIN,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public BluetoothMessage buildJoinAckMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            JoinPayload payload
+    ) {
+        return buildMessage(
+                MessageType.JOIN_ACK,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public BluetoothMessage buildPlayerJoinedMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            JoinPayload payload
+    ) {
+        return buildMessage(
+                MessageType.PLAYER_JOINED,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public BluetoothMessage buildPlayerLeftMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            String leftPlayerId,
+            String leftPlayerName
+    ) {
+        return buildMessage(
+                MessageType.PLAYER_LEFT,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(new PlayerLeftPayload(leftPlayerId, leftPlayerName)),
+                null
+        );
+    }
+
     public InitGamePayload decodeInitGamePayload(String payloadJson) {
         return gson.fromJson(payloadJson, InitGamePayload.class);
     }
@@ -124,6 +183,14 @@ public class BluetoothMessageCodec {
 
     public ErrorPayload decodeErrorPayload(String payloadJson) {
         return gson.fromJson(payloadJson, ErrorPayload.class);
+    }
+
+    public JoinPayload decodeJoinPayload(String payloadJson) {
+        return gson.fromJson(payloadJson, JoinPayload.class);
+    }
+
+    public PlayerLeftPayload decodePlayerLeftPayload(String payloadJson) {
+        return gson.fromJson(payloadJson, PlayerLeftPayload.class);
     }
 
     private BluetoothMessage buildMessage(
