@@ -6,5 +6,9 @@ public enum MessageType {
     PASS_ACTION,
     GAME_OVER,
     HEARTBEAT,
-    ERROR
+    ERROR,
+    JOIN,
+    JOIN_ACK,
+    PLAYER_JOINED,
+    PLAYER_LEFT
 }

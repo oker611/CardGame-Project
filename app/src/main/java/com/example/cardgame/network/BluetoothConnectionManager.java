@@ -18,11 +18,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -37,12 +39,22 @@ public class BluetoothConnectionManager {
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
 
-    private BluetoothSocket bluetoothSocket;
     private BluetoothServerSocket serverSocket;
 
+    /** 正在阻塞 accept() 的线程，用于 close() 时中断 */
+    private volatile Thread acceptThread;
+
+    /** 服务端是否仍在接受连接 */
+    private volatile boolean accepting = false;
+
+    // ——— 多路连接支持 ———
+    /** deviceAddress → ClientConnection */
+    private final Map<String, ClientConnection> clientConnections = new ConcurrentHashMap<>();
+
+    // ——— 单连接兼容（旧代码可继续使用，指向最近连接的设备） ———
+    private BluetoothSocket bluetoothSocket;
     private InputStream inputStream;
     private OutputStream outputStream;
-
     private String connectedDeviceName;
     private String connectedDeviceAddress;
     private boolean connected;
@@ -52,6 +64,10 @@ public class BluetoothConnectionManager {
         this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
+    // ========================================================================
+    //  设备发现（无变化）
+    // ========================================================================
+
     public boolean isBluetoothAvailable() {
         return bluetoothAdapter != null;
     }
@@ -60,18 +76,6 @@ public class BluetoothConnectionManager {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
     }
 
-    /**
-     * 搜索可加入游戏的候选设备。
-     *
-     * 策略：
-     * 1. 查询已配对设备，但只保留手机 / 平板候选。
-     * 2. 执行真实 discovery，发现未配对但可被发现的手机 / 平板。
-     * 3. 过滤耳机、音箱、车机、电视等明显不能运行本游戏客户端的设备。
-     *
-     * 注意：
-     * 这一步只能筛选“可能可加入”的设备；是否真的运行了 CardGame Host，
-     * 需要点击连接并成功建立 RFCOMM Socket 后才能确认。
-     */
     @SuppressLint("MissingPermission")
     public List<BluetoothDeviceInfo> discoverJoinableMobileDevices() {
         Map<String, BluetoothDeviceInfo> resultMap = new LinkedHashMap<>();
@@ -329,20 +333,128 @@ public class BluetoothConnectionManager {
         }
     }
 
+    // ========================================================================
+    //  Server 端：多客户端连接
+    // ========================================================================
+
     @SuppressLint("MissingPermission")
-    public void acceptConnectionAsServer() throws IOException {
+    public void startServer() throws IOException {
         if (bluetoothAdapter == null) {
             throw new IOException("Bluetooth is not available");
         }
 
+        accepting = true;
         serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord(
                 SERVICE_NAME,
                 SERVICE_UUID
         );
 
-        bluetoothSocket = serverSocket.accept();
+        Log.i("CardGame", "[INFO] [蓝牙] 服务端 Socket 已创建，等待客户端连接...");
+    }
 
-        setupStreams();
+    /**
+     * 阻塞等待下一个客户端连接，返回该连接的设备地址。
+     * 调用前必须先调用 {@link #startServer()}。
+     * 可重复调用以接受多个客户端（每次 accept 后 serverSocket 保持打开）。
+     */
+    @SuppressLint("MissingPermission")
+    public String waitForNextClient() throws IOException {
+        if (serverSocket == null) {
+            throw new IOException("Server socket not started. Call startServer() first.");
+        }
+
+        acceptThread = Thread.currentThread();
+        BluetoothSocket socket;
+        try {
+            socket = serverSocket.accept();
+        } catch (IOException e) {
+            // 被 close() 中断时正常退出
+            if (!accepting) {
+                throw new IOException("Server stopped while waiting for client", e);
+            }
+            throw e;
+        } finally {
+            acceptThread = null;
+        }
+
+        BluetoothDevice remoteDevice = socket.getRemoteDevice();
+        String deviceAddress = remoteDevice.getAddress();
+        String deviceName = safeDeviceName(remoteDevice);
+
+        ClientConnection conn = new ClientConnection(
+                deviceAddress,
+                deviceName,
+                socket,
+                socket.getInputStream(),
+                socket.getOutputStream()
+        );
+
+        clientConnections.put(deviceAddress, conn);
+
+        // 同步单连接兼容字段
+        syncLegacyFields(deviceAddress);
+
+        Log.i("CardGame", "[INFO] [蓝牙] 客户端已连接 | name=" + deviceName
+                + ", address=" + deviceAddress
+                + ", totalConnections=" + clientConnections.size());
+
+        return deviceAddress;
+    }
+
+    /**
+     * 阻塞等待多个客户端连接（最多 maxClients 个）。
+     * 返回所有已连接设备的地址列表。
+     */
+    @SuppressLint("MissingPermission")
+    public List<String> waitForAllClients(int maxClients) throws IOException {
+        List<String> addresses = new ArrayList<>();
+
+        for (int i = 0; i < maxClients; i++) {
+            try {
+                String address = waitForNextClient();
+                addresses.add(address);
+            } catch (IOException e) {
+                Log.e("CardGame", "[ERROR] [蓝牙] 等待客户端" + (i + 1) + "连接失败", e);
+                // 清理已建立的连接，避免半初始化状态
+                for (String addr : addresses) {
+                    closeConnection(addr);
+                }
+                throw e;
+            }
+        }
+
+        return addresses;
+    }
+
+    // ========================================================================
+    //  兼容旧的单连接 API（用于 CLIENT 端 和 HOST 端旧代码）
+    // ========================================================================
+
+    /**
+     * 仅创建蓝牙服务端 Socket 并开始监听（非阻塞）。
+     * 兼容旧 API，等同于 {@link #startServer()}。
+     */
+    @SuppressLint("MissingPermission")
+    @Deprecated
+    public void startServerLegacy() throws IOException {
+        startServer();
+    }
+
+    /**
+     * 阻塞等待客户端连接，连上后建立输入输出流。
+     * 兼容旧 API。
+     */
+    @SuppressLint("MissingPermission")
+    @Deprecated
+    public void waitForClient() throws IOException {
+        waitForNextClient();
+    }
+
+    @SuppressLint("MissingPermission")
+    @Deprecated
+    public void acceptConnectionAsServer() throws IOException {
+        startServer();
+        waitForNextClient();
     }
 
     @SuppressLint("MissingPermission")
@@ -359,40 +471,58 @@ public class BluetoothConnectionManager {
 
         stopDiscovery();
 
-        bluetoothSocket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
-        bluetoothSocket.connect();
+        BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
+        socket.connect();
 
-        setupStreams();
+        ClientConnection conn = new ClientConnection(
+                deviceAddress,
+                safeDeviceName(device),
+                socket,
+                socket.getInputStream(),
+                socket.getOutputStream()
+        );
+
+        clientConnections.put(deviceAddress, conn);
+
+        syncLegacyFields(deviceAddress);
+
+        Log.i("CardGame", "[INFO] [蓝牙] 客户端连接成功 | device=" + deviceAddress);
     }
 
-    @SuppressLint("MissingPermission")
-    private void setupStreams() throws IOException {
-        if (bluetoothSocket == null) {
-            throw new IOException("Bluetooth socket is null");
-        }
+    // ========================================================================
+    //  多路连接查询
+    // ========================================================================
 
-        inputStream = bluetoothSocket.getInputStream();
-        outputStream = bluetoothSocket.getOutputStream();
-
-        BluetoothDevice remoteDevice = bluetoothSocket.getRemoteDevice();
-        connectedDeviceName = safeDeviceName(remoteDevice);
-        connectedDeviceAddress = remoteDevice.getAddress();
-        connected = true;
+    public int getConnectionCount() {
+        return clientConnections.size();
     }
 
-    @SuppressLint("MissingPermission")
-    private String safeDeviceName(BluetoothDevice device) {
-        if (device == null) {
-            return "Unknown Device";
+    public ClientConnection getConnection(String deviceAddress) {
+        return clientConnections.get(deviceAddress);
+    }
+
+    public Map<String, ClientConnection> getAllConnections() {
+        return Collections.unmodifiableMap(clientConnections);
+    }
+
+    public List<String> getAllDeviceAddresses() {
+        return new ArrayList<>(clientConnections.keySet());
+    }
+
+    // ========================================================================
+    //  单连接兼容方法（返回最近操作的连接的信息）
+    // ========================================================================
+
+    private void syncLegacyFields(String deviceAddress) {
+        ClientConnection conn = clientConnections.get(deviceAddress);
+        if (conn != null) {
+            this.bluetoothSocket = conn.socket;
+            this.inputStream = conn.inputStream;
+            this.outputStream = conn.outputStream;
+            this.connectedDeviceName = conn.deviceName;
+            this.connectedDeviceAddress = conn.deviceAddress;
+            this.connected = true;
         }
-
-        String name = device.getName();
-
-        if (name == null || name.trim().isEmpty()) {
-            return "Unknown Device";
-        }
-
-        return name;
     }
 
     public InputStream getInputStream() {
@@ -412,31 +542,55 @@ public class BluetoothConnectionManager {
     }
 
     public boolean isConnected() {
-        return connected;
+        return !clientConnections.isEmpty();
     }
 
+    // ========================================================================
+    //  断开连接
+    // ========================================================================
+
+    /**
+     * 断开指定设备的连接。
+     */
+    public void closeConnection(String deviceAddress) {
+        ClientConnection conn = clientConnections.remove(deviceAddress);
+        if (conn != null) {
+            conn.close();
+        }
+
+        // 刷新兼容字段（指向剩余第一个连接或清空）
+        if (!clientConnections.isEmpty()) {
+            String firstKey = clientConnections.keySet().iterator().next();
+            syncLegacyFields(firstKey);
+        } else {
+            bluetoothSocket = null;
+            inputStream = null;
+            outputStream = null;
+            connectedDeviceName = null;
+            connectedDeviceAddress = null;
+            connected = false;
+        }
+    }
+
+    /**
+     * 关闭所有连接（包括 serverSocket）。
+     */
     public void close() {
         connected = false;
+        accepting = false;
 
-        try {
-            if (inputStream != null) {
-                inputStream.close();
-            }
-        } catch (IOException ignored) {
+        // 中断可能正在阻塞 accept() 的线程
+        Thread t = acceptThread;
+        if (t != null) {
+            t.interrupt();
         }
+        acceptThread = null;
 
-        try {
-            if (outputStream != null) {
-                outputStream.close();
-            }
-        } catch (IOException ignored) {
-        }
-
-        try {
-            if (bluetoothSocket != null) {
-                bluetoothSocket.close();
-            }
-        } catch (IOException ignored) {
+        // 防御性复制，避免 closeConnection() 并发修改
+        List<ClientConnection> connections = new ArrayList<>(clientConnections.values());
+        clientConnections.clear();
+        for (ClientConnection conn : connections) {
+            conn.close();
         }
 
         try {
@@ -446,11 +600,90 @@ public class BluetoothConnectionManager {
         } catch (IOException ignored) {
         }
 
+        bluetoothSocket = null;
         inputStream = null;
         outputStream = null;
-        bluetoothSocket = null;
-        serverSocket = null;
         connectedDeviceName = null;
         connectedDeviceAddress = null;
+        serverSocket = null;
+    }
+
+    /**
+     * 获取本机蓝牙设备名称，用于 JOIN 请求中标识自己。
+     */
+    @SuppressLint("MissingPermission")
+    public String getLocalDeviceName() {
+        if (bluetoothAdapter == null) {
+            return "Player";
+        }
+        String name = bluetoothAdapter.getName();
+        return (name != null && !name.trim().isEmpty()) ? name : "Player";
+    }
+
+    // ========================================================================
+    //  工具方法
+    // ========================================================================
+
+    @SuppressLint("MissingPermission")
+    private String safeDeviceName(BluetoothDevice device) {
+        if (device == null) {
+            return "Unknown Device";
+        }
+
+        String name = device.getName();
+
+        if (name == null || name.trim().isEmpty()) {
+            return "Unknown Device";
+        }
+
+        return name;
+    }
+
+    // ========================================================================
+    //  内部类：单路客户端连接
+    // ========================================================================
+
+    public static class ClientConnection {
+
+        public final String deviceAddress;
+        public final String deviceName;
+        public final BluetoothSocket socket;
+        public final InputStream inputStream;
+        public final OutputStream outputStream;
+
+        private ClientConnection(String deviceAddress,
+                                  String deviceName,
+                                  BluetoothSocket socket,
+                                  InputStream inputStream,
+                                  OutputStream outputStream) {
+            this.deviceAddress = deviceAddress;
+            this.deviceName = deviceName;
+            this.socket = socket;
+            this.inputStream = inputStream;
+            this.outputStream = outputStream;
+        }
+
+        public void close() {
+            try {
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            } catch (IOException ignored) {
+            }
+
+            try {
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+            } catch (IOException ignored) {
+            }
+
+            try {
+                if (socket != null) {
+                    socket.close();
+                }
+            } catch (IOException ignored) {
+            }
+        }
     }
 }

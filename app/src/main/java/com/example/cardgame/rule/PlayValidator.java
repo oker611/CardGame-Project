@@ -43,9 +43,9 @@ public class PlayValidator {
                                          boolean isFirstTurn) {
         // 1. Pass 处理
         if (currentCards == null || currentCards.isEmpty()) {
-            // 首轮第一个玩家不能 Pass
-            if (isFirstRound && isFirstTurn) {
-                return new ValidationResult(false, "首轮第一个玩家不能 Pass");
+            // 只要是当前轮次的第一个出牌者（包含开局首出及三家Pass后的新一轮首出），都必须出牌，禁止 Pass
+            if (isFirstTurn) {
+                return new ValidationResult(false, "新一轮的首个出牌者必须出牌，不能 Pass");
             }
             return new ValidationResult(true, "Pass");
         }

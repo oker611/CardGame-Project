@@ -97,7 +97,9 @@ public class GameActivity extends AppCompatActivity {
         if (!isBluetoothGame) {
             localPlayerId = "P1";
         } else if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
-            localPlayerId = isHost ? "P1" : "P2";
+            // 4人模式：客户端身份待 HOST 分配，fallback 仅用于初始 UI
+            // 实际 playerId 会在 JOIN_ACK 后通过 BluetoothViewData 更新
+            localPlayerId = isHost ? "P1" : "CLIENT";
         }
 
         setupOpponents();

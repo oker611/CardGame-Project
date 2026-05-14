@@ -199,10 +199,11 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
         Toast.makeText(this, "正在连接：" + device.getDeviceName(), Toast.LENGTH_SHORT).show();
 
-        bluetoothActionHandler.connectToDevice("P2", device.getDeviceAddress());
+        bluetoothActionHandler.connectToDevice("CLIENT", device.getDeviceAddress());
 
         handler.postDelayed(this::checkConnectionResultAndEnterLobby, 2000);
-        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 4500);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 5000);
+        handler.postDelayed(this::checkConnectionResultAndEnterLobby, 8000);
     }
 
     private void checkConnectionResultAndEnterLobby() {
@@ -217,9 +218,12 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
             Toast.makeText(this, "蓝牙连接成功", Toast.LENGTH_SHORT).show();
 
+            String assignedId = viewData.getAssignedPlayerId();
+            String localId = (assignedId != null && !assignedId.isEmpty()) ? assignedId : "CLIENT";
+
             Intent intent = new Intent(SearchDeviceActivity.this, RoomLobbyActivity.class);
             intent.putExtra("is_host", false);
-            intent.putExtra("local_player_id", "P2");
+            intent.putExtra("local_player_id", localId);
             startActivity(intent);
             finish();
             return;
