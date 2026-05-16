@@ -40,11 +40,14 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
         bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
-        bluetoothViewData.setRemotePlayerId("P2");
         bluetoothViewData.setRole("HOST");
         bluetoothViewData.setHosting(true);
         bluetoothViewData.setConnecting(false);
-        bluetoothViewData.setStatusText("正在创建蓝牙房间");
+        bluetoothViewData.clearConnectedDevices();
+        bluetoothViewData.setStatusText("正在创建蓝牙房间（4人模式）");
+
+        // HOST 自己占用 slot 0
+        bluetoothViewData.addConnectedDevice("房主 / 本机", "", "P1", 0);
 
         new Thread(() -> bluetoothGateway.startAsHost(localPlayerId)).start();
     }
@@ -86,7 +89,6 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
         bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
-        bluetoothViewData.setRemotePlayerId("P1");
         bluetoothViewData.setRole("CLIENT");
         bluetoothViewData.setConnecting(true);
         bluetoothViewData.setConnected(false);
@@ -102,6 +104,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setConnecting(false);
         bluetoothViewData.setHosting(false);
+        bluetoothViewData.clearConnectedDevices();
         bluetoothViewData.setConnectedDeviceName(null);
         bluetoothViewData.setConnectedDeviceAddress(null);
         bluetoothViewData.setStatusText("蓝牙连接已断开");
@@ -134,6 +137,15 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     }
 
     @Override
+    public List<String> getRemotePlayerIds() {
+        return bluetoothGateway.getRemotePlayerIds();
+    }
+
+    // ========================================================================
+    //  BluetoothEventListener 回调
+    // ========================================================================
+
+    @Override
     public void onConnected(String deviceName, String deviceAddress) {
         bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setConnected(true);
@@ -151,6 +163,43 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         bluetoothViewData.setConnecting(false);
         bluetoothViewData.setHosting(true);
         bluetoothViewData.setStatusText("房间已创建，等待加入");
+    }
+
+    @Override
+    public void onPlayerAssigned(String playerId, int slotIndex) {
+        // CLIENT 端：HOST 分配了角色
+        bluetoothViewData.setAssignedPlayerId(playerId);
+        bluetoothViewData.setAssignedSlotIndex(slotIndex);
+        bluetoothViewData.setLocalPlayerId(playerId);
+        bluetoothViewData.setRemotePlayerId("P1"); // HOST 始终是 P1
+        bluetoothViewData.setStatusText("已加入房间，身份：" + playerId);
+    }
+
+    @Override
+    public void onPlayerJoined(String playerId, String playerName, int slotIndex) {
+        // 使用 playerId 去重，避免重复添加同一玩家
+        bluetoothViewData.removeConnectedDeviceByPlayerId(playerId);
+        bluetoothViewData.addConnectedDevice(
+                playerName != null ? playerName : "Player " + playerId,
+                playerId,  // 使用 playerId 作为地址标识
+                playerId,
+                slotIndex
+        );
+
+        String role = bluetoothViewData.getRole();
+        String base = "HOST".equals(role) ? "玩家已加入" : "新玩家加入";
+        bluetoothViewData.setStatusText(base + "：" + playerId + " (" + playerName + ")");
+    }
+
+    @Override
+    public void onPlayerLeft(String playerId, String playerName) {
+        bluetoothViewData.removeConnectedDeviceByPlayerId(playerId);
+        bluetoothViewData.setStatusText("玩家已离开：" + playerId + " (" + playerName + ")");
+    }
+
+    @Override
+    public void onAllPlayersReady() {
+        bluetoothViewData.setStatusText("4人到齐，可以开始游戏");
     }
 
     @Override

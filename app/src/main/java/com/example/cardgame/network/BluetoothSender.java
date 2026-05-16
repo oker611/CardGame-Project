@@ -12,12 +12,15 @@ public class BluetoothSender {
 
     private final OutputStream outputStream;
     private final BluetoothMessageCodec messageCodec;
+    private final BufferedWriter writer;
 
-    private boolean active;
+    private volatile boolean active;
 
     public BluetoothSender(OutputStream outputStream, BluetoothMessageCodec messageCodec) {
         this.outputStream = outputStream;
         this.messageCodec = messageCodec;
+        this.writer = new BufferedWriter(
+                new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
         this.active = true;
     }
 
@@ -30,14 +33,10 @@ public class BluetoothSender {
         sendRaw(rawJson);
     }
 
-    public void sendRaw(String rawJson) throws IOException {
+    public synchronized void sendRaw(String rawJson) throws IOException {
         if (!active) {
             throw new IOException("BluetoothSender is not active");
         }
-
-        BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)
-        );
 
         writer.write(rawJson);
         writer.newLine();
@@ -52,5 +51,9 @@ public class BluetoothSender {
 
     public void stop() {
         active = false;
+        try {
+            writer.close();
+        } catch (IOException ignored) {
+        }
     }
 }

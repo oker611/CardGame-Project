@@ -15,6 +15,7 @@ import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.util.Logger;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 
 
 
@@ -335,6 +336,64 @@ public class GameEngine {
 
         System.out.println("[CardGame][BLUETOOTH] Player types configured | local="
                 + localPlayerId + ", remote=" + remotePlayerId);
+    }
+
+    /**
+     * Multi-player version: rebuild game state from a map of playerId→handCards.
+     */
+    public void rebuildGameStateMulti(Map<String, List<Card>> handsByPlayerId, String currentPlayerId) {
+        GameState rebuiltState = new GameState();
+
+        List<Player> players = new ArrayList<>();
+
+        for (Map.Entry<String, List<Card>> entry : handsByPlayerId.entrySet()) {
+            String playerId = entry.getKey();
+            List<Card> hand = entry.getValue();
+
+            Player player = new Player(playerId, "Player " + playerId);
+            player.setHandCards(hand != null ? new ArrayList<>(hand) : new ArrayList<>());
+            player.setType(PlayerType.AI); // 默认AI，后续由 configureBluetoothPlayerTypes 修正
+            players.add(player);
+        }
+
+        rebuiltState.setPlayers(players);
+        rebuiltState.setCurrentPlayerId(currentPlayerId != null ? currentPlayerId : "P1");
+        rebuiltState.setOpeningTurn(false);
+        rebuiltState.setGameOver(false);
+
+        this.gameState = rebuiltState;
+
+        System.out.println("[CardGame][BLUETOOTH] GameState rebuilt (multi), playerCount="
+                + players.size() + ", currentPlayerId=" + rebuiltState.getCurrentPlayerId());
+    }
+
+    /**
+     * Multi-player version: configure player types from a type map.
+     * Map key=playerId, value=typeName ("HUMAN", "REMOTE", "AI").
+     */
+    public void configureBluetoothPlayerTypesMulti(Map<String, String> typeMap) {
+        if (gameState == null || gameState.getPlayers() == null || typeMap == null) {
+            return;
+        }
+
+        for (Player player : gameState.getPlayers()) {
+            if (player == null) {
+                continue;
+            }
+
+            String typeName = typeMap.get(player.getPlayerId());
+            if (typeName != null) {
+                try {
+                    player.setType(PlayerType.valueOf(typeName));
+                } catch (IllegalArgumentException e) {
+                    player.setType(PlayerType.AI);
+                }
+            } else {
+                player.setType(PlayerType.AI);
+            }
+        }
+
+        System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | typeMap=" + typeMap);
     }
 
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {

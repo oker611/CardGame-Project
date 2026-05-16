@@ -13,10 +13,18 @@ public class BluetoothViewData {
 
     private String role;
     private String localPlayerId;
-    private String remotePlayerId;
 
+    // 旧单连接字段（保留兼容）
+    private String remotePlayerId;
     private String connectedDeviceName;
     private String connectedDeviceAddress;
+
+    // ——— 多连接支持 ———
+    private final List<ConnectedDevice> connectedDevices = new ArrayList<>();
+    /** 客户端模式：HOST 分配的 playerId */
+    private String assignedPlayerId;
+    /** 客户端模式：HOST 分配的 slot 索引 (0-3) */
+    private int assignedSlotIndex = -1;
 
     private String statusText;
     private String errorMessage;
@@ -41,6 +49,8 @@ public class BluetoothViewData {
         this.permissionStatus = "";
         this.devices = new ArrayList<>();
     }
+
+    // ===== 旧 getter / setter =====
 
     public boolean isBluetoothAvailable() {
         return bluetoothAvailable;
@@ -188,5 +198,91 @@ public class BluetoothViewData {
 
     public void clearErrorMessage() {
         this.errorMessage = "";
+    }
+
+    // ===== 多连接 getter / setter =====
+
+    public List<ConnectedDevice> getConnectedDevices() {
+        return connectedDevices;
+    }
+
+    public int getConnectedDeviceCount() {
+        return connectedDevices.size();
+    }
+
+    public void addConnectedDevice(String deviceName, String deviceAddress, String playerId, int slotIndex) {
+        // 先移除同地址的旧条目
+        removeConnectedDeviceByAddress(deviceAddress);
+        connectedDevices.add(new ConnectedDevice(deviceName, deviceAddress, playerId, slotIndex));
+
+        // 同步旧字段
+        if (connectedDevices.size() == 1) {
+            this.connectedDeviceName = deviceName;
+            this.connectedDeviceAddress = deviceAddress;
+            this.remotePlayerId = playerId;
+            this.connected = true;
+        }
+    }
+
+    public void removeConnectedDeviceByAddress(String deviceAddress) {
+        connectedDevices.removeIf(d -> java.util.Objects.equals(d.deviceAddress, deviceAddress));
+        if (connectedDevices.isEmpty()) {
+            this.connected = false;
+            this.connectedDeviceName = null;
+            this.connectedDeviceAddress = null;
+            this.remotePlayerId = null;
+        }
+    }
+
+    public void removeConnectedDeviceByPlayerId(String playerId) {
+        connectedDevices.removeIf(d -> java.util.Objects.equals(d.playerId, playerId));
+        if (connectedDevices.isEmpty()) {
+            this.connected = false;
+            this.connectedDeviceName = null;
+            this.connectedDeviceAddress = null;
+            this.remotePlayerId = null;
+        }
+    }
+
+    public void clearConnectedDevices() {
+        connectedDevices.clear();
+        this.connected = false;
+        this.connectedDeviceName = null;
+        this.connectedDeviceAddress = null;
+        this.remotePlayerId = null;
+    }
+
+    public String getAssignedPlayerId() {
+        return assignedPlayerId;
+    }
+
+    public void setAssignedPlayerId(String assignedPlayerId) {
+        this.assignedPlayerId = assignedPlayerId;
+    }
+
+    public int getAssignedSlotIndex() {
+        return assignedSlotIndex;
+    }
+
+    public void setAssignedSlotIndex(int assignedSlotIndex) {
+        this.assignedSlotIndex = assignedSlotIndex;
+    }
+
+    // ========================================================================
+    //  内部类：已连接设备
+    // ========================================================================
+
+    public static class ConnectedDevice {
+        public final String deviceName;
+        public final String deviceAddress;
+        public final String playerId;
+        public final int slotIndex;
+
+        public ConnectedDevice(String deviceName, String deviceAddress, String playerId, int slotIndex) {
+            this.deviceName = deviceName;
+            this.deviceAddress = deviceAddress;
+            this.playerId = playerId;
+            this.slotIndex = slotIndex;
+        }
     }
 }
