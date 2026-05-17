@@ -26,6 +26,7 @@ import com.example.cardgame.CardGameApplication;
 import com.example.cardgame.R;
 import com.example.cardgame.controller.BluetoothActionHandler;
 import com.example.cardgame.controller.GameActionHandler;
+import com.example.cardgame.controller.GameController;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
@@ -36,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-public class GameActivity extends AppCompatActivity {
+public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback {
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
@@ -66,6 +67,9 @@ public class GameActivity extends AppCompatActivity {
 
     private final Handler bluetoothRefreshHandler = new Handler(Looper.getMainLooper());
 
+    // 倒计时 UI 控件
+    private TextView tvCountdown;
+
     private final Runnable bluetoothRefreshRunnable = new Runnable() {
         @Override
         public void run() {
@@ -87,8 +91,19 @@ public class GameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
+        // 初始化倒计时 TextView
+        tvCountdown = findViewById(R.id.tv_countdown);
+        if (tvCountdown != null) {
+            tvCountdown.setVisibility(View.GONE);
+        }
+
         gameActionHandler = CardGameApplication.getGameActionHandler();
         Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
+
+        // 设置倒计时回调（如果 GameActionHandler 是 GameController 实例）
+        if (gameActionHandler instanceof GameController) {
+            ((GameController) gameActionHandler).setCountdownCallback(this);
+        }
 
         isBluetoothGame = getIntent().getBooleanExtra("is_bluetooth_game", false);
         isHost = getIntent().getBooleanExtra("is_host", false);
@@ -573,5 +588,33 @@ public class GameActivity extends AppCompatActivity {
         });
 
         dialog.show();
+    }
+
+    // ========== 实现 GameController.CountdownUICallback 接口 ==========
+    @Override
+    public void showCountdown() {
+        runOnUiThread(() -> {
+            if (tvCountdown != null) {
+                tvCountdown.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    @Override
+    public void updateCountdown(int secondsLeft) {
+        runOnUiThread(() -> {
+            if (tvCountdown != null) {
+                tvCountdown.setText(String.format("无牌可出，%d秒后自动跳过", secondsLeft));
+            }
+        });
+    }
+
+    @Override
+    public void hideCountdown() {
+        runOnUiThread(() -> {
+            if (tvCountdown != null) {
+                tvCountdown.setVisibility(View.GONE);
+            }
+        });
     }
 }
