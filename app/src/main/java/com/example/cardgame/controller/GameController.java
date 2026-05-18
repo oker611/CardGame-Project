@@ -252,7 +252,13 @@ public class GameController implements GameActionHandler {
                     p.getHandCards().size(), p.equals(currentPlayer), p.isPassed(),
                     p.getType() == PlayerType.HUMAN));
         }
+
+        // 重排玩家顺序，使本机玩家在索引0（C位）
+        players = reorderPlayersForSelf(players, myPlayerId);
+
         Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
+
+
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
             int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
@@ -289,6 +295,39 @@ public class GameController implements GameActionHandler {
 
     private GameViewData emptyViewData() {
         return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>());
+    }
+
+    /**
+     * 将玩家列表重新排序，使得本机玩家在索引0，其他玩家按顺时针顺序排列
+     * 顺序：0=自己, 1=顺时针下一家, 2=顺时针下两家, 3=顺时针下三家
+     */
+    private List<PlayerViewData> reorderPlayersForSelf(List<PlayerViewData> original, String myPlayerId) {
+        if (original == null || original.size() < 4) {
+            return original;
+        }
+
+        // 找到本机玩家在原始列表中的位置
+        int myIndex = -1;
+        for (int i = 0; i < original.size(); i++) {
+            if (original.get(i).getPlayerId().equals(myPlayerId)) {
+                myIndex = i;
+                break;
+            }
+        }
+
+        if (myIndex == -1) {
+            // 没找到本机玩家，返回原列表
+            return original;
+        }
+
+        // 重新排序：从 myIndex 开始，按顺序取，到达末尾后循环
+        List<PlayerViewData> reordered = new ArrayList<>();
+        for (int i = 0; i < original.size(); i++) {
+            int index = (myIndex + i) % original.size();
+            reordered.add(original.get(index));
+        }
+
+        return reordered;
     }
 
     // ========== 倒计时核心方法 ==========

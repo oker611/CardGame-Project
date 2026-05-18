@@ -8,12 +8,14 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.MotionEvent;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -112,8 +114,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         if (!isBluetoothGame) {
             localPlayerId = "P1";
         } else if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
-            // 4人模式：客户端身份待 HOST 分配，fallback 仅用于初始 UI
-            // 实际 playerId 会在 JOIN_ACK 后通过 BluetoothViewData 更新
             localPlayerId = isHost ? "P1" : "CLIENT";
         }
 
@@ -125,9 +125,13 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         playAreaRight = findViewById(R.id.play_area_right);
 
         rvHandCards = findViewById(R.id.rv_hand_cards);
-        rvHandCards.setLayoutManager(
-                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        );
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false) {
+            @Override
+            public boolean canScrollHorizontally() {
+                return false;  // 禁止水平滚动
+            }
+        };
+        rvHandCards.setLayoutManager(layoutManager);
 
         selectedCardIds = new ArrayList<>();
         handCards = new ArrayList<>();
@@ -239,6 +243,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
 
+        // 统一更新手牌区域，不区分数量变化，避免重建导致的布局抖动
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
                 String cardId = handCards.get(position);
@@ -252,7 +257,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             cardAdapter.updateData(handCards);
         }
 
-        rvHandCards.post(this::centerHandCards);
+        centerHandCards();
 
         if (data.isGameOver() && !gameOverDialogShown) {
             showGameOverDialog(data);
@@ -324,13 +329,21 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         if (cards == null || cards.isEmpty()) return;
 
+        // ✅ 对出牌排序：按点数升序（3最小，2最大）
+        List<String> sortedCards = new ArrayList<>(cards);
+        sortedCards.sort((a, b) -> {
+            int weightA = getCardRankWeight(a);
+            int weightB = getCardRankWeight(b);
+            return Integer.compare(weightA, weightB);
+        });
+
         float density = getResources().getDisplayMetrics().density;
         int cardWidthPx = (int) (36 * density);
         int cardHeightPx = (int) (56 * density);
         int overlapPx = (int) (-8 * density);
 
-        for (int i = 0; i < cards.size(); i++) {
-            String cardStr = cards.get(i);
+        for (int i = 0; i < sortedCards.size(); i++) {
+            String cardStr = sortedCards.get(i);
             View cardView = getLayoutInflater().inflate(R.layout.item_play_card, playArea, false);
 
             CardView cv = cardView.findViewById(R.id.card_view);
@@ -349,6 +362,27 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
             playArea.addView(cardView);
+        }
+    }
+
+    private int getCardRankWeight(String cardId) {
+        if (cardId == null || cardId.length() < 2) return 0;
+        String rank = cardId.substring(1);
+        switch (rank) {
+            case "2": return 13;
+            case "A": return 12;
+            case "K": return 11;
+            case "Q": return 10;
+            case "J": return 9;
+            case "10": return 8;
+            case "9": return 7;
+            case "8": return 6;
+            case "7": return 5;
+            case "6": return 4;
+            case "5": return 3;
+            case "4": return 2;
+            case "3": return 1;
+            default: return 0;
         }
     }
 
@@ -459,13 +493,13 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         int overlapPx = (int) (CARD_OVERLAP_DP * density);
         int totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
 
-        int padding = (screenWidth - totalWidth) / 2;
-        if (padding < 0) padding = 0;
+        int expectedLeftMargin = (screenWidth - totalWidth) / 2;
+        if (expectedLeftMargin < 0) expectedLeftMargin = 0;
 
-        int minMarginPx = (int) (8 * density);
-        padding = Math.max(padding, minMarginPx);
+        Log.d("CenterDebug", "牌数=" + handCards.size() + ", 期望左边距=" + expectedLeftMargin);
 
-        rvHandCards.setPadding(padding, 0, padding, 0);
+        // 使用 setX 直接设置绝对位置
+        rvHandCards.setX(expectedLeftMargin);
     }
 
     private List<String> generateRandomHand() {
