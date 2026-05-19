@@ -33,8 +33,6 @@ import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.dto.PlayerViewData;
-import com.example.cardgame.model.GameState;
-import com.example.cardgame.model.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -157,24 +155,12 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 System.out.println("[CardGame][UI] Bluetooth game mode, host="
                         + isHost + ", localPlayerId=" + localPlayerId);
 
-                // 传入自定义玩家名
-                if (gameActionHandler instanceof GameController) {
-                    String savedName = getSharedPreferences("game_prefs", MODE_PRIVATE)
-                            .getString("player_name", null);
-                    if (savedName != null && !savedName.trim().isEmpty()) {
-                        ((GameController) gameActionHandler).setLocalPlayerName(savedName);
-                    }
-                }
-
                 if (isHost) {
                     gameActionHandler.startNewGame();
                     Toast.makeText(this, "蓝牙房主模式：已开局并同步", Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(this, "蓝牙加入者模式：等待房主同步开局", Toast.LENGTH_SHORT).show();
                 }
-
-                // 主机和客户端：都用自定义名覆盖本地玩家
-                overrideLocalPlayerName();
 
                 refreshUI();
                 bluetoothRefreshHandler.post(bluetoothRefreshRunnable);
@@ -664,23 +650,5 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 tvCountdown.setVisibility(View.GONE);
             }
         });
-    }
-
-    /**
-     * 用 SharedPreferences 中保存的自定义名覆盖本地玩家名。
-     * 主机和客户端都调用——主机在 startNewGame 后立即覆盖，客户端在 INIT_GAME 重建状态后覆盖。
-     */
-    private void overrideLocalPlayerName() {
-        String savedName = getSharedPreferences("game_prefs", MODE_PRIVATE)
-                .getString("player_name", null);
-        if (savedName == null || savedName.trim().isEmpty()) return;
-
-        GameState state = CardGameApplication.getGameEngine().getGameState();
-        if (state == null) return;
-
-        Player me = state.getPlayerById(localPlayerId);
-        if (me != null) {
-            me.setPlayerName(savedName);
-        }
     }
 }

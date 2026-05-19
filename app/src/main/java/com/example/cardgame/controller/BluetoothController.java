@@ -188,9 +188,6 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         return bluetoothGateway.hasRealClients();
     }
 
-    public Map<String, String> getPlayerNames() {
-        return bluetoothGateway.getPlayerNames();
-    }
 
     // ========================================================================
     //  BluetoothEventListener 回调

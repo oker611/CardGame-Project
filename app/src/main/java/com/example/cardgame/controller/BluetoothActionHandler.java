@@ -43,9 +43,6 @@ public interface BluetoothActionHandler {
     }
 
     /**
-     * HOST 端：通知已连接客户端有 AI 玩家加入。
-     */
-    default void notifyAiPlayerAdded(String playerId, int slotIndex) {
     }
 
     /**
@@ -62,8 +59,8 @@ public interface BluetoothActionHandler {
     }
 
     /**
-     * 覆盖本地玩家名（从设置读取的自定义名字）。
+     * HOST 端：通知已连接客户端有 AI 玩家加入。
      */
-    default void setLocalPlayerName(String name) {
+    default void notifyAiPlayerAdded(String playerId, int slotIndex) {
     }
 }

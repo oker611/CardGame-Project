@@ -36,7 +36,6 @@ public class GameController implements GameActionHandler {
     private boolean bluetoothMode = false;
     private boolean hostMode = false;
     private BluetoothActionHandler bluetoothActionHandler;
-    private String localPlayerName = null;
 
     private final Map<String, AIPlayer> aiPlayerCache = new ConcurrentHashMap<>();
 
@@ -87,14 +86,6 @@ public class GameController implements GameActionHandler {
         }
     }
 
-    /**
-     * 设置本地玩家的自定义名字（从 SharedPreferences 读取）。
-     * 必须在 startNewGame() 之前调用。
-     */
-    public void setLocalPlayerName(String name) {
-        this.localPlayerName = name;
-    }
-
     private void notifyUiRefresh() {
         if (uiRefreshCallback != null) uiRefreshCallback.run();
     }
@@ -103,37 +94,11 @@ public class GameController implements GameActionHandler {
     public void startNewGame() {
         if (!bluetoothMode) myPlayerId = "P1";
 
-        // 获取玩家名
-        Map<String, String> names = new HashMap<>();
-        if (bluetoothMode) {
-            // 蓝牙模式：从Gateway获取真实设备名
-            names.put("P1", "房主");
-            names.put("P2", "AI-P2");
-            names.put("P3", "AI-P3");
-            names.put("P4", "AI-P4");
-            if (bluetoothActionHandler instanceof BluetoothController) {
-                Map<String, String> btNames = ((BluetoothController) bluetoothActionHandler).getPlayerNames();
-                if (btNames != null) names.putAll(btNames);
-            }
-            if (localPlayerName != null && !localPlayerName.trim().isEmpty()) {
-                names.put(myPlayerId, localPlayerName);
-            }
-        } else {
-            // 本地模式：保持原来的Alice/Bob/Cindy/David
-            names.put("P1", "Alice");
-            names.put("P2", "Bob");
-            names.put("P3", "Cindy");
-            names.put("P4", "David");
-            if (localPlayerName != null && !localPlayerName.trim().isEmpty()) {
-                names.put("P1", localPlayerName);
-            }
-        }
-
         List<Player> players = new ArrayList<>();
-        Player p1 = new Player("P1", names.getOrDefault("P1", "P1"));
-        Player p2 = new Player("P2", names.getOrDefault("P2", "P2"));
-        Player p3 = new Player("P3", names.getOrDefault("P3", "P3"));
-        Player p4 = new Player("P4", names.getOrDefault("P4", "P4"));
+        Player p1 = new Player("P1", "Alice");
+        Player p2 = new Player("P2", "Bob");
+        Player p3 = new Player("P3", "Cindy");
+        Player p4 = new Player("P4", "David");
 
         if (bluetoothMode) {
             // 蓝牙模式：初始全部设为 AI，后续根据实际连接情况修正
