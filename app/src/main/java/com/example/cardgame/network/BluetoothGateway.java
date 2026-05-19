@@ -538,8 +538,6 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             Log.i("CardGame", "[INFO] [蓝牙] 新玩家加入: " + newPlayerId
                     + " (" + newPlayerName + "), slot=" + slot);
 
-            }
-
             if (eventListener != null) {
                 eventListener.onPlayerJoined(newPlayerId, newPlayerName, slot);
             }
