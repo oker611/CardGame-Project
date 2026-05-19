@@ -34,7 +34,10 @@ public class BluetoothConnectionManager {
     public static final UUID SERVICE_UUID =
             UUID.fromString("a5c93a6e-6c0f-4a21-8e6d-9dd3b8a3d7c1");
 
-    private static final long DISCOVERY_TIMEOUT_SECONDS = 13L;
+    private static final long DISCOVERY_TIMEOUT_SECONDS = 6L;
+
+    /** RFCOMM 通道稳定等待时间（毫秒）。连接后短暂等待，避免部分设备上 InputStream 未就绪。 */
+    private static final long RFCOMM_STABILIZE_DELAY_MS = 300L;
 
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
@@ -313,6 +316,36 @@ public class BluetoothConnectionManager {
         return result;
     }
 
+    /**
+     * 快速获取已配对的手机/平板设备（不启动蓝牙搜索，毫秒级返回）。
+     * 用于搜索页面初始显示，后续由 discoverJoinableMobileDevices 补充。
+     */
+    @SuppressLint("MissingPermission")
+    public List<BluetoothDeviceInfo> getBondedJoinableDevices() {
+        Map<String, BluetoothDeviceInfo> resultMap = new LinkedHashMap<>();
+
+        if (bluetoothAdapter == null) {
+            return new ArrayList<>();
+        }
+
+        Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices();
+        if (bondedDevices != null) {
+            for (BluetoothDevice device : bondedDevices) {
+                BluetoothDeviceInfo info = toJoinableDeviceInfo(
+                        device,
+                        device.getBluetoothClass(),
+                        Short.MIN_VALUE
+                );
+                if (info != null && info.getDeviceAddress() != null) {
+                    resultMap.put(info.getDeviceAddress(), info);
+                }
+            }
+        }
+
+        Log.i("CardGame", "[INFO] [蓝牙] 已配对候选设备=" + resultMap.size() + " (无需搜索)");
+        return new ArrayList<>(resultMap.values());
+    }
+
     @SuppressLint("MissingPermission")
     public boolean startDiscovery() {
         if (bluetoothAdapter == null) {
@@ -457,6 +490,13 @@ public class BluetoothConnectionManager {
         waitForNextClient();
     }
 
+    /**
+     * 连接到指定蓝牙设备（CLIENT 端）。
+     * <p>
+     * 先尝试 {@link BluetoothDevice#createRfcommSocketToServiceRecord}，
+     * 连接失败时自动降级到 {@link BluetoothDevice#createInsecureRfcommSocketToServiceRecord}。
+     * 连接成功后等待 {@link #RFCOMM_STABILIZE_DELAY_MS} 毫秒让 RFCOMM 通道稳定。
+     */
     @SuppressLint("MissingPermission")
     public void connectToDevice(String deviceAddress) throws IOException {
         if (bluetoothAdapter == null) {
@@ -471,8 +511,17 @@ public class BluetoothConnectionManager {
 
         stopDiscovery();
 
-        BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
-        socket.connect();
+        BluetoothSocket socket = connectWithFallback(device);
+
+        // 等待 RFCOMM 通道稳定（部分 Android 设备需要）
+        if (RFCOMM_STABILIZE_DELAY_MS > 0) {
+            try {
+                Thread.sleep(RFCOMM_STABILIZE_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for RFCOMM stabilization", e);
+            }
+        }
 
         ClientConnection conn = new ClientConnection(
                 deviceAddress,
@@ -487,6 +536,36 @@ public class BluetoothConnectionManager {
         syncLegacyFields(deviceAddress);
 
         Log.i("CardGame", "[INFO] [蓝牙] 客户端连接成功 | device=" + deviceAddress);
+    }
+
+    /**
+     * 尝试连接设备：先安全 RFCOMM，失败后降级到不安全 RFCOMM。
+     */
+    @SuppressLint("MissingPermission")
+    private BluetoothSocket connectWithFallback(BluetoothDevice device) throws IOException {
+        // 第一次尝试：安全 RFCOMM
+        try {
+            BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
+            socket.connect();
+            Log.i("CardGame", "[INFO] [蓝牙] 使用安全RFCOMM连接成功 | device=" + device.getAddress());
+            return socket;
+        } catch (IOException firstAttemptError) {
+            Log.w("CardGame", "[WARN] [蓝牙] 安全RFCOMM连接失败，尝试不安全RFCOMM"
+                    + " | device=" + device.getAddress()
+                    + " | error=" + firstAttemptError.getMessage());
+        }
+
+        // 第二次尝试：不安全 RFCOMM（兼容部分国产 ROM）
+        try {
+            BluetoothSocket fallbackSocket = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID);
+            fallbackSocket.connect();
+            Log.i("CardGame", "[INFO] [蓝牙] 使用不安全RFCOMM连接成功 | device=" + device.getAddress());
+            return fallbackSocket;
+        } catch (IOException secondAttemptError) {
+            throw new IOException(
+                    "Failed to connect via both secure and insecure RFCOMM to " + device.getAddress(),
+                    secondAttemptError);
+        }
     }
 
     // ========================================================================
@@ -570,6 +649,30 @@ public class BluetoothConnectionManager {
             connectedDeviceAddress = null;
             connected = false;
         }
+    }
+
+    /**
+     * 仅关闭服务端 Socket（不关闭已建立的客户端连接）。
+     * 用于房间以 AI 补齐后释放 accept 线程。
+     */
+    public void closeServerSocket() {
+        accepting = false;
+
+        Thread t = acceptThread;
+        if (t != null) {
+            t.interrupt();
+        }
+        acceptThread = null;
+
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch (IOException ignored) {
+        }
+        serverSocket = null;
+
+        Log.i("CardGame", "[INFO] [蓝牙] 服务端Socket已关闭（房间已开始游戏）");
     }
 
     /**

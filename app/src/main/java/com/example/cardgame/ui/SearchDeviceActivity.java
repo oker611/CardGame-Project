@@ -86,6 +86,13 @@ public class SearchDeviceActivity extends AppCompatActivity {
             return;
         }
 
+        // 第一步：立即显示已配对设备（毫秒级）
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.loadBondedDevices();
+            refreshDeviceListFromController();
+        }
+
+        // 第二步：启动后台搜索（最多等待6秒）
         searchBluetoothDevices();
     }
 
@@ -112,10 +119,9 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
         bluetoothActionHandler.searchBluetoothDevices();
 
-        handler.postDelayed(this::refreshDeviceListFromController, 1500);
-        handler.postDelayed(this::refreshDeviceListFromController, 5000);
-        handler.postDelayed(this::refreshDeviceListFromController, 9000);
-        handler.postDelayed(this::finishSearchAndRefresh, 13500);
+        handler.postDelayed(this::refreshDeviceListFromController, 1000);
+        handler.postDelayed(this::refreshDeviceListFromController, 3000);
+        handler.postDelayed(this::finishSearchAndRefresh, 6500);
     }
 
     private void finishSearchAndRefresh() {
