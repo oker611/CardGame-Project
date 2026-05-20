@@ -586,6 +586,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             this.remotePlayerId = "P1"; // HOST 始终是 P1
             this.playerIdToDevice.put(assignedPlayerId, connectionManager.getConnectedDeviceAddress());
 
+            // 同步 NetworkGameBridge（否则 bridge 的 localPlayerId 仍为 "CLIENT"，导致 configurePlayerTypes 出错）
+            networkGameBridge.setPlayerContext(assignedPlayerId, new ArrayList<>());
+
             Log.i("CardGame", "[INFO] [蓝牙] HOST分配角色: " + assignedPlayerId
                     + ", slot=" + assignedSlotIndex);
 
