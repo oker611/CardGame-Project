@@ -509,6 +509,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 + " 发送者:" + message.getSenderPlayerId());
 
         // ——— 可靠投递：对带序列号的消息自动 ACK ———
+        // 星型拓扑中，所有消息都经过 HOST 的可靠通道投递。
+        // CLIENT 收到转发消息时 senderPlayerId 是原始发送者（非 HOST），
+        // 但实际的可靠通道是 HOST↔CLIENT。此时 playerIdToDevice 查不到
+        // 原始发送者，fallback 到唯一的 reliable sender 将 ACK 发回 HOST，
+        // HOST 的 handleAck 根据 ACK 的 senderPlayerId 路由到正确的通道。
         int seq = message.getSequenceNumber();
         if (seq > 0 && message.getMessageType() != MessageType.ACK) {
             String senderDevice = playerIdToDevice.get(message.getSenderPlayerId());
@@ -518,7 +523,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     reliable.sendAckFor(seq, message.getSenderPlayerId());
                 }
             } else if (!isHost()) {
-                // CLIENT 模式：只有一路连接，直接用唯一的 reliable sender
+                // CLIENT 模式：只有一路连接到 HOST，fallback 发 ACK 回 HOST
                 ReliableMessageSender reliable = reliableSenders.values().stream().findFirst().orElse(null);
                 if (reliable != null) {
                     reliable.sendAckFor(seq, message.getSenderPlayerId());
@@ -557,9 +562,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             default:
                 // 所有游戏相关消息（INIT_GAME, PLAY_ACTION, PASS_ACTION, GAME_OVER, ERROR, HEARTBEAT）
-                // HOST 模式下：转发给其他客户端
+                // HOST 模式下：广播给所有客户端（含发送者，实现 CLIENT 端确认回环）
                 if (isHost() && communicationReady) {
-                    forwardToOtherClients(message);
+                    broadcastToAllClients(message);
                 }
 
                 // 交给 bridge 处理
@@ -644,6 +649,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     /**
      * 处理收到的 ACK 消息，告知 ReliableMessageSender 清除 pending。
+     * ACK 的 senderPlayerId 是发送 ACK 的客户端，据此路由到对应的可靠通道。
      */
     private void handleAckMessage(BluetoothMessage message) {
         try {
@@ -680,19 +686,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     /**
-     * HOST 模式下：将收到的消息转发给其他所有客户端（除发送者外）。
+     * HOST 模式下：将收到的消息广播给所有客户端（含发送者，实现 CLIENT 端确认回环）。
      */
-    private void forwardToOtherClients(BluetoothMessage originalMessage) {
-        String senderPlayerId = originalMessage.getSenderPlayerId();
-
+    private void broadcastToAllClients(BluetoothMessage originalMessage) {
         for (Map.Entry<String, String> entry : deviceToPlayerId.entrySet()) {
             String targetDevice = entry.getKey();
             String targetPlayerId = entry.getValue();
-
-            // 不转发给发送者自己
-            if (targetPlayerId.equals(senderPlayerId)) {
-                continue;
-            }
 
             SenderReceiverPair pair = clientChannels.get(targetDevice);
             if (pair == null || pair.sender == null || !pair.sender.isActive()) {
@@ -707,13 +706,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     pair.sender.sendMessage(originalMessage);
                 }
 
-                Log.d("CardGame", "[DEBUG] [蓝牙] 消息已转发 | 类型:"
+                Log.d("CardGame", "[DEBUG] [蓝牙] 消息已广播 | 类型:"
                         + originalMessage.getMessageType()
-                        + " 来自:" + senderPlayerId
-                        + " 转发到:" + targetPlayerId);
+                        + " 来自:" + originalMessage.getSenderPlayerId()
+                        + " 到:" + targetPlayerId);
 
             } catch (Exception e) {
-                Log.e("CardGame", "[ERROR] [蓝牙] 转发失败 | to=" + targetPlayerId, e);
+                Log.e("CardGame", "[ERROR] [蓝牙] 广播失败 | to=" + targetPlayerId, e);
             }
         }
     }
@@ -733,6 +732,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     public boolean isHost() {
         return "HOST".equals(role);
+    }
+
+    public boolean isCommunicationReady() {
+        return communicationReady;
     }
 
     public String getRole() {

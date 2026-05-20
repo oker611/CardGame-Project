@@ -151,19 +151,28 @@ public class NetworkGameBridge {
 
             Play play = payload.getPlay();
 
+            Object result;
             if (play != null) {
-                invokeEngineMethod(
+                result = invokeEngineMethodWithResult(
                         "executeRemotePlay",
                         new Class[]{Play.class},
                         play
                 );
             } else {
-                invokeEngineMethod(
+                result = invokeEngineMethodWithResult(
                         "playCards",
                         new Class[]{String.class, List.class},
                         payload.getPlayerId(),
                         payload.getSelectedCardIds()
                 );
+            }
+
+            if (result instanceof com.example.cardgame.dto.PlayResult) {
+                com.example.cardgame.dto.PlayResult pr = (com.example.cardgame.dto.PlayResult) result;
+                if (!pr.isSuccess()) {
+                    Log.w("CardGame", "[WARN] [蓝牙] 远程出牌被HOST拒绝 | player="
+                            + payload.getPlayerId() + " reason=" + pr.getMessage());
+                }
             }
 
             notifyReceived(MessageType.PLAY_ACTION, "收到远程出牌:" + payload.getPlayerId());
@@ -177,18 +186,18 @@ public class NetworkGameBridge {
             PassActionPayload payload =
                     messageCodec.decodePassActionPayload(message.getPayloadJson());
 
-            boolean executed = invokeEngineMethod(
+            Object result = invokeEngineMethodWithResult(
                     "executeRemotePass",
                     new Class[]{String.class},
                     payload.getPlayerId()
             );
 
-            if (!executed) {
-                invokeEngineMethod(
-                        "passTurn",
-                        new Class[]{String.class},
-                        payload.getPlayerId()
-                );
+            if (result instanceof com.example.cardgame.dto.PassResult) {
+                com.example.cardgame.dto.PassResult pr = (com.example.cardgame.dto.PassResult) result;
+                if (!pr.isSuccess()) {
+                    Log.w("CardGame", "[WARN] [蓝牙] 远程过牌被HOST拒绝 | player="
+                            + payload.getPlayerId() + " reason=" + pr.getMessage());
+                }
             }
 
             notifyReceived(MessageType.PASS_ACTION, "收到远程Pass:" + payload.getPlayerId());
@@ -273,7 +282,7 @@ public class NetworkGameBridge {
         }
         if (!remoteIds.isEmpty()) {
             setPlayerContext(localPlayerId, remoteIds);
-            HermesLog.log("BRIDGE syncRemotePlayerIdsFromPayload local=" + localPlayerId
+            Log.d("CardGame", "[DEBUG] [蓝牙] syncRemotePlayerIds local=" + localPlayerId
                     + " remote=" + remoteIds);
         }
     }
@@ -289,6 +298,19 @@ public class NetworkGameBridge {
         } catch (Exception exception) {
             notifyError("Failed to invoke GameEngine method: " + methodName, exception);
             return false;
+        }
+    }
+
+    private Object invokeEngineMethodWithResult(String methodName, Class<?>[] parameterTypes, Object... args) {
+        try {
+            Method method = gameEngine.getClass().getMethod(methodName, parameterTypes);
+            return method.invoke(gameEngine, args);
+        } catch (NoSuchMethodException exception) {
+            Log.w("CardGame", "[WARN] [蓝牙] 引擎接口未暴露 | 方法:" + methodName);
+            return null;
+        } catch (Exception exception) {
+            notifyError("Failed to invoke GameEngine method: " + methodName, exception);
+            return null;
         }
     }
 

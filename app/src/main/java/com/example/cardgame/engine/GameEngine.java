@@ -53,6 +53,11 @@ public class GameEngine {
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         System.out.println("[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
 
+        if (gameState != null && gameState.isGameOver()) {
+            System.out.println("[CardGame][PLAY] rejected: game already over");
+            return createPlayResult(false, "Game already over", gameState);
+        }
+
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
             System.out.println("[CardGame][PLAY] rejected: not current player, currentPlayerId="
@@ -112,9 +117,13 @@ public class GameEngine {
     public PassResult passTurn(String playerId) {
         System.out.println("[CardGame][PASS] request playerId=" + playerId);
 
-        if (gameState == null || gameState.isGameOver()) {
+        if (gameState == null) {
+            System.out.println("[CardGame][PASS] rejected: gameState is null");
+            return createPassResult(false, "Game state is null", null);
+        }
+        if (gameState.isGameOver()) {
             System.out.println("[CardGame][PASS] rejected: game is over");
-            return createPassResult(false, "Game is over", gameState);
+            return createPassResult(false, "Game already over", gameState);
         }
 
         Player player = gameState.getPlayerById(playerId);
@@ -282,6 +291,11 @@ public class GameEngine {
      * Execute a play action received from bluetooth.
      */
     public PlayResult executeRemotePlay(Play play) {
+        if (gameState != null && gameState.isGameOver()) {
+            System.out.println("[CardGame][BLUETOOTH] executeRemotePlay rejected: game already over");
+            return createPlayResult(false, "Game already over", gameState);
+        }
+
         if (play == null) {
             System.out.println("[CardGame][BLUETOOTH] executeRemotePlay failed: play is null");
             return createPlayResult(false, "Remote play is null", gameState);
@@ -311,6 +325,11 @@ public class GameEngine {
      * Execute a pass action received from bluetooth.
      */
     public PassResult executeRemotePass(String playerId) {
+        if (gameState != null && gameState.isGameOver()) {
+            System.out.println("[CardGame][BLUETOOTH] executeRemotePass rejected: game already over");
+            return createPassResult(false, "Game already over", gameState);
+        }
+
         System.out.println("[CardGame][BLUETOOTH] executeRemotePass playerId=" + playerId);
         return passTurn(playerId);
     }
@@ -394,6 +413,22 @@ public class GameEngine {
         }
 
         System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | typeMap=" + typeMap);
+    }
+
+    /**
+     * 构建 Play 对象但不修改游戏状态。用于 CLIENT 端发送前构建消息。
+     */
+    public Play buildPlay(String playerId, List<String> cardIds) {
+        if (gameState == null || playerId == null || cardIds == null || cardIds.isEmpty()) {
+            return null;
+        }
+        Player player = gameState.getPlayerById(playerId);
+        if (player == null) return null;
+        List<Card> selectedCards = player.findCardsByIds(cardIds);
+        if (selectedCards == null || selectedCards.isEmpty()) return null;
+        PatternRecognizer.PatternInfo patternInfo = ruleEngine.recognizePattern(selectedCards);
+        CardPattern pattern = mapPatternType(patternInfo.getType());
+        return new Play(playerId, new ArrayList<>(selectedCards), pattern);
     }
 
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {

@@ -137,6 +137,11 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     }
 
     @Override
+    public boolean isCommunicationReady() {
+        return bluetoothGateway.isCommunicationReady();
+    }
+
+    @Override
     public List<String> getRemotePlayerIds() {
         return bluetoothGateway.getRemotePlayerIds();
     }

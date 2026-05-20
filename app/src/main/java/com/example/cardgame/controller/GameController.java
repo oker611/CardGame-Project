@@ -188,6 +188,17 @@ public class GameController implements GameActionHandler {
             return new PlayResult(false, "请先选择要出的牌", state);
         }
 
+        // CLIENT 模式：只发送，不本地执行，等待 HOST 广播回来确认
+        if (bluetoothMode && !hostMode && bluetoothActionHandler != null) {
+            Play play = gameEngine.buildPlay(currentPlayer.getPlayerId(), cardsToPlay);
+            if (play != null) {
+                bluetoothActionHandler.sendLocalPlay(play);
+            }
+            this.selectedCardIds.clear();
+            cancelCountdown(currentPlayer);
+            return new PlayResult(true, "已发送，等待确认", state);
+        }
+
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
         if (result.isSuccess()) {
             this.selectedCardIds.clear();
@@ -220,6 +231,13 @@ public class GameController implements GameActionHandler {
         }
 
         cancelCountdown(currentPlayer);
+
+        // CLIENT 模式：只发送，不本地执行，等待 HOST 广播回来确认
+        if (bluetoothMode && !hostMode && bluetoothActionHandler != null) {
+            bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
+            return new PassResult(true, "已发送，等待确认", state);
+        }
+
         PassResult result = gameEngine.passTurn(currentPlayer.getPlayerId());
         if (result.isSuccess()) {
             if (bluetoothMode && bluetoothActionHandler != null) {
@@ -396,19 +414,23 @@ public class GameController implements GameActionHandler {
         System.out.println("[CardGame][COUNTDOWN] Force pass for " + player.getPlayerId()
                 + ", consecutiveNoPlayCount now = " + player.getConsecutiveNoPlayCount());
 
-        PassResult result = gameEngine.passTurn(player.getPlayerId());
-        if (result.isSuccess()) {
-            if (bluetoothMode && bluetoothActionHandler != null) {
-                bluetoothActionHandler.sendLocalPass(player.getPlayerId());
-            }
-            notifyUiRefresh();
-            if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
-            }
+        if (bluetoothMode && !hostMode && bluetoothActionHandler != null) {
+            // CLIENT 模式：只发送，不本地执行
+            bluetoothActionHandler.sendLocalPass(player.getPlayerId());
         } else {
-            // 理论上不会失败，但若失败则回滚计数（可选）
-            System.out.println("[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());
-            player.setConsecutiveNoPlayCount(player.getConsecutiveNoPlayCount() - 1);
+            PassResult result = gameEngine.passTurn(player.getPlayerId());
+            if (result.isSuccess()) {
+                if (bluetoothMode && bluetoothActionHandler != null) {
+                    bluetoothActionHandler.sendLocalPass(player.getPlayerId());
+                }
+                notifyUiRefresh();
+                if (!gameEngine.isGameOver()) {
+                    new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                }
+            } else {
+                System.out.println("[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());
+                player.setConsecutiveNoPlayCount(player.getConsecutiveNoPlayCount() - 1);
+            }
         }
 
         if (countdownCallback != null) {

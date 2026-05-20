@@ -5,36 +5,36 @@ import java.util.List;
 
 public class BluetoothViewData {
 
-    private boolean bluetoothAvailable;
-    private boolean bluetoothEnabled;
-    private boolean connected;
-    private boolean connecting;
-    private boolean hosting;
+    private volatile boolean bluetoothAvailable;
+    private volatile boolean bluetoothEnabled;
+    private volatile boolean connected;
+    private volatile boolean connecting;
+    private volatile boolean hosting;
 
-    private String role;
-    private String localPlayerId;
+    private volatile String role;
+    private volatile String localPlayerId;
 
     // 旧单连接字段（保留兼容）
-    private String remotePlayerId;
-    private String connectedDeviceName;
-    private String connectedDeviceAddress;
+    private volatile String remotePlayerId;
+    private volatile String connectedDeviceName;
+    private volatile String connectedDeviceAddress;
 
     // ——— 多连接支持 ———
     private final List<ConnectedDevice> connectedDevices =
             new java.util.concurrent.CopyOnWriteArrayList<>();
     /** 客户端模式：HOST 分配的 playerId */
-    private String assignedPlayerId;
+    private volatile String assignedPlayerId;
     /** 客户端模式：HOST 分配的 slot 索引 (0-3) */
-    private int assignedSlotIndex = -1;
+    private volatile int assignedSlotIndex = -1;
 
-    private String statusText;
-    private String errorMessage;
-    private String permissionStatus;
+    private volatile String statusText;
+    private volatile String errorMessage;
+    private volatile String permissionStatus;
 
-    private String lastSentMessageType;
-    private String lastSentSummary;
-    private String lastReceivedMessageType;
-    private String lastReceivedSummary;
+    private volatile String lastSentMessageType;
+    private volatile String lastSentSummary;
+    private volatile String lastReceivedMessageType;
+    private volatile String lastReceivedSummary;
 
     private List<BluetoothDeviceViewData> devices;
 

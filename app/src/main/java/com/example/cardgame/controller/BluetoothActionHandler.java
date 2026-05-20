@@ -28,6 +28,13 @@ public interface BluetoothActionHandler {
     BluetoothViewData getBluetoothViewData();
 
     /**
+     * 通信通道是否已就绪（所有客户端均已连接并建立通道）。
+     */
+    default boolean isCommunicationReady() {
+        return false;
+    }
+
+    /**
      * 获取当前已连接的所有远程玩家 ID 列表。
      * HOST 端返回 P2/P3/P4 等已分配的 ID，CLIENT 端返回空列表。
      */

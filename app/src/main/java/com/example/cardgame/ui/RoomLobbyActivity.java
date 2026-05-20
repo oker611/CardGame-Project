@@ -315,11 +315,18 @@ public class RoomLobbyActivity extends AppCompatActivity {
             }
 
             if (currentPlayerCount == MAX_PLAYERS) {
-                gameStarted = true;
-
-                handler.removeCallbacks(refreshBluetoothStateRunnable);
-
                 boolean hasRealRemotePlayer = hasRealRemotePlayer();
+
+                // 验证通信通道已就绪（所有真实客户端均已连接完毕）
+                if (hasRealRemotePlayer
+                        && bluetoothActionHandler != null
+                        && !bluetoothActionHandler.isCommunicationReady()) {
+                    Toast.makeText(this, "等待所有玩家连接完毕...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                gameStarted = true;
+                handler.removeCallbacks(refreshBluetoothStateRunnable);
 
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
 
