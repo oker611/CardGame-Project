@@ -7,6 +7,7 @@ import com.example.cardgame.network.payload.JoinPayload;
 import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
+import com.example.cardgame.network.payload.AckPayload;
 import com.google.gson.Gson;
 
 import java.util.UUID;
@@ -191,6 +192,25 @@ public class BluetoothMessageCodec {
 
     public PlayerLeftPayload decodePlayerLeftPayload(String payloadJson) {
         return gson.fromJson(payloadJson, PlayerLeftPayload.class);
+    }
+
+    public AckPayload decodeAckPayload(String payloadJson) {
+        return gson.fromJson(payloadJson, AckPayload.class);
+    }
+
+    public BluetoothMessage buildAckMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            int acknowledgedSeq
+    ) {
+        AckPayload payload = new AckPayload(acknowledgedSeq);
+        return buildMessage(
+                MessageType.ACK,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
     }
 
     private BluetoothMessage buildMessage(

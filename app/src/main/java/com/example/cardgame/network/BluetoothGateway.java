@@ -13,6 +13,7 @@ import com.example.cardgame.network.payload.JoinPayload;
 import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
+import com.example.cardgame.network.payload.AckPayload;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,6 +44,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private final Map<String, SenderReceiverPair> clientChannels = new ConcurrentHashMap<>();
     /** playerId → deviceAddress（反向查找） */
     private final Map<String, String> playerIdToDevice = new ConcurrentHashMap<>();
+    /** deviceAddress → ReliableMessageSender（可靠投递） */
+    private final Map<String, ReliableMessageSender> reliableSenders = new ConcurrentHashMap<>();
 
     private String role;
     private volatile boolean communicationReady = false;
@@ -82,6 +85,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.deviceToPlayerId.clear();
         this.clientChannels.clear();
         this.playerIdToDevice.clear();
+        this.reliableSenders.clear();
 
         networkGameBridge.setPlayerContext(this.localPlayerId, new ArrayList<>());
 
@@ -118,6 +122,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 receiver.startListening();
 
                 clientChannels.put(deviceAddress, new SenderReceiverPair(sender, receiver));
+
+                // 创建可靠投递通道
+                ReliableMessageSender reliable = new ReliableMessageSender(
+                        sender, messageCodec, localPlayerId, deviceAddress,
+                        () -> onReliableDeliveryFailed(deviceAddress, clientPlayerId));
+                reliableSenders.put(deviceAddress, reliable);
 
                 // 发送 JOIN_ACK 给新客户端
                 String playerName = conn.deviceName != null ? conn.deviceName : "Player";
@@ -231,6 +241,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         String deviceAddress = connectionManager.getConnectedDeviceAddress();
         if (deviceAddress != null) {
             clientChannels.put(deviceAddress, pair);
+
+            // 创建可靠投递通道
+            ReliableMessageSender reliable = new ReliableMessageSender(
+                    pair.sender, messageCodec, localPlayerId, deviceAddress,
+                    () -> onReliableDeliveryFailed(deviceAddress, "HOST"));
+            reliableSenders.put(deviceAddress, reliable);
         }
 
         pair.receiver.startListening();
@@ -402,6 +418,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 return;
             }
 
+            boolean isGameMessage = isGameMessageType(message.getMessageType());
+
             for (Map.Entry<String, SenderReceiverPair> entry : clientChannels.entrySet()) {
                 try {
                     String deviceAddress = entry.getKey();
@@ -411,7 +429,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                         continue;
                     }
 
-                    pair.sender.sendMessage(message);
+                    if (isGameMessage) {
+                        ReliableMessageSender reliable = reliableSenders.get(deviceAddress);
+                        if (reliable != null) {
+                            reliable.sendReliable(message);
+                        } else {
+                            pair.sender.sendMessage(message);
+                        }
+                    } else {
+                        pair.sender.sendMessage(message);
+                    }
 
                     Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息已广播 | 类型:"
                             + message.getMessageType()
@@ -427,6 +454,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 eventListener.onMessageSent(message.getMessageType(), summary);
             }
         }
+    }
+
+    private boolean isGameMessageType(MessageType type) {
+        return type == MessageType.PLAY_ACTION
+                || type == MessageType.PASS_ACTION
+                || type == MessageType.INIT_GAME
+                || type == MessageType.GAME_OVER;
     }
 
     /**
@@ -474,6 +508,24 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 + message.getMessageType()
                 + " 发送者:" + message.getSenderPlayerId());
 
+        // ——— 可靠投递：对带序列号的消息自动 ACK ———
+        int seq = message.getSequenceNumber();
+        if (seq > 0 && message.getMessageType() != MessageType.ACK) {
+            String senderDevice = playerIdToDevice.get(message.getSenderPlayerId());
+            if (senderDevice != null) {
+                ReliableMessageSender reliable = reliableSenders.get(senderDevice);
+                if (reliable != null) {
+                    reliable.sendAckFor(seq, message.getSenderPlayerId());
+                }
+            } else if (!isHost()) {
+                // CLIENT 模式：只有一路连接，直接用唯一的 reliable sender
+                ReliableMessageSender reliable = reliableSenders.values().stream().findFirst().orElse(null);
+                if (reliable != null) {
+                    reliable.sendAckFor(seq, message.getSenderPlayerId());
+                }
+            }
+        }
+
         if (eventListener != null) {
             eventListener.onMessageReceived(
                     message.getMessageType(),
@@ -484,22 +536,23 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         // 处理新消息类型
         switch (message.getMessageType()) {
             case JOIN:
-                // HOST 处理 JOIN（但如果 HOST 模式用的是 accept 循环，这个分支主要用于兼容）
                 handleJoinMessage(message);
                 break;
 
             case JOIN_ACK:
-                // CLIENT 收到 HOST 的角色分配
                 handleJoinAckMessage(message);
                 break;
 
             case PLAYER_JOINED:
-                // 已有客户端收到新玩家加入通知
                 handlePlayerJoinedMessage(message);
                 break;
 
             case PLAYER_LEFT:
                 handlePlayerLeftMessage(message);
+                break;
+
+            case ACK:
+                handleAckMessage(message);
                 break;
 
             default:
@@ -587,6 +640,43 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     /**
+     * 处理收到的 ACK 消息，告知 ReliableMessageSender 清除 pending。
+     */
+    private void handleAckMessage(BluetoothMessage message) {
+        try {
+            AckPayload payload = messageCodec.decodeAckPayload(message.getPayloadJson());
+            int ackSeq = payload.getAcknowledgedSeq();
+            String senderPlayerId = message.getSenderPlayerId();
+            String senderDevice = playerIdToDevice.get(senderPlayerId);
+
+            if (senderDevice != null) {
+                ReliableMessageSender reliable = reliableSenders.get(senderDevice);
+                if (reliable != null) {
+                    reliable.handleAck(ackSeq);
+                }
+            } else if (!isHost()) {
+                // CLIENT 模式
+                ReliableMessageSender reliable = reliableSenders.values().stream().findFirst().orElse(null);
+                if (reliable != null) {
+                    reliable.handleAck(ackSeq);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("CardGame", "[ERROR] [蓝牙] 解析ACK失败", e);
+        }
+    }
+
+    /**
+     * 可靠投递失败（已重传3次仍无 ACK），标记该连接死亡。
+     */
+    private void onReliableDeliveryFailed(String deviceAddress, String playerId) {
+        Log.e("CardGame", "[RELIABLE] 连接死亡 | device=" + deviceAddress + " player=" + playerId);
+        if (eventListener != null) {
+            eventListener.onError("蓝牙连接丢失: " + playerId, null);
+        }
+    }
+
+    /**
      * HOST 模式下：将收到的消息转发给其他所有客户端（除发送者外）。
      */
     private void forwardToOtherClients(BluetoothMessage originalMessage) {
@@ -607,7 +697,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             }
 
             try {
-                pair.sender.sendMessage(originalMessage);
+                ReliableMessageSender reliable = reliableSenders.get(targetDevice);
+                if (reliable != null) {
+                    reliable.sendReliable(originalMessage);
+                } else {
+                    pair.sender.sendMessage(originalMessage);
+                }
 
                 Log.d("CardGame", "[DEBUG] [蓝牙] 消息已转发 | 类型:"
                         + originalMessage.getMessageType()
@@ -683,7 +778,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 }
             }
 
+            for (ReliableMessageSender reliable : reliableSenders.values()) {
+                reliable.shutdown();
+            }
+
             clientChannels.clear();
+            reliableSenders.clear();
             deviceToPlayerId.clear();
             playerIdToDevice.clear();
         }
