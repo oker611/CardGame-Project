@@ -359,7 +359,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
             return;
         }
 
-        for (int i = 0; i < MAX_PLAYERS; i++) {
+        // 从高 slot 向低 slot 搜索（P4→P3→P2），避免与顺序连接的真人抢占
+        for (int i = MAX_PLAYERS - 1; i >= 1; i--) {
             if (!isConnected[i] && !isAi[i]) {
                 isAi[i] = true;
                 isConnected[i] = true;

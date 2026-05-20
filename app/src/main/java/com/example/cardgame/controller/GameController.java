@@ -45,6 +45,11 @@ public class GameController implements GameActionHandler {
     private static final long NO_PLAY_WAIT_MS = 3000; // 3秒
     private CountdownUICallback countdownCallback;
 
+    // 远程玩家超时相关
+    private String waitingRemotePlayerId = null;
+    private long remoteWaitStartTime = 0;
+    private static final long REMOTE_TIMEOUT_MS = 30_000; // 30秒
+
     public interface CountdownUICallback {
         void showCountdown();
         void updateCountdown(int secondsLeft);
@@ -423,6 +428,33 @@ public class GameController implements GameActionHandler {
         }
     }
 
+    /**
+     * 处理 REMOTE 玩家回合：30秒超时未响应则降级为 AI 接管。
+     */
+    private void handleRemotePlayerTurn(Player remotePlayer) {
+        String remoteId = remotePlayer.getPlayerId();
+
+        if (waitingRemotePlayerId == null || !waitingRemotePlayerId.equals(remoteId)) {
+            // 新的远程玩家回合，开始计时
+            waitingRemotePlayerId = remoteId;
+            remoteWaitStartTime = System.currentTimeMillis();
+            System.out.println("[CardGame][BLUETOOTH] 等待远程玩家 " + remoteId + " 出牌...");
+            return;
+        }
+
+        long elapsed = System.currentTimeMillis() - remoteWaitStartTime;
+        if (elapsed > REMOTE_TIMEOUT_MS) {
+            // 超时：降级为 AI
+            System.out.println("[CardGame][BLUETOOTH] 远程玩家 " + remoteId
+                    + " 超时 " + (elapsed / 1000) + "s 未响应，AI 接管");
+            remotePlayer.setType(PlayerType.AI);
+            waitingRemotePlayerId = null;
+
+            // 触发下一轮 poll（AI 分支会接管出牌）
+            new Handler(Looper.getMainLooper()).post(this::triggerNextAction);
+        }
+    }
+
     // ========== AI和蓝牙辅助方法 ==========
     private AIPlayer getOrCreateAIPlayer(Player player) {
         if (player.getType() != PlayerType.AI) return null;
@@ -514,7 +546,7 @@ public class GameController implements GameActionHandler {
                 }, 3000);
                 break;
             case REMOTE:
-                System.out.println("[CardGame][BLUETOOTH] 等待远程玩家出牌...");
+                handleRemotePlayerTurn(current);
                 break;
         }
     }
