@@ -28,6 +28,37 @@ public interface BluetoothActionHandler {
     BluetoothViewData getBluetoothViewData();
 
     /**
+     * 获取当前已连接的所有远程玩家 ID 列表。
+     * HOST 端返回 P2/P3/P4 等已分配的 ID，CLIENT 端返回空列表。
+     */
+    default List<String> getRemotePlayerIds() {
+        return new ArrayList<>();
+    }
+
+    /**
+     * HOST 端：通知蓝牙网关房间已准备好开始游戏（AI 玩家已补齐）。
+     * 必须在 syncGameState 之前调用。
+     */
+    default void readyForGame() {
+    }
+
+    /**
+    }
+
+    /**
+     * 快速加载已配对设备（不启动蓝牙搜索，毫秒级返回）。
+     */
+    default void loadBondedDevices() {
+    }
+
+    /**
+     * 是否有真实蓝牙客户端连接（不依赖 ViewData 的 connected 标志）。
+     */
+    default boolean hasRealClients() {
+        return false;
+    }
+
+    /**
      * 通信通道是否已就绪（所有客户端均已连接并建立通道）。
      */
     default boolean isCommunicationReady() {
@@ -38,7 +69,6 @@ public interface BluetoothActionHandler {
      * 获取当前已连接的所有远程玩家 ID 列表。
      * HOST 端返回 P2/P3/P4 等已分配的 ID，CLIENT 端返回空列表。
      */
-    default List<String> getRemotePlayerIds() {
-        return new ArrayList<>();
+    default void notifyAiPlayerAdded(String playerId, int slotIndex) {
     }
 }

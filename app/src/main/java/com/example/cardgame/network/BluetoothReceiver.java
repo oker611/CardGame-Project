@@ -2,13 +2,17 @@ package com.example.cardgame.network;
 
 import android.util.Log;
 
-import java.io.BufferedReader;
+import com.example.cardgame.util.HermesLog;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 public class BluetoothReceiver {
+
+    private static final int READ_BUFFER_SIZE = 1024;
+    private static final int MAX_LINE_BYTES = 256 * 1024;
 
     private final InputStream inputStream;
     private final BluetoothMessageCodec messageCodec;
@@ -42,7 +46,7 @@ public class BluetoothReceiver {
         receiveThread = new Thread(this::receiveLoop, "CardGame-BluetoothReceiver");
         receiveThread.start();
 
-        Log.i("CardGame", "[INFO] [蓝牙] [接收] 接收线程启动 | 状态:started");
+        HermesLog.log("RECV thread started (raw byte mode)");
     }
 
     public void stopListening() {
@@ -53,34 +57,66 @@ public class BluetoothReceiver {
             receiveThread = null;
         }
 
-        Log.i("CardGame", "[INFO] [蓝牙] [接收] 接收线程停止 | 状态:stopped");
+        HermesLog.log("RECV thread stopped");
     }
 
     private void receiveLoop() {
+        byte[] buffer = new byte[READ_BUFFER_SIZE];
+        ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
+
         try {
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(inputStream, StandardCharsets.UTF_8)
-            );
-
             while (listening) {
-                String rawJson = reader.readLine();
+                int bytesRead = inputStream.read(buffer);
 
-                if (rawJson == null) {
+                if (bytesRead == -1) {
                     if (listening) {
-                        throw new IOException("Bluetooth input stream closed");
+                        throw new IOException("Bluetooth input stream closed (read returned -1)");
                     }
                     return;
                 }
 
-                Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息接收 | 内容:" + rawJson);
-                handleRawMessage(rawJson);
+                for (int i = 0; i < bytesRead; i++) {
+                    byte b = buffer[i];
+
+                    if (b == '\n') {
+                        String rawJson = lineBuffer.toString("UTF-8");
+                        lineBuffer.reset();
+
+                        if (rawJson.endsWith("\r")) {
+                            rawJson = rawJson.substring(0, rawJson.length() - 1);
+                        }
+
+                        if (!rawJson.isEmpty()) {
+                            if (rawJson.contains("INIT_GAME")) {
+                                HermesLog.log("RECV INIT_GAME len=" + rawJson.length());
+                            }
+                            handleRawMessage(rawJson);
+                        }
+                    } else {
+                        lineBuffer.write(b);
+
+                        if (lineBuffer.size() > MAX_LINE_BYTES) {
+                            lineBuffer.reset();
+                            throw new IOException(
+                                    "Bluetooth message line exceeds max size (" + MAX_LINE_BYTES + " bytes)");
+                        }
+                    }
+                }
             }
         } catch (Exception exception) {
             if (listening) {
                 listening = false;
+                HermesLog.log("RECV ERROR type="
+                        + (exception != null ? exception.getClass().getSimpleName() : "null")
+                        + " msg=" + (exception != null ? exception.getMessage() : "null"));
                 notifyReceiveError(exception);
             } else {
-                Log.i("CardGame", "[INFO] [蓝牙] [接收] 主动停止接收 | 原因:receiver stopped");
+                HermesLog.log("RECV stopped normally");
+            }
+        } finally {
+            try {
+                lineBuffer.close();
+            } catch (IOException ignored) {
             }
         }
     }
@@ -102,8 +138,10 @@ public class BluetoothReceiver {
     }
 
     private void notifyReceiveError(Exception exception) {
-        Log.e("CardGame", "[ERROR] [蓝牙] [接收] 接收异常 | 原因:"
-                + (exception == null ? "unknown" : exception.getMessage()), exception);
+        String exceptionType = exception != null ? exception.getClass().getSimpleName() : "null";
+        String exceptionMsg = exception != null ? exception.getMessage() : "unknown";
+
+        HermesLog.log("RECV notifyError type=" + exceptionType + " msg=" + exceptionMsg);
 
         if (messageListener != null) {
             messageListener.onReceiveError(exception);

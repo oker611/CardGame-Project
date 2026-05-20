@@ -15,6 +15,8 @@ import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
 
+import com.example.cardgame.util.HermesLog;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -85,6 +87,7 @@ public class NetworkGameBridge {
 
     private void handleInitGame(BluetoothMessage message) {
         try {
+            HermesLog.log("BRIDGE handleInitGame START");
             InitGamePayload payload =
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
 
@@ -92,7 +95,7 @@ public class NetworkGameBridge {
             syncRemotePlayerIdsFromPayload(payload);
 
             if (payload.getGameState() != null) {
-                // 完整 GameState 同步（HOST 发牌后广播）
+                HermesLog.log("BRIDGE handleInitGame hasGameState=true");
                 GameState syncedState = payload.getGameState();
 
                 invokeEngineMethod(
@@ -103,6 +106,7 @@ public class NetworkGameBridge {
 
                 configurePlayerTypes();
 
+                HermesLog.log("BRIDGE handleInitGame OK");
                 notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
                 return;
             }
