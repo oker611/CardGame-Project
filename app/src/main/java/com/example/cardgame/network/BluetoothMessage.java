@@ -11,6 +11,9 @@ public class BluetoothMessage {
     private String payloadJson;
     private String errorMessage;
 
+    /** 可靠投递序列号，0 表示无需 ACK */
+    private int sequenceNumber;
+
     public BluetoothMessage(
             String messageId,
             int protocolVersion,
@@ -29,6 +32,7 @@ public class BluetoothMessage {
         this.timestamp = timestamp;
         this.payloadJson = payloadJson;
         this.errorMessage = errorMessage;
+        this.sequenceNumber = 0;
     }
 
     public String getMessageId() {
@@ -61,5 +65,13 @@ public class BluetoothMessage {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public int getSequenceNumber() {
+        return sequenceNumber;
+    }
+
+    public void setSequenceNumber(int sequenceNumber) {
+        this.sequenceNumber = sequenceNumber;
     }
 }
