@@ -20,7 +20,8 @@ public class BluetoothViewData {
     private String connectedDeviceAddress;
 
     // ——— 多连接支持 ———
-    private final List<ConnectedDevice> connectedDevices = new ArrayList<>();
+    private final List<ConnectedDevice> connectedDevices =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
     /** 客户端模式：HOST 分配的 playerId */
     private String assignedPlayerId;
     /** 客户端模式：HOST 分配的 slot 索引 (0-3) */

@@ -126,6 +126,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                         localPlayerId, clientPlayerId, ackPayload);
                 sender.sendMessage(ackMessage);
 
+                // 告知新客户端房间内已有玩家
+                sendExistingPlayersToNewClient(sender, clientPlayerId);
+
                 // 广播 PLAYER_JOINED 给所有已有客户端
                 broadcastPlayerJoined(clientPlayerId, playerName, i + 1);
 
@@ -343,6 +346,43 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             } catch (Exception e) {
                 Log.e("CardGame", "[ERROR] [蓝牙] 广播PLAYER_JOINED失败 | to=" + addr, e);
             }
+        }
+    }
+
+    /**
+     * 告知新加入的客户端房间内已有玩家的信息。
+     * 必须在 clientChannels 已包含新客户端、deviceToPlayerId 已建立映射后调用。
+     */
+    private void sendExistingPlayersToNewClient(BluetoothSender newClientSender, String newPlayerId) {
+        for (Map.Entry<String, String> entry : deviceToPlayerId.entrySet()) {
+            String existingAddr = entry.getKey();
+            String existingPlayerId = entry.getValue();
+            if (existingPlayerId.equals(newPlayerId)) {
+                continue;
+            }
+
+            BluetoothConnectionManager.ClientConnection conn = connectionManager.getConnection(existingAddr);
+            String existingName = conn != null ? conn.deviceName : "Player";
+            int slot = playerIdToSlotNumber(existingPlayerId);
+
+            JoinPayload payload = new JoinPayload(existingName, existingPlayerId, slot);
+            BluetoothMessage msg = messageCodec.buildPlayerJoinedMessage(
+                    localPlayerId, "ALL", payload);
+            try {
+                newClientSender.sendMessage(msg);
+                Log.i("CardGame", "[INFO] [蓝牙] 发送已有玩家 " + existingPlayerId + " 信息给新客户端 " + newPlayerId);
+            } catch (Exception e) {
+                Log.e("CardGame", "[ERROR] [蓝牙] 发送已有玩家 " + existingPlayerId + " 失败", e);
+            }
+        }
+    }
+
+    private int playerIdToSlotNumber(String playerId) {
+        switch (playerId) {
+            case "P2": return 1;
+            case "P3": return 2;
+            case "P4": return 3;
+            default: return -1;
         }
     }
 

@@ -88,6 +88,9 @@ public class NetworkGameBridge {
             InitGamePayload payload =
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
 
+            // ——— 从 payload 构建 remotePlayerIds（CLIENT 端之前为空导致 PlayerType 错误）———
+            syncRemotePlayerIdsFromPayload(payload);
+
             if (payload.getGameState() != null) {
                 // 完整 GameState 同步（HOST 发牌后广播）
                 GameState syncedState = payload.getGameState();
@@ -242,6 +245,36 @@ public class NetworkGameBridge {
                     + ", remote=" + remotePlayerIds);
         } catch (Exception e) {
             Log.w("CardGame", "[WARN] [蓝牙] configureBluetoothPlayerTypesMulti 不可用", e);
+        }
+    }
+
+    /**
+     * 从 INIT_GAME payload 的 playerOrder 中推断远程玩家列表，
+     * 并更新 bridge 的 remotePlayerIds。
+     * 解决 CLIENT 端因为 remotePlayerIds 为空而把所有玩家当 AI 的问题。
+     */
+    private void syncRemotePlayerIdsFromPayload(InitGamePayload payload) {
+        List<String> playerOrder = payload.getPlayerOrder();
+        if (playerOrder == null || playerOrder.isEmpty()) {
+            // 兼容旧格式：用 playerHandCards 推断
+            Map<String, List<Card>> handMap = payload.getPlayerHandCards();
+            if (handMap != null && !handMap.isEmpty()) {
+                playerOrder = new ArrayList<>(handMap.keySet());
+            }
+        }
+        if (playerOrder == null || playerOrder.isEmpty() || localPlayerId == null) {
+            return;
+        }
+        List<String> remoteIds = new ArrayList<>();
+        for (String pid : playerOrder) {
+            if (!pid.equals(localPlayerId)) {
+                remoteIds.add(pid);
+            }
+        }
+        if (!remoteIds.isEmpty()) {
+            setPlayerContext(localPlayerId, remoteIds);
+            HermesLog.log("BRIDGE syncRemotePlayerIdsFromPayload local=" + localPlayerId
+                    + " remote=" + remoteIds);
         }
     }
 
