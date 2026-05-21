@@ -39,7 +39,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback {
+import com.example.cardgame.event.GameEventListener;
+import com.example.cardgame.event.GameEvent;
+import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.CardPlayedEvent;
+import com.example.cardgame.event.PlayerPassedEvent;
+import com.example.cardgame.event.TurnChangedEvent;
+import com.example.cardgame.event.GameOverEvent;
+
+public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback, GameEventListener {
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
@@ -92,6 +100,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
+
+        EventBus.getInstance().register(this);
 
         // 初始化倒计时 TextView
         tvCountdown = findViewById(R.id.tv_countdown);
@@ -216,6 +226,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        EventBus.getInstance().unregister(this);
         bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
     }
 
@@ -257,7 +268,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             cardAdapter.updateData(handCards);
         }
 
-        centerHandCards();
+        rvHandCards.post(this::centerHandCards);
 
         if (data.isGameOver() && !gameOverDialogShown) {
             showGameOverDialog(data);
@@ -650,5 +661,30 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 tvCountdown.setVisibility(View.GONE);
             }
         });
+    }
+
+    @Override
+    public void onEvent(GameEvent event) {
+        if (event instanceof CardPlayedEvent) {
+            CardPlayedEvent e = (CardPlayedEvent) event;
+            Log.d("EventBus", "收到出牌事件: playerId=" + e.getPlayerId() + ", cards=" + e.getPlayedCardIds());
+            runOnUiThread(this::refreshUI);
+        } else if (event instanceof PlayerPassedEvent) {
+            PlayerPassedEvent e = (PlayerPassedEvent) event;
+            Log.d("EventBus", "收到过牌事件: playerId=" + e.getPlayerId());
+            runOnUiThread(this::refreshUI);
+        } else if (event instanceof TurnChangedEvent) {
+            TurnChangedEvent e = (TurnChangedEvent) event;
+            Log.d("EventBus", "收到回合切换事件: newPlayerId=" + e.getNewCurrentPlayerId() + ", reason=" + e.getReason());
+            // TODO: 后续可以调用 updateTurnHighlight(e.getNewCurrentPlayerId())
+        } else if (event instanceof GameOverEvent) {
+            GameOverEvent e = (GameOverEvent) event;
+            Log.d("EventBus", "收到游戏结束事件: winnerId=" + e.getWinnerId());
+            runOnUiThread(() -> {
+                if (!gameOverDialogShown) {
+                    refreshUI();
+                }
+            });
+        }
     }
 }
