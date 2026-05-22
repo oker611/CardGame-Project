@@ -6,6 +6,7 @@ import android.content.Context;
 import com.example.cardgame.dto.BluetoothDeviceViewData;
 import com.example.cardgame.dto.BluetoothViewData;
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.event.EventBus;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
 import com.example.cardgame.network.BluetoothDeviceInfo;
@@ -21,12 +22,15 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
     private final BluetoothGateway bluetoothGateway;
     private final BluetoothViewData bluetoothViewData;
+    private final BluetoothEventRelay eventRelay;
 
     public BluetoothController(Context context, GameEngine gameEngine) {
         this.bluetoothViewData = new BluetoothViewData();
         updateBluetoothStatus();
         this.bluetoothGateway = new BluetoothGateway(context, gameEngine);
         this.bluetoothGateway.setBluetoothEventListener(this);
+        this.eventRelay = new BluetoothEventRelay(bluetoothGateway, gameEngine);
+        this.eventRelay.register();
     }
 
     private void updateBluetoothStatus() {
