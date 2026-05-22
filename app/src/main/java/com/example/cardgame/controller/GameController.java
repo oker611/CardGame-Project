@@ -18,6 +18,8 @@ import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.RuleConfig;
 
+import com.example.cardgame.util.HermesLog;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -150,7 +152,10 @@ public class GameController implements GameActionHandler {
         aiPlayerCache.clear();
 
         if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
+            HermesLog.log("GAME startNewGame calling readyForGame+syncGameState");
+            bluetoothActionHandler.readyForGame();
             bluetoothActionHandler.syncGameState(gameEngine.getGameState());
+            HermesLog.log("GAME startNewGame syncGameState returned");
         }
         notifyUiRefresh();
         triggerNextAction();

@@ -2,6 +2,8 @@ package com.example.cardgame.network;
 
 import android.util.Log;
 
+import com.example.cardgame.util.HermesLog;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,9 +40,14 @@ public class BluetoothSender {
             throw new IOException("BluetoothSender is not active");
         }
 
+        HermesLog.log("SEND_RAW len=" + rawJson.length()
+                + " preview=" + rawJson.substring(0, Math.min(60, rawJson.length())));
+
         writer.write(rawJson);
         writer.newLine();
         writer.flush();
+
+        HermesLog.log("SEND_RAW flushed OK len=" + rawJson.length());
 
         Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息发送 | 内容:" + rawJson);
     }

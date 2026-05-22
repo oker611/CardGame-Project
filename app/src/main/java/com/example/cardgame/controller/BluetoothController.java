@@ -15,6 +15,7 @@ import com.example.cardgame.network.MessageType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class BluetoothController implements BluetoothActionHandler, BluetoothEventListener {
 
@@ -83,6 +84,35 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         }).start();
     }
 
+    /**
+     * 快速获取已配对设备（不启动搜索，毫秒级返回）。
+     * 在搜索页面 onCreate 中先调用，让用户立即看到已配对的主机。
+     */
+    public void loadBondedDevices() {
+        updateBluetoothStatus();
+
+        List<BluetoothDeviceInfo> bondedDevices = bluetoothGateway.getBondedDevices();
+        List<BluetoothDeviceViewData> viewDevices = new ArrayList<>();
+
+        for (BluetoothDeviceInfo device : bondedDevices) {
+            if (!device.isJoinableCandidate()) {
+                continue;
+            }
+
+            viewDevices.add(new BluetoothDeviceViewData(
+                    device.getDeviceName(),
+                    device.getDeviceAddress(),
+                    true,
+                    false,
+                    "已配对，可立即加入"
+            ));
+        }
+
+        bluetoothViewData.setDevices(viewDevices);
+        bluetoothViewData.setStatusText(
+                viewDevices.isEmpty() ? "未发现已配对设备，正在搜索..." : "已配对设备：" + viewDevices.size());
+    }
+
     @Override
     public void connectToDevice(String localPlayerId, String deviceAddress) {
         updateBluetoothStatus();
@@ -140,6 +170,24 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     public List<String> getRemotePlayerIds() {
         return bluetoothGateway.getRemotePlayerIds();
     }
+
+    @Override
+    public void readyForGame() {
+        bluetoothGateway.readyForGame();
+    }
+
+    @Override
+    public void notifyAiPlayerAdded(String playerId, int slotIndex) {
+        bluetoothGateway.notifyAiPlayerAdded(playerId, slotIndex);
+    }
+
+    // loadBondedDevices() 实现在 searchBluetoothDevices() 之后，直接满足接口签名
+
+    @Override
+    public boolean hasRealClients() {
+        return bluetoothGateway.hasRealClients();
+    }
+
 
     // ========================================================================
     //  BluetoothEventListener 回调

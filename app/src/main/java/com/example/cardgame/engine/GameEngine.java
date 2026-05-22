@@ -1,3 +1,4 @@
+// 【已修改，引入观察者模式基础框架】
 package com.example.cardgame.engine;
 
 import com.example.cardgame.dto.PassResult;
@@ -13,6 +14,10 @@ import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.util.Logger;
+import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.CardPlayedEvent;
+import com.example.cardgame.event.PlayerPassedEvent;
+import com.example.cardgame.event.GameOverEvent;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
@@ -101,11 +106,19 @@ public class GameEngine {
                 + ", pattern=" + currentPlay.getPattern());
 
         settlementManager.checkAndSettle(gameState);
+        // ===== [事件驱动重构] 发布游戏结束事件 =====
+        if (gameState.isGameOver() && gameState.getWinnerId() != null) {
+            EventBus.getInstance().post(new GameOverEvent(gameState.getWinnerId()));
+        }
+        // ===== 结束 =====
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
         } else {
             Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
         }
+        // ===== [事件驱动重构] 发布出牌事件 =====
+        EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
+        // ===== 结束 =====
         return createPlayResult(true, "PLAY_OK", gameState);
     }
 
@@ -162,6 +175,9 @@ public class GameEngine {
         }
 
         System.out.println("[CardGame][PASS] success playerId=" + playerId);
+        // ===== [事件驱动重构] 发布过牌事件 =====
+        EventBus.getInstance().post(new PlayerPassedEvent(playerId));
+        // ===== 结束 =====
         return createPassResult(true, "PASS_OK", gameState);
     }
 

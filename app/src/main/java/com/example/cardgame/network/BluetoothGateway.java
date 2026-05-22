@@ -14,6 +14,8 @@ import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
 
+import com.example.cardgame.util.HermesLog;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +53,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     /** 锁对象：保护 send/disconnect 之间的 TOCTOU 竞态 */
     private final Object sendLock = new Object();
 
+    /** 房间已通过 readyForGame() 主动结束（AI 补齐），startAsHost 线程退出时跳过错误处理 */
+    private volatile boolean roomFinalized = false;
+
     // ——— 客户端模式：等待 JOIN_ACK ———
     private volatile String assignedPlayerId = null;
     private volatile int assignedSlotIndex = -1;
@@ -77,6 +82,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     public void startAsHost(String localPlayerId) {
         this.localPlayerId = localPlayerId;
         this.role = "HOST";
+        HermesLog.init("host");
         this.communicationReady = false;
         this.acceptingClients = true;
         this.deviceToPlayerId.clear();
@@ -148,6 +154,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             Log.i("CardGame", "[INFO] [蓝牙] 4人房间就绪 | HOST:" + localPlayerId);
 
         } catch (Exception exception) {
+            if (roomFinalized) {
+                HermesLog.log("startAsHost thread exiting (room finalized)");
+                return;
+            }
             acceptingClients = false;
             handleConnectionError("创建蓝牙房间失败", exception);
         }
@@ -160,6 +170,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     public void connectAsClient(String localPlayerId, String deviceAddress) {
         this.localPlayerId = localPlayerId;
         this.role = "CLIENT";
+        HermesLog.init("client");
         this.communicationReady = false;
         this.assignedPlayerId = null;
         this.assignedSlotIndex = -1;
@@ -282,6 +293,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             return;
         }
 
+        HermesLog.log("SYNC players=" + (gameState.getPlayers() != null ? gameState.getPlayers().size() : 0)
+                + " cr=" + communicationReady + " ch=" + clientChannels.size());
+
         // 填充多玩家手牌映射
         Map<String, List<Card>> handMap = new HashMap<>();
         List<String> playerOrder = new ArrayList<>();
@@ -358,9 +372,14 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private void sendBluetoothMessage(BluetoothMessage message, String summary) {
         synchronized (sendLock) {
             if (!communicationReady) {
+                HermesLog.log("SEND BLOCKED communicationReady=false " + summary);
                 Log.w("CardGame", "[WARN] [蓝牙] [发送] 通道未就绪，丢弃消息 | " + summary);
                 return;
             }
+
+            HermesLog.log("SEND START type=" + message.getMessageType()
+                    + " channels=" + clientChannels.size());
+
 
             for (Map.Entry<String, SenderReceiverPair> entry : clientChannels.entrySet()) {
                 try {
@@ -586,6 +605,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     @Override
     public void onReceiveError(Exception exception) {
+        HermesLog.log("RECV_ERROR type="
+                + (exception != null ? exception.getClass().getSimpleName() : "null")
+                + " msg=" + (exception != null ? exception.getMessage() : "null")
+                + " role=" + role);
         handleConnectionError("蓝牙接收数据失败", exception);
     }
 
@@ -619,6 +642,43 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     public List<String> getRemotePlayerIds() {
         return new ArrayList<>(playerIdToDevice.keySet());
+    }
+
+    public void readyForGame() {
+        HermesLog.log("READY readyForGame communicationReady=" + communicationReady
+                + " channels=" + clientChannels.size());
+        this.communicationReady = true;
+        this.acceptingClients = false;
+        this.roomFinalized = true;
+        connectionManager.closeServerSocket();
+        HermesLog.log("READY done");
+    }
+
+    public void notifyAiPlayerAdded(String playerId, int slotIndex) {
+        HermesLog.log("AI_ADD " + playerId + " slot=" + slotIndex + " channels=" + clientChannels.size());
+        if (clientChannels.isEmpty()) return;
+
+        JoinPayload joinPayload = new JoinPayload("AI player", playerId, slotIndex);
+        BluetoothMessage msg = messageCodec.buildPlayerJoinedMessage(localPlayerId, "ALL", joinPayload);
+
+        for (Map.Entry<String, SenderReceiverPair> entry : clientChannels.entrySet()) {
+            try {
+                entry.getValue().sender.sendMessage(msg);
+            } catch (Exception e) {
+                Log.e("CardGame", "[ERROR] broadcast AI failed", e);
+            }
+        }
+    }
+
+    public List<BluetoothDeviceInfo> getBondedDevices() {
+        if (!connectionManager.isBluetoothAvailable() || !connectionManager.isBluetoothEnabled()) {
+            return new ArrayList<>();
+        }
+        return connectionManager.getBondedJoinableDevices();
+    }
+
+    public boolean hasRealClients() {
+        return !deviceToPlayerId.isEmpty();
     }
 
     public int getConnectedClientCount() {

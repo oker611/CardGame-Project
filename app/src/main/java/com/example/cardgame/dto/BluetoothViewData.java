@@ -7,7 +7,8 @@ public class BluetoothViewData {
 
     private boolean bluetoothAvailable;
     private boolean bluetoothEnabled;
-    private boolean connected;
+    /** 必须 volatile：蓝牙线程写入，UI 线程轮询读取 */
+    private volatile boolean connected;
     private boolean connecting;
     private boolean hosting;
 
@@ -22,18 +23,20 @@ public class BluetoothViewData {
     // ——— 多连接支持 ———
     private final List<ConnectedDevice> connectedDevices = new ArrayList<>();
     /** 客户端模式：HOST 分配的 playerId */
-    private String assignedPlayerId;
+    private volatile String assignedPlayerId;
     /** 客户端模式：HOST 分配的 slot 索引 (0-3) */
-    private int assignedSlotIndex = -1;
+    private volatile int assignedSlotIndex = -1;
 
-    private String statusText;
-    private String errorMessage;
+    /** 必须 volatile：蓝牙线程写入，UI 线程轮询读取 */
+    private volatile String statusText;
+    private volatile String errorMessage;
     private String permissionStatus;
 
     private String lastSentMessageType;
     private String lastSentSummary;
-    private String lastReceivedMessageType;
-    private String lastReceivedSummary;
+    /** 必须 volatile：接收线程写入，UI 线程轮询读取 */
+    private volatile String lastReceivedMessageType;
+    private volatile String lastReceivedSummary;
 
     private List<BluetoothDeviceViewData> devices;
 

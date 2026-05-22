@@ -321,6 +321,20 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
                 boolean hasRealRemotePlayer = hasRealRemotePlayer();
 
+                // 如果 ViewData 说没连接但 Gateway 说有，用 Gateway 的结果
+                if (!hasRealRemotePlayer && bluetoothActionHandler != null
+                        && bluetoothActionHandler.hasRealClients()) {
+                    hasRealRemotePlayer = true;
+                    System.out.println("[Hermes][LOBBY] FIX: ViewData.connected=false but gateway has clients, overriding");
+                }
+
+                // 诊断日志
+                System.out.println("[Hermes][LOBBY] startGame clicked | hasRealRemote="
+                        + hasRealRemotePlayer
+                        + " | connected=" + (bluetoothActionHandler != null
+                            ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")
+                        + " | playerCount=" + currentPlayerCount);
+
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
 
                 if (hasRealRemotePlayer) {
@@ -367,11 +381,26 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 tvStatus[i].setText("已连接");
                 ivCrowns[i].setVisibility(View.GONE);
 
+                // 通知已连接客户端有 AI 玩家加入
+                String playerId = slotToPlayerId(i);
+                if (bluetoothActionHandler != null && playerId != null) {
+                    bluetoothActionHandler.notifyAiPlayerAdded(playerId, i);
+                }
+
                 currentPlayerCount = countConnectedPlayers();
                 updateAiControl();
                 updateStartButtonState();
                 break;
             }
+        }
+    }
+
+    private String slotToPlayerId(int slot) {
+        switch (slot) {
+            case 1: return "P2";
+            case 2: return "P3";
+            case 3: return "P4";
+            default: return null;
         }
     }
 
