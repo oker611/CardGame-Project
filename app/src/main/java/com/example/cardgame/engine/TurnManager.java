@@ -41,5 +41,11 @@ public class TurnManager {
         System.out.println("[CardGame][TURN] Next player: "
                 + nextPlayer.getPlayerId()
                 + " (" + nextPlayer.getPlayerName() + ")");
+        try {
+            EventBus.getInstance().post(new TurnChangedEvent(nextPlayer.getPlayerId(), "PLAY"));
+        } catch (Exception e) {
+            System.err.println("[TurnManager] Failed to post TurnChangedEvent: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

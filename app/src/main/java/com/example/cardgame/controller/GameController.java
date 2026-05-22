@@ -4,12 +4,16 @@ import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.example.cardgame.ai.AIPlayer;
+import com.example.cardgame.ai.AIDecisionStrategy;
+import com.example.cardgame.ai.AIEventListener;
+import com.example.cardgame.ai.GreedyAIDecisionStrategy;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.dto.PlayerViewData;
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.TurnChangedEvent;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
@@ -17,14 +21,12 @@ import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.RuleConfig;
-
 import com.example.cardgame.util.HermesLog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
@@ -37,14 +39,12 @@ public class GameController implements GameActionHandler {
     private boolean hostMode = false;
     private BluetoothActionHandler bluetoothActionHandler;
 
-    private final Map<String, AIPlayer> aiPlayerCache = new ConcurrentHashMap<>();
-
+    private AIEventListener aiEventListener;
     private Runnable uiRefreshCallback;
 
-    // 倒计时相关
     private final PlayValidator playValidator = new PlayValidator();
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
-    private static final long NO_PLAY_WAIT_MS = 3000; // 3秒
+    private static final long NO_PLAY_WAIT_MS = 3000;
     private CountdownUICallback countdownCallback;
 
     public interface CountdownUICallback {
@@ -101,7 +101,6 @@ public class GameController implements GameActionHandler {
         Player p4 = new Player("P4", "David");
 
         if (bluetoothMode) {
-            // 蓝牙模式：初始全部设为 AI，后续根据实际连接情况修正
             p1.setType(PlayerType.AI);
             p2.setType(PlayerType.AI);
             p3.setType(PlayerType.AI);
@@ -117,16 +116,24 @@ public class GameController implements GameActionHandler {
         players.add(p3);
         players.add(p4);
 
-        // 重置所有玩家的连续无牌可出计数
         for (Player p : players) p.resetConsecutiveNoPlayCount();
 
         RuleConfig ruleConfig = new RuleConfig();
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
+        // 在 gameEngine.dealCards(); 之后添加
+        if (!bluetoothMode) {
+            for (Player p : gameEngine.getGameState().getPlayers()) {
+                if (p.getPlayerId().equals("P1")) {
+                    p.setType(PlayerType.HUMAN);
+                } else {
+                    p.setType(PlayerType.AI);
+                }
+                System.out.println("[GameController] Player " + p.getPlayerId() + " type = " + p.getType());
+            }
+        }
 
         if (bluetoothMode) {
-
-            // 使用多玩家类型配置
             List<String> remoteIds = bluetoothActionHandler != null
                     ? bluetoothActionHandler.getRemotePlayerIds()
                     : null;
@@ -140,7 +147,6 @@ public class GameController implements GameActionHandler {
                 System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | "
                         + "local=" + myPlayerId + ", remote=" + remoteIds);
             } else {
-                // 兼容旧 2 人模式
                 gameEngine.configureBluetoothPlayerTypes(
                         myPlayerId,
                         "P1".equals(myPlayerId) ? "P2" : "P1"
@@ -149,7 +155,8 @@ public class GameController implements GameActionHandler {
                         + "local=" + myPlayerId);
             }
         }
-        aiPlayerCache.clear();
+
+        initAIEventListener();
 
         if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
             HermesLog.log("GAME startNewGame calling readyForGame+syncGameState");
@@ -157,25 +164,55 @@ public class GameController implements GameActionHandler {
             bluetoothActionHandler.syncGameState(gameEngine.getGameState());
             HermesLog.log("GAME startNewGame syncGameState returned");
         }
+
         notifyUiRefresh();
+
+        // 手动发布初始回合事件，确保 AI 收到 TurnChangedEvent
+        GameState state = gameEngine.getGameState();
+        if (state != null) {
+            String currentId = state.getCurrentPlayerId();
+            if (currentId == null) {
+                Player opener = state.findOpeningPlayer();
+                if (opener != null) {
+                    currentId = opener.getPlayerId();
+                    state.setCurrentPlayerId(currentId);
+                    System.out.println("[CardGame][FIX] Set current player to opener: " + currentId);
+                }
+            }
+            if (currentId != null) {
+                EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                HermesLog.log("GameController: Manual TurnChangedEvent posted for " + currentId);
+            }
+        }
+
         triggerNextAction();
     }
 
+    private void initAIEventListener() {
+        if (aiEventListener != null) {
+            aiEventListener.unregister();
+        }
+        AIDecisionStrategy strategy = new GreedyAIDecisionStrategy();
+        aiEventListener = new AIEventListener(this, gameEngine, strategy);
+        HermesLog.log("GameController: AIEventListener initialized");
+    }
+
+    // ==================== 接口方法：供 UI 调用（显示字符串） ====================
     @Override
-    public PlayResult submitPlay(List<String> selectedCardIds) {
+    public PlayResult submitPlay(List<String> uiCardStrs) {
         GameState state = gameEngine.getGameState();
         if (state == null || state.getCurrentPlayer() == null) {
             return new PlayResult(false, "Game state not ready.", state);
         }
         Player currentPlayer = state.getCurrentPlayer();
-        if (!myPlayerId.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+        if (!myPlayerId.equals(currentPlayer.getPlayerId())) {
             return new PlayResult(false, "不是您的回合", state);
         }
 
         List<String> cardsToPlay = new ArrayList<>();
         Player me = state.getPlayerById(myPlayerId);
-        if (me != null && this.selectedCardIds != null) {
-            for (String uiCardStr : this.selectedCardIds) {
+        if (me != null) {
+            for (String uiCardStr : uiCardStrs) {
                 for (Card c : me.getHandCards()) {
                     if ((c.getSuit().getSymbol() + c.getRank().getDisplayName()).equals(uiCardStr)) {
                         cardsToPlay.add(c.getCardId());
@@ -190,8 +227,50 @@ public class GameController implements GameActionHandler {
 
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
         if (result.isSuccess()) {
-            this.selectedCardIds.clear();
-            // 出牌成功，重置计数并取消倒计时
+            selectedCardIds.clear();
+            currentPlayer.resetConsecutiveNoPlayCount();
+            cancelCountdown(currentPlayer);
+
+            if (bluetoothMode && bluetoothActionHandler != null && gameEngine.getGameState() != null) {
+                Play lastPlay = gameEngine.getGameState().getLastPlay();
+                if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
+                sendGameOverIfNeeded();
+            }
+            notifyUiRefresh();
+            if (!gameEngine.isGameOver()) {
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+            }
+        }
+        return result;
+    }
+
+    // ==================== AI 专用方法（直接传入 Card 对象） ====================
+    public PlayResult aiPlayCards(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            System.out.println("[CardGame][AI] aiPlayCards: no cards");
+            return new PlayResult(false, "No cards to play", gameEngine.getGameState());
+        }
+        GameState state = gameEngine.getGameState();
+        if (state == null || state.getCurrentPlayer() == null) {
+            System.out.println("[CardGame][AI] aiPlayCards: game state not ready");
+            return new PlayResult(false, "Game state not ready.", state);
+        }
+        Player currentPlayer = state.getCurrentPlayer();
+        // 移除 myPlayerId 检查，因为 AI 调用时已经是当前玩家
+        // 可选：添加类型检查确保是 AI（但非必须）
+        if (currentPlayer.getType() != PlayerType.AI) {
+            System.out.println("[CardGame][AI] aiPlayCards: current player is not AI");
+            return new PlayResult(false, "Current player is not AI", state);
+        }
+
+        List<String> cardIds = cards.stream().map(Card::getCardId).collect(Collectors.toList());
+        System.out.println("[CardGame][AI] aiPlayCards calling engine.playCards for " + currentPlayer.getPlayerId() + " with " + cardIds);
+        PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
+        System.out.println("[CardGame][AI] aiPlayCards result: success=" + result.isSuccess() + ", message=" + result.getMessage());
+        if (!result.isSuccess()) {
+            System.out.println("[CardGame][AI] aiPlayCards FAILED: " + result.getMessage());
+        }
+        if (result.isSuccess()) {
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);
 
@@ -215,7 +294,7 @@ public class GameController implements GameActionHandler {
             return new PassResult(false, "Game state not ready.", state);
         }
         Player currentPlayer = state.getCurrentPlayer();
-        if (!myPlayerId.equals(currentPlayer.getPlayerId()) || currentPlayer.getType() != PlayerType.HUMAN) {
+        if (!myPlayerId.equals(currentPlayer.getPlayerId())) {
             return new PassResult(false, "不是您的回合", state);
         }
 
@@ -258,11 +337,9 @@ public class GameController implements GameActionHandler {
                     p.getType() == PlayerType.HUMAN));
         }
 
-        // 重排玩家顺序，使本机玩家在索引0（C位）
         players = reorderPlayersForSelf(players, myPlayerId);
 
         Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
-
 
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
@@ -302,16 +379,8 @@ public class GameController implements GameActionHandler {
         return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>());
     }
 
-    /**
-     * 将玩家列表重新排序，使得本机玩家在索引0，其他玩家按顺时针顺序排列
-     * 顺序：0=自己, 1=顺时针下一家, 2=顺时针下两家, 3=顺时针下三家
-     */
     private List<PlayerViewData> reorderPlayersForSelf(List<PlayerViewData> original, String myPlayerId) {
-        if (original == null || original.size() < 4) {
-            return original;
-        }
-
-        // 找到本机玩家在原始列表中的位置
+        if (original == null || original.size() < 4) return original;
         int myIndex = -1;
         for (int i = 0; i < original.size(); i++) {
             if (original.get(i).getPlayerId().equals(myPlayerId)) {
@@ -319,23 +388,15 @@ public class GameController implements GameActionHandler {
                 break;
             }
         }
-
-        if (myIndex == -1) {
-            // 没找到本机玩家，返回原列表
-            return original;
-        }
-
-        // 重新排序：从 myIndex 开始，按顺序取，到达末尾后循环
+        if (myIndex == -1) return original;
         List<PlayerViewData> reordered = new ArrayList<>();
         for (int i = 0; i < original.size(); i++) {
             int index = (myIndex + i) % original.size();
             reordered.add(original.get(index));
         }
-
         return reordered;
     }
 
-    // ========== 倒计时核心方法 ==========
     private void checkAndStartNoPlayCountdown(Player player) {
         if (!myPlayerId.equals(player.getPlayerId()) || player.getType() != PlayerType.HUMAN) return;
         GameState state = gameEngine.getGameState();
@@ -364,7 +425,6 @@ public class GameController implements GameActionHandler {
 
     private void startNoPlayCountdown(Player player) {
         cancelCountdown(player);
-        // 使用 500ms 间隔，提高刷新精度，确保显示 3,2,1
         CountDownTimer timer = new CountDownTimer(NO_PLAY_WAIT_MS, 500) {
             int lastDisplaySecond = -1;
             @Override
@@ -391,7 +451,6 @@ public class GameController implements GameActionHandler {
     }
 
     private void forcePass(Player player) {
-        // 先增加计数（必须在 pass 之前，避免重复进入倒计时）
         player.incrementConsecutiveNoPlayCount();
         System.out.println("[CardGame][COUNTDOWN] Force pass for " + player.getPlayerId()
                 + ", consecutiveNoPlayCount now = " + player.getConsecutiveNoPlayCount());
@@ -406,7 +465,6 @@ public class GameController implements GameActionHandler {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
         } else {
-            // 理论上不会失败，但若失败则回滚计数（可选）
             System.out.println("[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());
             player.setConsecutiveNoPlayCount(player.getConsecutiveNoPlayCount() - 1);
         }
@@ -428,68 +486,6 @@ public class GameController implements GameActionHandler {
         }
     }
 
-    // ========== AI和蓝牙辅助方法 ==========
-    private AIPlayer getOrCreateAIPlayer(Player player) {
-        if (player.getType() != PlayerType.AI) return null;
-        return aiPlayerCache.computeIfAbsent(player.getPlayerId(), id -> {
-            AIPlayer ai = new AIPlayer(id);
-            ai.setHand(player.getHandCards());
-            return ai;
-        });
-    }
-
-    private void autoPlayForCurrentPlayer() {
-        GameState state = gameEngine.getGameState();
-        if (state == null || gameEngine.isGameOver()) return;
-        Player currentPlayer = state.getCurrentPlayer();
-        if (currentPlayer == null || myPlayerId.equals(currentPlayer.getPlayerId())) return;
-
-        AIPlayer aiPlayer = getOrCreateAIPlayer(currentPlayer);
-        if (aiPlayer == null) {
-            List<Card> randomCards = currentPlayer.getRandomCards(2);
-            if (randomCards == null || randomCards.isEmpty()) {
-                PassResult passResult = gameEngine.passTurn(currentPlayer.getPlayerId());
-                syncAiPassIfNeeded(currentPlayer, passResult);
-            } else {
-                List<String> cardIds = randomCards.stream().map(Card::getCardId).collect(Collectors.toList());
-                PlayResult playResult = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
-                syncAiPlayIfNeeded(playResult);
-            }
-        } else {
-            aiPlayer.setHand(currentPlayer.getHandCards());
-            List<Card> lastPlayCards = gameEngine.getLastPlayCards();
-            boolean isFirstRound = gameEngine.isFirstRound();
-            boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
-            List<Card> chosenCards = aiPlayer.choosePlay(lastPlayCards, isFirstRound, isFirstTurn);
-            if (chosenCards == null || chosenCards.isEmpty()) {
-                PassResult passResult = gameEngine.passTurn(currentPlayer.getPlayerId());
-                syncAiPassIfNeeded(currentPlayer, passResult);
-            } else {
-                List<String> cardIds = chosenCards.stream().map(Card::getCardId).collect(Collectors.toList());
-                PlayResult playResult = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
-                syncAiPlayIfNeeded(playResult);
-            }
-        }
-        notifyUiRefresh();
-        if (!gameEngine.isGameOver()) {
-            new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
-        }
-    }
-
-    private void syncAiPassIfNeeded(Player currentPlayer, PassResult passResult) {
-        if (bluetoothMode && hostMode && bluetoothActionHandler != null && passResult != null && passResult.isSuccess()) {
-            bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
-        }
-    }
-
-    private void syncAiPlayIfNeeded(PlayResult playResult) {
-        if (bluetoothMode && hostMode && bluetoothActionHandler != null && playResult != null && playResult.isSuccess()) {
-            Play lastPlay = gameEngine.getGameState() != null ? gameEngine.getGameState().getLastPlay() : null;
-            if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
-            sendGameOverIfNeeded();
-        }
-    }
-
     private void sendGameOverIfNeeded() {
         if (!bluetoothMode || bluetoothActionHandler == null) return;
         if (!gameEngine.isGameOver()) return;
@@ -500,7 +496,7 @@ public class GameController implements GameActionHandler {
         bluetoothActionHandler.sendGameOver(state.getWinnerId(), winnerName);
     }
 
-    @Override
+    // 注意：如果 GameActionHandler 接口中没有 triggerNextAction，请删除下面的 @Override
     public void triggerNextAction() {
         if (gameEngine.isGameOver() || gameEngine.getGameState() == null) return;
         Player current = gameEngine.getGameState().getCurrentPlayer();
@@ -512,15 +508,22 @@ public class GameController implements GameActionHandler {
                 checkAndStartNoPlayCountdown(current);
                 break;
             case AI:
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (gameEngine.getGameState() != null && current.equals(gameEngine.getGameState().getCurrentPlayer())) {
-                        autoPlayForCurrentPlayer();
-                    }
-                }, 3000);
+                // AI 由事件总线驱动，无需额外处理
                 break;
             case REMOTE:
                 System.out.println("[CardGame][BLUETOOTH] 等待远程玩家出牌...");
                 break;
         }
+    }
+
+    public void cleanup() {
+        if (aiEventListener != null) {
+            aiEventListener.unregister();
+            aiEventListener = null;
+        }
+        for (CountDownTimer timer : activeCountdowns.values()) {
+            timer.cancel();
+        }
+        activeCountdowns.clear();
     }
 }

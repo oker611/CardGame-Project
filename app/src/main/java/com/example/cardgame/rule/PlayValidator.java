@@ -90,7 +90,14 @@ public class PlayValidator {
         }
     }
 
-    // ========== 新增：判断玩家是否有任何合法牌可出（用于倒计时） ==========
+    // ========== 新增：判断一个出牌组合自身是否为合法牌型 ==========
+    public boolean isValidPattern(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) return false;
+        PatternInfo info = recognizer.recognizePattern(cards);
+        return info.getType() != PatternType.INVALID;
+    }
+
+    // ========== 判断玩家是否有任何合法牌可出（用于倒计时） ==========
     public boolean hasAnyValidPlay(Player player, List<Card> lastPlay,
                                    boolean isFirstRound, boolean isFirstTurn) {
         List<Card> hand = player.getHandCards();
@@ -150,7 +157,6 @@ public class PlayValidator {
         }
     }
 
-    // ---------- 原有私有方法 ----------
     private boolean containsDiamondThree(List<Card> cards) {
         for (Card card : cards) {
             if (card.getRank() == Rank.THREE && card.getSuit() == Suit.DIAMONDS) {

@@ -1,4 +1,3 @@
-// 【已修改，引入观察者模式基础框架】
 package com.example.cardgame.event;
 
 public class TurnChangedEvent extends GameEvent {

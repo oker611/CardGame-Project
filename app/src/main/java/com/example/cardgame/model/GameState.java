@@ -20,11 +20,9 @@ public class GameState {
     public void incrementConsecutivePassCount() { consecutivePassCount++; }
     public void resetConsecutivePassCount() { consecutivePassCount = 0; }
 
-
     public String getLastWinnerId() { return lastWinnerId; }
     public void setLastWinnerId(String lastWinnerId) { this.lastWinnerId = lastWinnerId; }
 
-    // 新增：记录每个玩家最后一次出的牌（key = playerId, value = 牌列表）
     private Map<String, List<Card>> lastPlayByPlayer = new HashMap<>();
 
     public GameState() {
@@ -48,7 +46,6 @@ public class GameState {
         this.lastPlayByPlayer = new HashMap<>();
     }
 
-    // ========== 原有 getter / setter ==========
     public List<Player> getPlayers() {
         return players;
     }
@@ -156,7 +153,16 @@ public class GameState {
         return null;
     }
 
-    // ========== 新增方法：记录/获取每个玩家最后一次出的牌 ==========
+    // ========== 新增：判断整局第一轮和轮次第一次出牌 ==========
+    public boolean isFirstRound() {
+        return openingTurn;
+    }
+
+    public boolean isFirstTurnOfRound() {
+        return lastPlay == null || lastPlay.isEmpty();
+    }
+
+    // ========== 记录/获取每个玩家最后一次出的牌 ==========
     public void updateLastPlayByPlayer(String playerId, List<Card> cards) {
         if (cards == null) {
             lastPlayByPlayer.put(playerId, null);
