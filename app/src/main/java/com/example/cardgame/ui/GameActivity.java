@@ -84,8 +84,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         @Override
         public void run() {
             if (gameActionHandler != null && isBluetoothGame) {
-                refreshUI();
-
                 // 蓝牙对局中只让房主驱动 AI，避免客户端也跑 AI 导致两端状态分叉
                 if (isHost) {
                     gameActionHandler.triggerNextAction();

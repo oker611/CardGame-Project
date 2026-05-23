@@ -40,7 +40,6 @@ public class GameController implements GameActionHandler {
     private BluetoothActionHandler bluetoothActionHandler;
 
     private AIEventListener aiEventListener;
-    private Runnable uiRefreshCallback;
 
     private final PlayValidator playValidator = new PlayValidator();
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
@@ -62,11 +61,6 @@ public class GameController implements GameActionHandler {
     }
 
     @Override
-    public void setUiRefreshCallback(Runnable callback) {
-        this.uiRefreshCallback = callback;
-    }
-
-    @Override
     public void setBluetoothActionHandler(BluetoothActionHandler bluetoothActionHandler) {
         this.bluetoothActionHandler = bluetoothActionHandler;
     }
@@ -84,10 +78,6 @@ public class GameController implements GameActionHandler {
         if (gameEngine.getGameState() != null) {
             gameEngine.configureBluetoothPlayerTypes(this.myPlayerId, "P1".equals(this.myPlayerId) ? "P2" : "P1");
         }
-    }
-
-    private void notifyUiRefresh() {
-        if (uiRefreshCallback != null) uiRefreshCallback.run();
     }
 
     @Override
@@ -165,8 +155,6 @@ public class GameController implements GameActionHandler {
             HermesLog.log("GAME startNewGame syncGameState returned");
         }
 
-        notifyUiRefresh();
-
         // 手动发布初始回合事件，确保 AI 收到 TurnChangedEvent
         GameState state = gameEngine.getGameState();
         if (state != null) {
@@ -236,7 +224,6 @@ public class GameController implements GameActionHandler {
                 if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
                 sendGameOverIfNeeded();
             }
-            notifyUiRefresh();
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -279,7 +266,6 @@ public class GameController implements GameActionHandler {
                 if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
                 sendGameOverIfNeeded();
             }
-            notifyUiRefresh();
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -304,7 +290,6 @@ public class GameController implements GameActionHandler {
             if (bluetoothMode && bluetoothActionHandler != null) {
                 bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
             }
-            notifyUiRefresh();
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -319,7 +304,6 @@ public class GameController implements GameActionHandler {
         } else {
             selectedCardIds.add(cardId);
         }
-        notifyUiRefresh();
     }
 
     @Override
@@ -460,7 +444,6 @@ public class GameController implements GameActionHandler {
             if (bluetoothMode && bluetoothActionHandler != null) {
                 bluetoothActionHandler.sendLocalPass(player.getPlayerId());
             }
-            notifyUiRefresh();
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
