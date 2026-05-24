@@ -1,8 +1,10 @@
 // 【已修改，引入观察者模式基础框架】
 package com.example.cardgame.engine;
 
+import android.util.Log;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
+import com.example.cardgame.event.TurnChangedEvent;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.CardPattern;
 import com.example.cardgame.model.GameState;
@@ -109,6 +111,7 @@ public class GameEngine {
         // ===== [事件驱动重构] 发布游戏结束事件 =====
         if (gameState.isGameOver() && gameState.getWinnerId() != null) {
             EventBus.getInstance().post(new GameOverEvent(gameState.getWinnerId()));
+            Log.d("EventBus", "posted GameOverEvent for " + gameState.getWinnerId());
         }
         // ===== 结束 =====
         if (!gameState.isGameOver()) {
@@ -118,6 +121,7 @@ public class GameEngine {
         }
         // ===== [事件驱动重构] 发布出牌事件 =====
         EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
+        Log.d("EventBus", "posted CardPlayedEvent for " + playerId);
         // ===== 结束 =====
         return createPlayResult(true, "PLAY_OK", gameState);
     }
@@ -161,6 +165,7 @@ public class GameEngine {
             // 设置下一轮出牌的玩家为上一赢家
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
+                EventBus.getInstance().post(new TurnChangedEvent(winnerId, "NEW_ROUND"));
                 System.out.println("[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
                 // 降级：按顺序切换（基本不会触发）
@@ -177,6 +182,7 @@ public class GameEngine {
         System.out.println("[CardGame][PASS] success playerId=" + playerId);
         // ===== [事件驱动重构] 发布过牌事件 =====
         EventBus.getInstance().post(new PlayerPassedEvent(playerId));
+        Log.d("EventBus", "posted PlayerPassedEvent for " + playerId);
         // ===== 结束 =====
         return createPassResult(true, "PASS_OK", gameState);
     }

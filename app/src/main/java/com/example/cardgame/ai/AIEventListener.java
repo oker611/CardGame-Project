@@ -58,7 +58,7 @@ public class AIEventListener implements GameEventListener {
                         }
                         List<Card> cards = strategy.decidePlay(nowPlayer, gameState);
                         if (cards == null || cards.isEmpty()) {
-                            gameController.passTurn();
+                            gameEngine.passTurn(newPlayerId);
                             System.out.println("[AIEventListener] AI passed");
                         } else {
                             System.out.println("[AIEventListener] AI playing: " + cards);
