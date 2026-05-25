@@ -16,7 +16,6 @@ import com.example.cardgame.event.EventBus;
 import com.example.cardgame.event.TurnChangedEvent;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
-import com.example.cardgame.model.Play;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.PlayValidator;
@@ -219,11 +218,6 @@ public class GameController implements GameActionHandler {
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);
 
-            if (bluetoothMode && bluetoothActionHandler != null && gameEngine.getGameState() != null) {
-                Play lastPlay = gameEngine.getGameState().getLastPlay();
-                if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
-                sendGameOverIfNeeded();
-            }
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -261,11 +255,6 @@ public class GameController implements GameActionHandler {
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);
 
-            if (bluetoothMode && bluetoothActionHandler != null && gameEngine.getGameState() != null) {
-                Play lastPlay = gameEngine.getGameState().getLastPlay();
-                if (lastPlay != null) bluetoothActionHandler.sendLocalPlay(lastPlay);
-                sendGameOverIfNeeded();
-            }
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -287,9 +276,6 @@ public class GameController implements GameActionHandler {
         cancelCountdown(currentPlayer);
         PassResult result = gameEngine.passTurn(currentPlayer.getPlayerId());
         if (result.isSuccess()) {
-            if (bluetoothMode && bluetoothActionHandler != null) {
-                bluetoothActionHandler.sendLocalPass(currentPlayer.getPlayerId());
-            }
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -441,9 +427,6 @@ public class GameController implements GameActionHandler {
 
         PassResult result = gameEngine.passTurn(player.getPlayerId());
         if (result.isSuccess()) {
-            if (bluetoothMode && bluetoothActionHandler != null) {
-                bluetoothActionHandler.sendLocalPass(player.getPlayerId());
-            }
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
@@ -467,16 +450,6 @@ public class GameController implements GameActionHandler {
             }
             System.out.println("[CardGame][COUNTDOWN] Cancelled for player " + player.getPlayerId());
         }
-    }
-
-    private void sendGameOverIfNeeded() {
-        if (!bluetoothMode || bluetoothActionHandler == null) return;
-        if (!gameEngine.isGameOver()) return;
-        GameState state = gameEngine.getGameState();
-        if (state == null || state.getWinnerId() == null) return;
-        Player winner = state.getPlayerById(state.getWinnerId());
-        String winnerName = winner != null ? winner.getPlayerName() : state.getWinnerId();
-        bluetoothActionHandler.sendGameOver(state.getWinnerId(), winnerName);
     }
 
     // 注意：如果 GameActionHandler 接口中没有 triggerNextAction，请删除下面的 @Override

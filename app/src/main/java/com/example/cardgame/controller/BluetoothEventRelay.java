@@ -62,6 +62,13 @@ public class BluetoothEventRelay implements GameEventListener {
     }
 
     private void handleCardPlayed(CardPlayedEvent event) {
+        // 守卫：只中继本机玩家的出牌，防止 executeRemotePlay 触发的回声
+        if (!event.getPlayerId().equals(gateway.getLocalPlayerId())) {
+            Log.d(TAG, "[EVENT] CardPlayedEvent skipped: not local player ("
+                    + event.getPlayerId() + " != " + gateway.getLocalPlayerId() + ")");
+            return;
+        }
+
         GameState state = gameEngine.getGameState();
         if (state == null) {
             Log.w(TAG, "[EVENT] CardPlayedEvent ignored: GameState is null");
@@ -82,12 +89,25 @@ public class BluetoothEventRelay implements GameEventListener {
     }
 
     private void handlePlayerPassed(PlayerPassedEvent event) {
+        // 守卫：只中继本机玩家的过牌，防止 executeRemotePass 触发的回声
+        if (!event.getPlayerId().equals(gateway.getLocalPlayerId())) {
+            Log.d(TAG, "[EVENT] PlayerPassedEvent skipped: not local player ("
+                    + event.getPlayerId() + " != " + gateway.getLocalPlayerId() + ")");
+            return;
+        }
+
         Log.i(TAG, "[EVENT] BluetoothEventRelay: PlayerPassedEvent → sendPassAction"
                 + " playerId=" + event.getPlayerId());
         gateway.sendPassAction(event.getPlayerId());
     }
 
     private void handleGameOver(GameOverEvent event) {
+        // 守卫：只有 HOST 负责广播游戏结束，CLIENT 不中继
+        if (!gateway.isHost()) {
+            Log.d(TAG, "[EVENT] GameOverEvent skipped: not host, game over relayed by HOST only");
+            return;
+        }
+
         String winnerId = event.getWinnerId();
         String winnerName = winnerId;
 
