@@ -3,9 +3,11 @@ package com.example.cardgame.rule;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
+import com.example.cardgame.rule.RuleConfig;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
+
 
 /**
  * 牌型识别器（支持单张、对子）
@@ -34,7 +36,11 @@ public class PatternRecognizer {
         public int getCompareValue() { return compareValue; }
     }
 
-    private final PatternRecognizerHelper helper = new PatternRecognizerHelper();
+    private final RuleConfig config;
+
+    public PatternRecognizer(RuleConfig config) {
+        this.config = config;
+    }
 
     /**
      * 识别牌型
@@ -48,153 +54,175 @@ public class PatternRecognizer {
         int size = cards.size();
         // 复制一份并按单张牌绝对大小排序（从小到大：3...K,A,2）
         List<Card> sorted = new ArrayList<>(cards);
-        sorted.sort((c1, c2) -> helper.getCardScore(c1) - helper.getCardScore(c2));
+        sorted.sort((c1, c2) -> getCardScore(c1) - getCardScore(c2));
 
         if (size == 1) {
-            return new PatternInfo(PatternType.SINGLE, helper.getCardScore(sorted.get(0)));
+            PatternType type = PatternType.SINGLE;
+            if (!config.allowedPatterns.contains(type)) {
+                return new PatternInfo(PatternType.INVALID, -1);
+            }
+            return new PatternInfo(type, getCardScore(sorted.get(0)));
         }
         else if (size == 2) {
             if (sorted.get(0).getRank() == sorted.get(1).getRank()) {
-                // 对子比较花色：已排序，直接取最后一张的花色（大）
-                return new PatternInfo(PatternType.PAIR, helper.getRankWeight(sorted.get(0).getRank()) * 10 + helper.getSuitWeight(sorted.get(1).getSuit()));
+                PatternType type = PatternType.PAIR;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                int pairValue = getRankWeight(sorted.get(0).getRank()) * 10 + getSuitWeight(sorted.get(1).getSuit());
+                return new PatternInfo(type, pairValue);
             }
         }
         else if (size == 3) {
-            if (sorted.get(0).getRank() == sorted.get(2).getRank()) { // 三张
-                return new PatternInfo(PatternType.TRIPLE, helper.getRankWeight(sorted.get(0).getRank()));
+            if (sorted.get(0).getRank() == sorted.get(2).getRank()) {
+                PatternType type = PatternType.TRIPLE;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, getRankWeight(sorted.get(0).getRank()));
             }
         }
         else if (size == 4) {
-            if (sorted.get(0).getRank() == sorted.get(3).getRank()) { // 四张
-                return new PatternInfo(PatternType.QUADRUPLE, helper.getRankWeight(sorted.get(0).getRank()));
+            if (sorted.get(0).getRank() == sorted.get(3).getRank()) {
+                PatternType type = PatternType.QUADRUPLE;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, getRankWeight(sorted.get(0).getRank()));
             }
         }
         else if (size == 5) {
-            boolean isFlush = helper.isFlush(sorted);
-            int straightScore = helper.getStraightScore(sorted);
+            boolean flush = isFlush(sorted);
+            int straightScore = getStraightScore(sorted);
 
-            if (isFlush && straightScore != -1) {
-                return new PatternInfo(PatternType.STRAIGHT_FLUSH, straightScore); // 同花顺
+            if (flush && straightScore != -1) {
+                PatternType type = PatternType.STRAIGHT_FLUSH;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, straightScore);
             }
-            int ironBranchScore = helper.getIronBranchScore(sorted);
+            int ironBranchScore = getIronBranchScore(sorted);
             if (ironBranchScore != -1) {
-                return new PatternInfo(PatternType.IRON_BRANCH, ironBranchScore); // 铁支
+                PatternType type = PatternType.IRON_BRANCH;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, ironBranchScore);
             }
-            int fullHouseScore = helper.getFullHouseScore(sorted);
+            int fullHouseScore = getFullHouseScore(sorted);
             if (fullHouseScore != -1) {
-                return new PatternInfo(PatternType.FULL_HOUSE, fullHouseScore); // 葫芦
+                PatternType type = PatternType.FULL_HOUSE;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, fullHouseScore);
             }
-            if (isFlush) {
-                return new PatternInfo(PatternType.FLUSH, helper.getCardScore(sorted.get(4))); // 同花看最大牌
+            if (flush) {
+                PatternType type = PatternType.FLUSH;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, getCardScore(sorted.get(4)));
             }
             if (straightScore != -1) {
-                return new PatternInfo(PatternType.STRAIGHT, straightScore); // 顺子
+                PatternType type = PatternType.STRAIGHT;
+                if (!config.allowedPatterns.contains(type)) {
+                    return new PatternInfo(PatternType.INVALID, -1);
+                }
+                return new PatternInfo(type, straightScore);
             }
         }
         return new PatternInfo(PatternType.INVALID, -1);
     }
 
-    /**
-     * 辅助类：获取权重
-     */
-    private static class PatternRecognizerHelper {
-        // 点数权重（3最小→0，2最大→12）
-        int getRankWeight(Rank rank) {
-            switch (rank) {
-                case THREE: return 0;
-                case FOUR:  return 1;
-                case FIVE:  return 2;
-                case SIX:   return 3;
-                case SEVEN: return 4;
-                case EIGHT: return 5;
-                case NINE:  return 6;
-                case TEN:   return 7;
-                case JACK:  return 8;
-                case QUEEN: return 9;
-                case KING:  return 10;
-                case ACE:   return 11;
-                case TWO:   return 12;
-                default:    return -1;
+    private int getRankWeight(Rank rank) {
+        Integer w = config.rankWeights.get(rank);
+        return w != null ? w : -1;
+    }
+
+    private int getSuitWeight(Suit suit) {
+        Integer w = config.suitWeights.get(suit);
+        return w != null ? w : -1;
+    }
+
+    private int getCardScore(Card card) {
+        return getRankWeight(card.getRank()) * 10 + getSuitWeight(card.getSuit());
+    }
+
+    private boolean isFlush(List<Card> sorted) {
+        Suit s = sorted.get(0).getSuit();
+        for (Card c : sorted) {
+            if (c.getSuit() != s) return false;
+        }
+        return true;
+    }
+
+    private int getStraightScore(List<Card> cards) {
+        List<Card> seq = new ArrayList<>(cards);
+        seq.sort(Comparator.comparingInt(c -> getStraightBase(c.getRank())));
+
+        boolean consecutive = true;
+        for (int i = 1; i < 5; i++) {
+            if (getStraightBase(seq.get(i).getRank()) != getStraightBase(seq.get(i - 1).getRank()) + 1) {
+                consecutive = false;
+                break;
             }
         }
 
-        // 花色权重（方块最小0，黑桃最大3，与游戏规则一致）
-        int getSuitWeight(Suit suit) {
-            switch (suit) {
-                case DIAMONDS: return 0;
-                case CLUBS:    return 1;
-                case HEARTS:   return 2;
-                case SPADES:   return 3;
-                default:       return -1;
-            }
+        if (consecutive) {
+            Card maxCard = seq.get(4);
+            return getStraightBase(seq.get(0).getRank()) * 10 + getSuitWeight(maxCard.getSuit());
         }
 
-        int getCardScore(Card card) {
-            return getRankWeight(card.getRank()) * 10 + getSuitWeight(card.getSuit());
+        // 特殊处理 10,J,Q,K,A
+        if (getStraightBase(seq.get(0).getRank()) == 1
+                && getStraightBase(seq.get(1).getRank()) == 10
+                && getStraightBase(seq.get(2).getRank()) == 11
+                && getStraightBase(seq.get(3).getRank()) == 12
+                && getStraightBase(seq.get(4).getRank()) == 13) {
+            Card maxCard = seq.get(0);
+            return 10 * 10 + getSuitWeight(maxCard.getSuit());
         }
+        return -1;
+    }
 
-        boolean isFlush(List<Card> sorted) {
-            Suit s = sorted.get(0).getSuit();
-            for (Card c : sorted) {
-                if (c.getSuit() != s) return false;
-            }
-            return true;
+    private int getStraightBase(Rank rank) {
+        switch (rank) {
+            case ACE:   return 1;
+            case TWO:   return 2;
+            case THREE: return 3;
+            case FOUR:  return 4;
+            case FIVE:  return 5;
+            case SIX:   return 6;
+            case SEVEN: return 7;
+            case EIGHT: return 8;
+            case NINE:  return 9;
+            case TEN:   return 10;
+            case JACK:  return 11;
+            case QUEEN: return 12;
+            case KING:  return 13;
+            default:    return 0;
         }
+    }
 
-        int getStraightScore(List<Card> cards) {
-            List<Card> seq = new ArrayList<>(cards);
-            // 顺子判断需要按原始数值(A=1, 2=2...)排序
-            seq.sort(Comparator.comparingInt(c -> getStraightBase(c.getRank())));
+    private int getIronBranchScore(List<Card> sorted) {
+        if (sorted.get(0).getRank() == sorted.get(3).getRank())
+            return getRankWeight(sorted.get(0).getRank());
+        if (sorted.get(1).getRank() == sorted.get(4).getRank())
+            return getRankWeight(sorted.get(1).getRank());
+        return -1;
+    }
 
-            boolean consecutive = true;
-            for (int i = 1; i < 5; i++) {
-                if (getStraightBase(seq.get(i).getRank()) != getStraightBase(seq.get(i - 1).getRank()) + 1) {
-                    consecutive = false; break;
-                }
-            }
-
-            if (consecutive) {
-                // A,2,3,4,5 会走到这里，最大牌是5
-                Card maxCard = seq.get(4);
-                return getStraightBase(seq.get(0).getRank()) * 10 + getSuitWeight(maxCard.getSuit());
-            }
-
-            // 特殊处理 10,J,Q,K,A
-            if (getStraightBase(seq.get(0).getRank()) == 1 &&
-                    getStraightBase(seq.get(1).getRank()) == 10 &&
-                    getStraightBase(seq.get(2).getRank()) == 11 &&
-                    getStraightBase(seq.get(3).getRank()) == 12 &&
-                    getStraightBase(seq.get(4).getRank()) == 13) {
-                Card maxCard = seq.get(0); // A最大
-                return 10 * 10 + getSuitWeight(maxCard.getSuit()); // 权重给到10(最高)
-            }
-            return -1;
+    private int getFullHouseScore(List<Card> sorted) {
+        if (sorted.get(0).getRank() == sorted.get(2).getRank()
+                && sorted.get(3).getRank() == sorted.get(4).getRank()) {
+            return getRankWeight(sorted.get(0).getRank());
         }
-
-        int getStraightBase(Rank rank) {
-            switch (rank) {
-                case ACE: return 1; case TWO: return 2; case THREE: return 3;
-                case FOUR: return 4; case FIVE: return 5; case SIX: return 6;
-                case SEVEN: return 7; case EIGHT: return 8; case NINE: return 9;
-                case TEN: return 10; case JACK: return 11; case QUEEN: return 12;
-                case KING: return 13; default: return 0;
-            }
+        if (sorted.get(0).getRank() == sorted.get(1).getRank()
+                && sorted.get(2).getRank() == sorted.get(4).getRank()) {
+            return getRankWeight(sorted.get(2).getRank());
         }
-
-        int getIronBranchScore(List<Card> sorted) { // 传入的 sorted 是按大小(3~2)排序的
-            if (sorted.get(0).getRank() == sorted.get(3).getRank()) return getRankWeight(sorted.get(0).getRank());
-            if (sorted.get(1).getRank() == sorted.get(4).getRank()) return getRankWeight(sorted.get(1).getRank());
-            return -1;
-        }
-
-        int getFullHouseScore(List<Card> sorted) {
-            if (sorted.get(0).getRank() == sorted.get(2).getRank() && sorted.get(3).getRank() == sorted.get(4).getRank()) {
-                return getRankWeight(sorted.get(0).getRank());
-            }
-            if (sorted.get(0).getRank() == sorted.get(1).getRank() && sorted.get(2).getRank() == sorted.get(4).getRank()) {
-                return getRankWeight(sorted.get(2).getRank());
-            }
-            return -1;
-        }
+        return -1;
     }
 }

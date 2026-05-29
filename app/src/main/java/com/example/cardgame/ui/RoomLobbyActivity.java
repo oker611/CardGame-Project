@@ -48,6 +48,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private String localPlayerId = "P1";
+    private String ruleType = "南方规则";
 
     private final Runnable refreshBluetoothStateRunnable = new Runnable() {
         @Override
@@ -66,6 +67,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
         isHost = getIntent().getBooleanExtra("is_host", false);
         localPlayerId = getIntent().getStringExtra("local_player_id");
+        ruleType = getIntent().getStringExtra("rule_type");
+        if (ruleType == null) ruleType = "南方规则";
         if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
             localPlayerId = isHost ? "P1" : "CLIENT";  // 客户端身份待 HOST 分配
         }
@@ -220,6 +223,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
             intent.putExtra("is_bluetooth_game", true);
             intent.putExtra("is_host", false);
             intent.putExtra("local_player_id", localPlayerId);
+            intent.putExtra("rule_type", ruleType);
             startActivity(intent);
             finish();
             return;
@@ -342,6 +346,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
                     intent.putExtra("is_bluetooth_game", true);
                     intent.putExtra("is_host", true);
                     intent.putExtra("local_player_id", "P1");
+                    intent.putExtra("rule_type", ruleType);
 
                     Toast.makeText(this, "蓝牙对局（4人）开始", Toast.LENGTH_SHORT).show();
                 } else {
@@ -353,6 +358,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
                     intent.putExtra("is_bluetooth_game", false);
                     intent.putExtra("is_host", false);
                     intent.putExtra("local_player_id", "P1");
+                    intent.putExtra("rule_type", ruleType);
 
                     Toast.makeText(this, "本地 AI 对局开始", Toast.LENGTH_SHORT).show();
                 }

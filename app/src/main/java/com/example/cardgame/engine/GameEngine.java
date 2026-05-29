@@ -1,5 +1,6 @@
 // 【已修改，引入观察者模式基础框架】
 package com.example.cardgame.engine;
+import com.example.cardgame.rule.ConfigurableRuleEngine;
 
 import android.util.Log;
 import com.example.cardgame.dto.PassResult;
@@ -41,11 +42,11 @@ public class GameEngine {
         this.dealManager = new DealManager();
         this.turnManager = new TurnManager();
         this.settlementManager = new SettlementManager();
-        this.ruleEngine = new RuleEngine();
     }
 
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
+        this.ruleEngine = new ConfigurableRuleEngine(ruleConfig);
         this.gameState = new GameState();
         this.gameState.setPlayers(players);
         this.gameState.setGameOver(false);

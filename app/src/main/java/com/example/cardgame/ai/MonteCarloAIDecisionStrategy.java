@@ -4,6 +4,8 @@ import android.os.Handler;
 import android.os.Looper;
 import com.example.cardgame.model.*;
 import com.example.cardgame.rule.RuleEngine;
+import com.example.cardgame.rule.ConfigurableRuleEngine;
+import com.example.cardgame.rule.RuleConfig;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -21,7 +23,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
     private final RuleEngine ruleEngine;
 
     public MonteCarloAIDecisionStrategy() {
-        this.ruleEngine = new RuleEngine();
+        this.ruleEngine = new ConfigurableRuleEngine(RuleConfig.SOUTHERN);
         this.candidateGenerator = new CandidateGenerator(ruleEngine, TOP_K_CANDIDATES);
         this.opponentHandSampler = new OpponentHandSampler();
         this.monteCarloSimulator = new MonteCarloSimulator(ruleEngine, NUM_SAMPLES);

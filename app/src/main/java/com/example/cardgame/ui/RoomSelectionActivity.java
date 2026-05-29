@@ -50,6 +50,7 @@ public class RoomSelectionActivity extends AppCompatActivity {
 
     private void startGame() {
         Intent intent = new Intent(RoomSelectionActivity.this, GameActivity.class);
+        intent.putExtra("rule_type", "南方规则");
         startActivity(intent);
     }
 }

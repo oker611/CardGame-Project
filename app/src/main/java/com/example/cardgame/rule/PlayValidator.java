@@ -2,8 +2,6 @@ package com.example.cardgame.rule;
 
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Player;
-import com.example.cardgame.model.Rank;
-import com.example.cardgame.model.Suit;
 import com.example.cardgame.rule.PatternRecognizer.PatternInfo;
 import com.example.cardgame.rule.PatternRecognizer.PatternType;
 
@@ -19,7 +17,13 @@ import java.util.stream.Collectors;
  */
 public class PlayValidator {
 
-    private final PatternRecognizer recognizer = new PatternRecognizer();
+    private final PatternRecognizer recognizer;
+    private final RuleConfig config;
+
+    public PlayValidator(RuleConfig config) {
+        this.config = config;
+        this.recognizer = new PatternRecognizer(config);
+    }
 
     public static class ValidationResult {
         public final boolean valid;
@@ -56,8 +60,11 @@ public class PlayValidator {
 
         // 4. 首轮特殊规则：第一轮第一个出牌必须包含方块3
         if (isFirstRound && isFirstTurn) {
-            if (!containsDiamondThree(currentCards)) {
-                return new ValidationResult(false, "首轮必须出方块3");
+            if (!containsRequiredOpeningCard(currentCards)) {
+                String required = config.requiredOpeningRank != null
+                        ? config.requiredOpeningSuit.getSymbol() + config.requiredOpeningRank.getDisplayName()
+                        : "";
+                return new ValidationResult(false, "首轮必须出" + required);
             }
         }
 
@@ -157,29 +164,25 @@ public class PlayValidator {
         }
     }
 
-    private boolean containsDiamondThree(List<Card> cards) {
-        for (Card card : cards) {
-            if (card.getRank() == Rank.THREE && card.getSuit() == Suit.DIAMONDS) {
+    private boolean containsRequiredOpeningCard(List<Card> cards) {
+            if (config.requiredOpeningRank == null) {
                 return true;
             }
-        }
-        return false;
+            for (Card card : cards) {
+                if (card.getRank() == config.requiredOpeningRank
+                        && card.getSuit() == config.requiredOpeningSuit) {
+                    return true;
+                }
+            }
+            return false;
     }
 
     private boolean isFiveCardPattern(PatternType type) {
-        return type == PatternType.STRAIGHT || type == PatternType.FLUSH ||
-                type == PatternType.FULL_HOUSE || type == PatternType.IRON_BRANCH ||
-                type == PatternType.STRAIGHT_FLUSH;
+        return config.fiveCardPriority.containsKey(type);
     }
 
     private int getFiveCardPriority(PatternType type) {
-        switch (type) {
-            case STRAIGHT: return 1;
-            case FLUSH: return 2;
-            case FULL_HOUSE: return 3;
-            case IRON_BRANCH: return 4;
-            case STRAIGHT_FLUSH: return 5;
-            default: return 0;
-        }
+        Integer p = config.fiveCardPriority.get(type);
+        return p != null ? p : 0;
     }
 }

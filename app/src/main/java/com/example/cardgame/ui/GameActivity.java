@@ -118,6 +118,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         isBluetoothGame = getIntent().getBooleanExtra("is_bluetooth_game", false);
         isHost = getIntent().getBooleanExtra("is_host", false);
         localPlayerId = getIntent().getStringExtra("local_player_id");
+        String ruleType = getIntent().getStringExtra("rule_type");
+        if (ruleType == null) ruleType = "南方规则";
 
         if (!isBluetoothGame) {
             localPlayerId = "P1";
@@ -164,6 +166,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                         + isHost + ", localPlayerId=" + localPlayerId);
 
                 if (isHost) {
+                    gameActionHandler.setSelectedRuleType(ruleType);
                     gameActionHandler.startNewGame();
                     Toast.makeText(this, "蓝牙房主模式：已开局并同步", Toast.LENGTH_SHORT).show();
                 } else {
@@ -174,6 +177,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 bluetoothRefreshHandler.post(bluetoothRefreshRunnable);
             } else {
                 System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
+                gameActionHandler.setSelectedRuleType(ruleType);
                 gameActionHandler.startNewGame();
                 refreshUI();
                 Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();

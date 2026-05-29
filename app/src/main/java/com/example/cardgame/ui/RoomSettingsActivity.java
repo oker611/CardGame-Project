@@ -120,6 +120,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
         Intent intent = new Intent(RoomSettingsActivity.this, RoomLobbyActivity.class);
         intent.putExtra("is_host", true);
         intent.putExtra("local_player_id", "P1");
+        intent.putExtra("rule_type", getSelectedRule());
         startActivity(intent);
         finish();
     }

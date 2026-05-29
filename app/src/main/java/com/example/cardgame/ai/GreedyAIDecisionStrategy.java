@@ -6,6 +6,7 @@ import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer.PatternInfo;
+import com.example.cardgame.rule.RuleConfig;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,8 +17,16 @@ import java.util.stream.Collectors;
  */
 public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
 
-    private final PatternRecognizer patternRecognizer = new PatternRecognizer();
-    private final PlayValidator playValidator = new PlayValidator();
+    private final RuleConfig config;
+    private final PatternRecognizer patternRecognizer;
+    private final PlayValidator playValidator;
+
+    public GreedyAIDecisionStrategy(RuleConfig config) {
+        this.config = config;
+        this.patternRecognizer = new PatternRecognizer(config);
+        this.playValidator = new PlayValidator(config);
+    }
+
 
     @Override
     public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
@@ -34,13 +43,13 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
             return null; // 无牌可出，过牌
         }
 
-        // 2. 首轮首出：必须包含方块3
-        if (isFirstRound && isFirstTurn) {
-            allPlays = filterMustIncludeDiamondThree(allPlays);
+        // 2. 首轮首出：根据配置检查必出牌
+        if (isFirstRound && isFirstTurn && config.requiredOpeningRank != null) {
+            allPlays = filterMustIncludeRequiredOpeningCard(allPlays);
             if (allPlays.isEmpty()) {
-                // 兜底：出单张方块3（理论上一定存在）
                 return hand.stream()
-                        .filter(Card::isThreeOfDiamonds)
+                        .filter(c -> c.getRank() == config.requiredOpeningRank
+                                && c.getSuit() == config.requiredOpeningSuit)
                         .findFirst()
                         .map(Collections::singletonList)
                         .orElse(null);
@@ -106,10 +115,11 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
         return info.getCompareValue();
     }
 
-    private List<List<Card>> filterMustIncludeDiamondThree(List<List<Card>> plays) {
+    private List<List<Card>> filterMustIncludeRequiredOpeningCard(List<List<Card>> plays) {
         List<List<Card>> filtered = new ArrayList<>();
         for (List<Card> play : plays) {
-            if (play.stream().anyMatch(Card::isThreeOfDiamonds)) {
+            if (play.stream().anyMatch(c -> c.getRank() == config.requiredOpeningRank
+                    && c.getSuit() == config.requiredOpeningSuit)) {
                 filtered.add(play);
             }
         }
