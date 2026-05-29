@@ -357,11 +357,12 @@ public class GameController implements GameActionHandler {
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",
-                playerLastPlayCards);
+                playerLastPlayCards,
+                gameEngine.getAllPlayedCards());
     }
 
     private GameViewData emptyViewData() {
-        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>());
+        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>(), null);
     }
 
     private List<PlayerViewData> reorderPlayersForSelf(List<PlayerViewData> original, String myPlayerId) {

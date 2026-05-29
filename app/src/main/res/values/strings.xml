@@ -40,6 +40,26 @@
    <string name="host_name">房主</string>
    <string name="full">已满员</string>
 
+   <!-- 道具栏 -->
+   <string name="prop_tracker">记牌器</string>
+   <string name="prop_see_through">透视</string>
+   <string name="prop_pattern_hint">牌型提示</string>
+
+   <!-- 退出按钮 -->
+   <string name="exit_game">✕</string>
+
+   <!-- 对手名称 -->
+   <string name="player2">玩家2</string>
+   <string name="player3">玩家3</string>
+   <string name="player4">玩家4</string>
+
+   <!-- 倒计时 -->
+   <string name="countdown_no_play">无牌可出，%d秒后自动跳过</string>
+
+   <!-- 内联按钮 -->
+   <string name="play_inline">出牌</string>
+   <string name="pass_inline">不要</string>
+
    <string name="bluetooth_help_title">蓝牙连接帮助</string>
    <string name="bluetooth_help_message">
 1. 开启蓝牙\n
