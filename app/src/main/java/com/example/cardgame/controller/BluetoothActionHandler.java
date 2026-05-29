@@ -5,7 +5,9 @@ import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public interface BluetoothActionHandler {
 
@@ -33,6 +35,10 @@ public interface BluetoothActionHandler {
      */
     default List<String> getRemotePlayerIds() {
         return new ArrayList<>();
+    }
+
+    default Map<String, String> getPlayerNamesById() {
+        return new HashMap<>();
     }
 
     /**

@@ -84,10 +84,13 @@ public class GameController implements GameActionHandler {
         if (!bluetoothMode) myPlayerId = "P1";
 
         List<Player> players = new ArrayList<>();
-        Player p1 = new Player("P1", "Alice");
-        Player p2 = new Player("P2", "Bob");
-        Player p3 = new Player("P3", "Cindy");
-        Player p4 = new Player("P4", "David");
+        Map<String, String> bluetoothNames = bluetoothMode && bluetoothActionHandler != null
+                ? bluetoothActionHandler.getPlayerNamesById()
+                : new HashMap<>();
+        Player p1 = new Player("P1", playerNameFor("P1", "Alice", bluetoothNames));
+        Player p2 = new Player("P2", playerNameFor("P2", "Bob", bluetoothNames));
+        Player p3 = new Player("P3", playerNameFor("P3", "Cindy", bluetoothNames));
+        Player p4 = new Player("P4", playerNameFor("P4", "David", bluetoothNames));
 
         if (bluetoothMode) {
             p1.setType(PlayerType.AI);
@@ -182,6 +185,11 @@ public class GameController implements GameActionHandler {
         AIDecisionStrategy strategy = new GreedyAIDecisionStrategy();
         aiEventListener = new AIEventListener(this, gameEngine, strategy);
         HermesLog.log("GameController: AIEventListener initialized");
+    }
+
+    private String playerNameFor(String playerId, String fallback, Map<String, String> namesById) {
+        String name = namesById != null ? namesById.get(playerId) : null;
+        return name != null && !name.trim().isEmpty() ? name.trim() : fallback;
     }
 
     // ==================== 接口方法：供 UI 调用（显示字符串） ====================

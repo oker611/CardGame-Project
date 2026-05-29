@@ -2,6 +2,7 @@ package com.example.cardgame.controller;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import com.example.cardgame.dto.BluetoothDeviceViewData;
 import com.example.cardgame.dto.BluetoothViewData;
@@ -23,8 +24,10 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     private final BluetoothGateway bluetoothGateway;
     private final BluetoothViewData bluetoothViewData;
     private final BluetoothEventRelay eventRelay;
+    private final Context appContext;
 
     public BluetoothController(Context context, GameEngine gameEngine) {
+        this.appContext = context.getApplicationContext();
         this.bluetoothViewData = new BluetoothViewData();
         updateBluetoothStatus();
         this.bluetoothGateway = new BluetoothGateway(context, gameEngine);
@@ -52,9 +55,9 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         bluetoothViewData.setStatusText("正在创建蓝牙房间（4人模式）");
 
         // HOST 自己占用 slot 0
-        bluetoothViewData.addConnectedDevice("房主 / 本机", "", "P1", 0);
+        bluetoothViewData.addConnectedDevice(getLocalGamePlayerName(), "", "P1", 0);
 
-        new Thread(() -> bluetoothGateway.startAsHost(localPlayerId)).start();
+        new Thread(() -> bluetoothGateway.startAsHost(localPlayerId, getLocalGamePlayerName())).start();
     }
 
     @Override
@@ -128,7 +131,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setStatusText("正在连接对方设备");
 
-        new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress)).start();
+        new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress, getLocalGamePlayerName())).start();
     }
 
     @Override
@@ -173,6 +176,11 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     @Override
     public List<String> getRemotePlayerIds() {
         return bluetoothGateway.getRemotePlayerIds();
+    }
+
+    @Override
+    public Map<String, String> getPlayerNamesById() {
+        return bluetoothGateway.getPlayerNamesById();
     }
 
     @Override
@@ -288,5 +296,10 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     @Override
     public void onGameOver(String winnerId, String winnerName) {
         bluetoothViewData.setStatusText("游戏结束，胜者：" + winnerName);
+    }
+    private String getLocalGamePlayerName() {
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        String name = prefs.getString("player_name", "玩家");
+        return name != null && !name.trim().isEmpty() ? name.trim() : "玩家";
     }
 }

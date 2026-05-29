@@ -45,6 +45,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private final Map<String, SenderReceiverPair> clientChannels = new ConcurrentHashMap<>();
     /** playerId → deviceAddress（反向查找） */
     private final Map<String, String> playerIdToDevice = new ConcurrentHashMap<>();
+    private final Map<String, String> playerNamesById = new ConcurrentHashMap<>();
+    private final Map<String, String> pendingJoinNamesBySender = new ConcurrentHashMap<>();
 
     private String role;
     private volatile boolean communicationReady = false;
@@ -79,7 +81,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     //  HOST 模式：创建房间 + 接受多个客户端
     // ========================================================================
 
-    public void startAsHost(String localPlayerId) {
+    public void startAsHost(String localPlayerId, String localPlayerName) {
         this.localPlayerId = localPlayerId;
         this.role = "HOST";
         HermesLog.init("host");
@@ -88,6 +90,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.deviceToPlayerId.clear();
         this.clientChannels.clear();
         this.playerIdToDevice.clear();
+        this.playerNamesById.clear();
+        this.pendingJoinNamesBySender.clear();
+        this.playerNamesById.put(localPlayerId, safePlayerName(localPlayerName, "Player " + localPlayerId));
 
         networkGameBridge.setPlayerContext(this.localPlayerId, new ArrayList<>());
 
@@ -126,7 +131,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 clientChannels.put(deviceAddress, new SenderReceiverPair(sender, receiver));
 
                 // 发送 JOIN_ACK 给新客户端
-                String playerName = conn.deviceName != null ? conn.deviceName : "Player";
+                String fallbackName = conn.deviceName != null ? conn.deviceName : "Player";
+                String playerName = waitForJoinPlayerName(fallbackName);
+                playerNamesById.put(clientPlayerId, playerName);
                 JoinPayload ackPayload = new JoinPayload(playerName, clientPlayerId, i + 1);
                 BluetoothMessage ackMessage = messageCodec.buildJoinAckMessage(
                         localPlayerId, clientPlayerId, ackPayload);
@@ -167,7 +174,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     //  CLIENT 模式：连接房间
     // ========================================================================
 
-    public void connectAsClient(String localPlayerId, String deviceAddress) {
+    public void connectAsClient(String localPlayerId, String deviceAddress, String localPlayerName) {
         this.localPlayerId = localPlayerId;
         this.role = "CLIENT";
         HermesLog.init("client");
@@ -184,7 +191,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             setupCommunicationChannelSingle();
 
             // 发送 JOIN 请求（使用本机蓝牙名）
-            String playerName = connectionManager.getLocalDeviceName();
+            String playerName = safePlayerName(localPlayerName, connectionManager.getLocalDeviceName());
             JoinPayload joinPayload = new JoinPayload(playerName);
             BluetoothMessage joinMessage = messageCodec.buildJoinMessage(
                     localPlayerId, "HOST", joinPayload);
@@ -365,6 +372,25 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         networkGameBridge.setPlayerContext(localPlayerId, remoteIds);
     }
 
+    private String waitForJoinPlayerName(String fallbackName) {
+        long deadline = System.currentTimeMillis() + 1000;
+        while (System.currentTimeMillis() < deadline) {
+            for (String name : pendingJoinNamesBySender.values()) {
+                if (name != null && !name.trim().isEmpty()) {
+                    pendingJoinNamesBySender.clear();
+                    return name.trim();
+                }
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return safePlayerName(fallbackName, "Player");
+    }
+
     // ========================================================================
     //  发送到所有客户端
     // ========================================================================
@@ -496,7 +522,14 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     private void handleJoinMessage(BluetoothMessage message) {
         Log.d("CardGame", "[DEBUG] [蓝牙] 收到JOIN请求 from=" + message.getSenderPlayerId());
-        // HOST 端通过 accept 循环处理，此方法作为备用
+        try {
+            JoinPayload payload = messageCodec.decodeJoinPayload(message.getPayloadJson());
+            if (payload != null && payload.getPlayerName() != null) {
+                pendingJoinNamesBySender.put(message.getSenderPlayerId(), payload.getPlayerName().trim());
+            }
+        } catch (Exception e) {
+            Log.w("CardGame", "[WARN] [蓝牙] 解析JOIN昵称失败", e);
+        }
     }
 
     private void handleJoinAckMessage(BluetoothMessage message) {
@@ -511,6 +544,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             this.localPlayerId = assignedPlayerId;
             this.remotePlayerId = "P1"; // HOST 始终是 P1
             this.playerIdToDevice.put(assignedPlayerId, connectionManager.getConnectedDeviceAddress());
+            this.playerNamesById.put(assignedPlayerId,
+                    safePlayerName(payload.getPlayerName(), "Player " + assignedPlayerId));
 
             Log.i("CardGame", "[INFO] [蓝牙] HOST分配角色: " + assignedPlayerId
                     + ", slot=" + assignedSlotIndex);
@@ -532,6 +567,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             String newPlayerId = payload.getAssignedPlayerId();
             String newPlayerName = payload.getPlayerName();
             int slot = payload.getSlotIndex();
+            playerNamesById.put(newPlayerId, safePlayerName(newPlayerName, "Player " + newPlayerId));
 
             Log.i("CardGame", "[INFO] [蓝牙] 新玩家加入: " + newPlayerId
                     + " (" + newPlayerName + "), slot=" + slot);
@@ -644,6 +680,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         return new ArrayList<>(playerIdToDevice.keySet());
     }
 
+    public Map<String, String> getPlayerNamesById() {
+        return new LinkedHashMap<>(playerNamesById);
+    }
+
     public void readyForGame() {
         HermesLog.log("READY readyForGame communicationReady=" + communicationReady
                 + " channels=" + clientChannels.size());
@@ -658,6 +698,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         HermesLog.log("AI_ADD " + playerId + " slot=" + slotIndex + " channels=" + clientChannels.size());
         if (clientChannels.isEmpty()) return;
 
+        playerNamesById.put(playerId, "AI player");
         JoinPayload joinPayload = new JoinPayload("AI player", playerId, slotIndex);
         BluetoothMessage msg = messageCodec.buildPlayerJoinedMessage(localPlayerId, "ALL", joinPayload);
 
@@ -746,9 +787,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         if (eventListener != null) {
             eventListener.onPlayerJoined(playerId,
-                    "Player " + playerId,
+                    safePlayerName(playerNamesById.get(playerId), "Player " + playerId),
                     slotIndex);
         }
+    }
+
+    private String safePlayerName(String name, String fallback) {
+        if (name != null && !name.trim().isEmpty()) {
+            return name.trim();
+        }
+        return fallback != null && !fallback.trim().isEmpty() ? fallback.trim() : "Player";
     }
 
     private void notifyAllPlayersReady() {
