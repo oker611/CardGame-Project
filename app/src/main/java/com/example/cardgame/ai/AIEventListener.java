@@ -3,6 +3,7 @@ package com.example.cardgame.ai;
 import android.os.Handler;
 import android.os.Looper;
 import com.example.cardgame.controller.GameController;
+import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.engine.GameEngine;
 import com.example.cardgame.event.*;
@@ -10,6 +11,9 @@ import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
+
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class AIEventListener implements GameEventListener {
@@ -58,8 +62,23 @@ public class AIEventListener implements GameEventListener {
                         }
                         List<Card> cards = strategy.decidePlay(nowPlayer, gameState);
                         if (cards == null || cards.isEmpty()) {
-                            gameEngine.passTurn(newPlayerId);
-                            System.out.println("[AIEventListener] AI passed");
+                            PassResult passResult = gameEngine.passTurn(newPlayerId);
+                            System.out.println("[AIEventListener] AI passed, result=" + passResult.isSuccess());
+                            if (!passResult.isSuccess()) {
+                                // Pass 被拒绝（新回合起始玩家不能Pass）
+                                // 强制出最小单张作为兜底
+                                System.err.println("[AIEventListener] Pass rejected, force play smallest single");
+                                List<Card> hand = nowPlayer.getHandCards();
+                                if (hand != null && !hand.isEmpty()) {
+                                    Card smallest = hand.stream()
+                                            .min(Comparator.comparingInt(c ->
+                                                    c.getRank().getWeight() * 10 + c.getSuit().getWeight()))
+                                            .orElse(null);
+                                    if (smallest != null) {
+                                        gameController.aiPlayCards(Collections.singletonList(smallest));
+                                    }
+                                }
+                            }
                         } else {
                             System.out.println("[AIEventListener] AI playing: " + cards);
                             PlayResult result = gameController.aiPlayCards(cards);

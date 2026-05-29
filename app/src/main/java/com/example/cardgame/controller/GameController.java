@@ -146,10 +146,14 @@ public class GameController implements GameActionHandler {
                 System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | "
                         + "local=" + myPlayerId + ", remote=" + remoteIds);
             } else {
-                gameEngine.configureBluetoothPlayerTypes(
-                        myPlayerId,
-                        "P1".equals(myPlayerId) ? "P2" : "P1"
-                );
+                // 没有真实远程玩家（纯 AI 局），P1=HUMAN，其余=AI
+                for (Player p : gameEngine.getGameState().getPlayers()) {
+                    if (p.getPlayerId().equals(myPlayerId)) {
+                        p.setType(PlayerType.HUMAN);
+                    } else {
+                        p.setType(PlayerType.AI);
+                    }
+                }
                 System.out.println("[CardGame][BLUETOOTH] Player types configured (legacy) | "
                         + "local=" + myPlayerId);
             }
