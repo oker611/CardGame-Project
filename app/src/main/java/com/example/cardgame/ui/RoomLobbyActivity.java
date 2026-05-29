@@ -316,7 +316,6 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
             if (currentPlayerCount == MAX_PLAYERS) {
                 gameStarted = true;
-
                 handler.removeCallbacks(refreshBluetoothStateRunnable);
 
                 boolean hasRealRemotePlayer = hasRealRemotePlayer();
@@ -328,33 +327,24 @@ public class RoomLobbyActivity extends AppCompatActivity {
                     System.out.println("[Hermes][LOBBY] FIX: ViewData.connected=false but gateway has clients, overriding");
                 }
 
-                // 诊断日志
                 System.out.println("[Hermes][LOBBY] startGame clicked | hasRealRemote="
                         + hasRealRemotePlayer
                         + " | connected=" + (bluetoothActionHandler != null
-                            ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")
+                        ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")
                         + " | playerCount=" + currentPlayerCount);
 
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
 
-                if (hasRealRemotePlayer) {
-                    // HOST + 客户端(们) + AI：蓝牙对局
-                    intent.putExtra("is_bluetooth_game", true);
-                    intent.putExtra("is_host", true);
-                    intent.putExtra("local_player_id", "P1");
+                // 修改点：房主始终使用蓝牙模式（道具设置来自房间配置）
+                intent.putExtra("is_bluetooth_game", true);
+                intent.putExtra("is_host", true);
+                intent.putExtra("local_player_id", "P1");
 
+                if (hasRealRemotePlayer) {
                     Toast.makeText(this, "蓝牙对局（4人）开始", Toast.LENGTH_SHORT).show();
                 } else {
-                    // HOST + 3AI：本地 AI 对局
-                    if (bluetoothActionHandler != null) {
-                        bluetoothActionHandler.disconnectBluetooth();
-                    }
-
-                    intent.putExtra("is_bluetooth_game", false);
-                    intent.putExtra("is_host", false);
-                    intent.putExtra("local_player_id", "P1");
-
-                    Toast.makeText(this, "本地 AI 对局开始", Toast.LENGTH_SHORT).show();
+                    // 即使没有真实客户端，也以蓝牙模式启动（AI 补齐，道具设置生效）
+                    Toast.makeText(this, "蓝牙房间（AI 补齐）开始", Toast.LENGTH_SHORT).show();
                 }
 
                 startActivity(intent);
