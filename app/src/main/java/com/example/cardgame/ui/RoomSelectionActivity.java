@@ -27,7 +27,11 @@ public class RoomSelectionActivity extends AppCompatActivity {
         btnCreateRoom.setTypeface(typeface);
         btnJoinRoom.setTypeface(typeface);
 
-        btnPractice.setOnClickListener(v -> startGame());
+        btnPractice.setOnClickListener(v -> {
+            Intent intent = new Intent(RoomSelectionActivity.this, RoomSettingsActivity.class);
+            intent.putExtra("is_practice", true);
+            startActivity(intent);
+        });
 
         btnCreateRoom.setOnClickListener(v -> {
             Intent intent = new Intent(RoomSelectionActivity.this, RoomSettingsActivity.class);

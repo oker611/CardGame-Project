@@ -41,7 +41,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_room_settings);
-
+        boolean isPractice = getIntent().getBooleanExtra("is_practice", false);
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
 
         TextView tvTitle = findViewById(R.id.tv_title);
@@ -56,9 +56,13 @@ public class RoomSettingsActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btn_back_settings);
         btnStartBluetooth = findViewById(R.id.btn_start_bluetooth);
 
-        btnBack.setOnClickListener(v -> finish());
-
-        btnStartBluetooth.setOnClickListener(v -> startBluetoothRoomFlow());
+        if (isPractice) {
+            btnStartBluetooth.setText("开始游戏");
+            btnStartBluetooth.setOnClickListener(v -> startPracticeGame());
+        } else {
+            btnStartBluetooth.setText("开始蓝牙连接");
+            btnStartBluetooth.setOnClickListener(v -> startBluetoothRoomFlow());
+        }
     }
 
     private void startBluetoothRoomFlow() {
@@ -82,6 +86,30 @@ public class RoomSettingsActivity extends AppCompatActivity {
         }
 
         requestDiscoverableBeforeCreateRoom();
+    }
+
+    private void startPracticeGame() {
+        // 保存规则和道具设置
+        String selectedRule = getSelectedRule();
+        boolean cardTrackerEnabled = cbCardTracker.isChecked();
+        boolean seeThroughEnabled = cbSeeThrough.isChecked();
+        boolean patternHintEnabled = cbPatternHint.isChecked();
+
+        getSharedPreferences("game_prefs", MODE_PRIVATE)
+                .edit()
+                .putString("game_rule", selectedRule)
+                .putBoolean("prop_card_tracker", cardTrackerEnabled)
+                .putBoolean("prop_see_through", seeThroughEnabled)
+                .putBoolean("prop_pattern_hint", patternHintEnabled)
+                .apply();
+
+        Intent intent = new Intent(this, GameActivity.class);
+        intent.putExtra("is_bluetooth_game", false);
+        intent.putExtra("is_host", false);
+        intent.putExtra("local_player_id", "P1");
+        intent.putExtra("rule_type", selectedRule);
+        startActivity(intent);
+        finish();
     }
 
     private void requestEnableBluetooth() {

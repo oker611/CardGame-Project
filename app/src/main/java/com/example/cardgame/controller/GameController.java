@@ -50,6 +50,9 @@ public class GameController implements GameActionHandler {
     private static final long NO_PLAY_WAIT_MS = 3000;
     private CountdownUICallback countdownCallback;
 
+    private long lastTriggerTime = 0;
+    private static final long TRIGGER_COOLDOWN_MS = 1000;
+
     public interface CountdownUICallback {
         void showCountdown();
         void updateCountdown(int secondsLeft);
@@ -474,6 +477,12 @@ public class GameController implements GameActionHandler {
 
     // 注意：如果 GameActionHandler 接口中没有 triggerNextAction，请删除下面的 @Override
     public void triggerNextAction() {
+        long now = System.currentTimeMillis();
+        if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) {
+            return; // 1秒内重复调用则忽略
+        }
+        lastTriggerTime = now;
+
         if (gameEngine.isGameOver() || gameEngine.getGameState() == null) return;
         Player current = gameEngine.getGameState().getCurrentPlayer();
         if (current == null) return;

@@ -50,6 +50,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
     private String localPlayerId = "P1";
     private String ruleType = "南方规则";
 
+    private TextView tvGlobalStatus;
+
     private final Runnable refreshBluetoothStateRunnable = new Runnable() {
         @Override
         public void run() {
@@ -175,14 +177,10 @@ public class RoomLobbyActivity extends AppCompatActivity {
             }
         }
 
-        // ——— 状态文本 ———
+        // ——— 全局状态文本（独立显示） ———
         String statusText = viewData.getStatusText();
-        if (statusText != null && !statusText.isEmpty()) {
-            if (isHost) {
-                tvStatus[0].setText(statusText);
-            } else {
-                tvStatus[1].setText(statusText);
-            }
+        if (statusText != null && !statusText.isEmpty() && tvGlobalStatus != null) {
+            tvGlobalStatus.setText(statusText);
         }
 
         // ——— CLIENT 端：检测 assignedPlayerId ———
@@ -264,6 +262,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
         btnAddAi = findViewById(R.id.btn_add_ai);
         tvNeedCount = findViewById(R.id.tv_need_count);
         llAiControl = findViewById(R.id.ll_ai_control);
+        tvGlobalStatus = findViewById(R.id.tv_global_status);
 
         playerCards[0] = findViewById(R.id.card_player1);
         playerCards[1] = findViewById(R.id.card_player2);

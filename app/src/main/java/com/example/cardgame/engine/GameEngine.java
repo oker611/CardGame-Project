@@ -52,6 +52,12 @@ public class GameEngine {
         this.gameState.setPlayers(players);
         this.gameState.setGameOver(false);
         this.gameState.setOpeningTurn(true);
+        // 重置累计出牌记录，避免跨局污染
+        if (this.allPlayedCards != null) {
+            this.allPlayedCards.clear();
+        } else {
+            this.allPlayedCards = new ArrayList<>();
+        }
     }
 
     public void dealCards() {
