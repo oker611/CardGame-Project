@@ -1,13 +1,17 @@
 package com.example.cardgame.controller;
 import com.example.cardgame.ai.MonteCarloAIDecisionStrategy;
+import android.content.Context;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
+import android.widget.Toast;
 
 import com.example.cardgame.ai.AIDecisionStrategy;
+import com.example.cardgame.ai.AdaptiveAIDecisionStrategy;
 import com.example.cardgame.ai.AIEventListener;
 import com.example.cardgame.ai.AIPlayerProfile;
 import com.example.cardgame.ai.GreedyAIDecisionStrategy;
+import com.example.cardgame.ai.HumanStyleAnalyzer;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
@@ -18,11 +22,13 @@ import com.example.cardgame.event.TurnChangedEvent;
 import com.example.cardgame.llm.OpponentStyleAnalyzer;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
+import com.example.cardgame.model.HumanStyleProfile;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.RuleConfig;
 import com.example.cardgame.util.CardTracker;
+import com.example.cardgame.util.CrossGameMemoryManager;
 import com.example.cardgame.util.HermesLog;
 
 import java.util.ArrayList;
@@ -44,6 +50,13 @@ public class GameController implements GameActionHandler {
     private AIEventListener aiEventListener;
     private AIDecisionStrategy aiStrategy;
 
+    // 自适应AI相关字段
+    private HumanStyleAnalyzer styleAnalyzer;
+    private CrossGameMemoryManager memoryManager;
+    private AdaptiveAIDecisionStrategy adaptiveAI;
+    private List<String> currentHumanActions = new ArrayList<>();
+    private Context appContext;
+
     private final PlayValidator playValidator = new PlayValidator();
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
     private static final long NO_PLAY_WAIT_MS = 3000;
@@ -61,6 +74,57 @@ public class GameController implements GameActionHandler {
 
     public GameController(GameEngine gameEngine) {
         this.gameEngine = gameEngine;
+    }
+
+    public void initAdaptiveAI(Context context) {
+        this.appContext = context.getApplicationContext();
+        this.styleAnalyzer = new HumanStyleAnalyzer();
+        this.memoryManager = new CrossGameMemoryManager(appContext);
+        this.adaptiveAI = new AdaptiveAIDecisionStrategy();
+        this.aiStrategy = adaptiveAI;
+        
+        HumanStyleProfile savedProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
+        if (savedProfile != null) {
+            adaptiveAI.setHumanStyleProfile(savedProfile);
+            HermesLog.log("GameController: Loaded saved human style: " + savedProfile.getStyleLabel());
+        }
+    }
+
+    /**
+     * 清理自适应AI资源
+     * 应在 Activity/Fragment 销毁时调用
+     */
+    public void cleanupAdaptiveAI() {
+        HermesLog.log("GameController: cleanupAdaptiveAI() called");
+        
+        if (styleAnalyzer != null) {
+            HermesLog.log("GameController: Shutting down styleAnalyzer...");
+            styleAnalyzer.shutdown();
+            HermesLog.log("GameController: styleAnalyzer shutdown complete");
+        }
+        
+        int actionCount = currentHumanActions.size();
+        currentHumanActions.clear();
+        HermesLog.log("GameController: Cleared " + actionCount + " human actions");
+        HermesLog.log("GameController: cleanupAdaptiveAI() finished");
+    }
+
+    public void setAIDifficulty(com.example.cardgame.ai.AIDifficulty difficulty) {
+        switch (difficulty) {
+            case GREEDY:
+                aiStrategy = new GreedyAIDecisionStrategy();
+                break;
+            case MONTE_CARLO:
+                aiStrategy = new MonteCarloAIDecisionStrategy();
+                break;
+            case ADAPTIVE:
+                if (adaptiveAI == null) {
+                    adaptiveAI = new AdaptiveAIDecisionStrategy();
+                }
+                aiStrategy = adaptiveAI;
+                break;
+        }
+        HermesLog.log("GameController: AI difficulty set to " + difficulty);
     }
 
     @Override
@@ -86,6 +150,13 @@ public class GameController implements GameActionHandler {
     @Override
     public void startNewGame() {
         if (!bluetoothMode) myPlayerId = "P1";
+        
+        if (currentHumanActions == null) {
+            currentHumanActions = new ArrayList<>();
+        } else {
+            currentHumanActions.clear();
+        }
+        HermesLog.log("GameController: Reset currentHumanActions for new game, size: " + currentHumanActions.size());
 
         List<Player> players = new ArrayList<>();
         Player p1 = new Player("P1", "Alice");
@@ -194,36 +265,104 @@ public class GameController implements GameActionHandler {
     }
 
     private void recordPlayToTracker(String playerId, List<Card> cards) {
+        HermesLog.log("GameController: recordPlayToTracker called for playerId=" + playerId);
         CardTracker tracker = getCardTracker();
-        if (tracker == null || cards == null || cards.isEmpty()) return;
+        HermesLog.log("GameController: tracker is null? " + (tracker == null));
+        if (tracker == null || cards == null || cards.isEmpty()) {
+            HermesLog.log("GameController: recordPlayToTracker early return - tracker=null?" + (tracker == null) + ", cards=null?" + (cards == null) + ", cards empty?" + (cards != null && cards.isEmpty()));
+            return;
+        }
         StringBuilder desc = new StringBuilder();
         for (Card c : cards) {
             if (desc.length() > 0) desc.append(",");
             desc.append(c.getSuit().getSymbol()).append(c.getRank().getDisplayName());
         }
         tracker.recordPlay(playerId, desc.toString());
+        
+        // 新增：记录人类出牌动作（用于自适应AI）
+        GameState state = gameEngine.getGameState();
+        if (state != null) {
+            Player player = state.getPlayerById(playerId);
+            if (player != null && player.getType() == PlayerType.HUMAN && currentHumanActions != null) {
+                currentHumanActions.add(desc.toString());
+                HermesLog.log("GameController: Recorded human action: " + desc.toString());
+            }
+        }
     }
 
     public void triggerOpponentAnalysis() {
         CardTracker tracker = getCardTracker();
         if (tracker == null) return;
-        if (!(aiStrategy instanceof MonteCarloAIDecisionStrategy)) return;
-        MonteCarloAIDecisionStrategy mcStrategy = (MonteCarloAIDecisionStrategy) aiStrategy;
-        OpponentStyleAnalyzer analyzer = new OpponentStyleAnalyzer();
-        GameState state = gameEngine.getGameState();
-        if (state == null) return;
-        for (Player p : state.getPlayers()) {
-            if (p.getType() == PlayerType.AI) {
-                String history = tracker.getHistorySummary(p.getPlayerId());
-                if (history.isEmpty()) continue;
-                AIPlayerProfile profile = mcStrategy.getOpponentProfile(p.getPlayerId());
-                if (profile == null) {
-                    profile = new AIPlayerProfile(AIPlayerProfile.LEVEL_NORMAL);
-                    mcStrategy.setOpponentProfile(p.getPlayerId(), profile);
+        
+        if (aiStrategy instanceof MonteCarloAIDecisionStrategy) {
+            MonteCarloAIDecisionStrategy mcStrategy = (MonteCarloAIDecisionStrategy) aiStrategy;
+            OpponentStyleAnalyzer analyzer = new OpponentStyleAnalyzer();
+            GameState state = gameEngine.getGameState();
+            if (state == null) return;
+            for (Player p : state.getPlayers()) {
+                if (p.getType() == PlayerType.AI) {
+                    String history = tracker.getHistorySummary(p.getPlayerId());
+                    if (history.isEmpty()) continue;
+                    AIPlayerProfile profile = mcStrategy.getOpponentProfile(p.getPlayerId());
+                    if (profile == null) {
+                        profile = new AIPlayerProfile(AIPlayerProfile.LEVEL_NORMAL);
+                        mcStrategy.setOpponentProfile(p.getPlayerId(), profile);
+                    }
+                    analyzer.analyzeAndUpdate(p.getPlayerId(), tracker, profile);
                 }
-                analyzer.analyzeAndUpdate(p.getPlayerId(), tracker, profile);
             }
         }
+        
+        analyzeHumanStyleAndAdapt();
+    }
+
+    private void analyzeHumanStyleAndAdapt() {
+        if (styleAnalyzer == null || memoryManager == null || adaptiveAI == null) {
+            HermesLog.log("GameController: Adaptive AI not initialized, skipping human style analysis");
+            return;
+        }
+        
+        if (currentHumanActions.isEmpty()) {
+            HermesLog.log("GameController: No human actions recorded, skipping analysis");
+            return;
+        }
+        
+        styleAnalyzer.setCallback(new HumanStyleAnalyzer.StyleAnalysisCallback() {
+            @Override
+            public void onAnalysisComplete(HumanStyleProfile profile) {
+                HermesLog.log("GameController: onAnalysisComplete called");
+                
+                if (appContext != null) {
+                    memoryManager.saveHumanStyleProfile(myPlayerId, profile);
+                }
+                adaptiveAI.setHumanStyleProfile(profile);
+                
+                String tactic = profile.getCounterTactic();
+                String styleLabel = profile.getStyleLabel();
+                HermesLog.log("GameController: Human style analyzed: " + styleLabel);
+                HermesLog.log("GameController: Recommended tactic: " + tactic);
+                
+                // 显示 Toast 提示
+                if (appContext != null) {
+                    HermesLog.log("GameController: Showing Toast for style analysis");
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        String message = "对手风格：" + styleLabel + "\nAI采用" + tactic + "策略";
+                        Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
+                        HermesLog.log("GameController: Toast message: " + message);
+                    });
+                } else {
+                    HermesLog.log("GameController: appContext is null, cannot show Toast");
+                }
+            }
+
+            @Override
+            public void onAnalysisFailed(String error) {
+                HermesLog.log("GameController: Human style analysis failed: " + error);
+            }
+        });
+        
+        HumanStyleProfile existingProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
+        styleAnalyzer.analyzeStyleAsync(myPlayerId, currentHumanActions, existingProfile);
     }
 
     // ==================== 接口方法：供 UI 调用（显示字符串） ====================
@@ -239,12 +378,14 @@ public class GameController implements GameActionHandler {
         }
 
         List<String> cardsToPlay = new ArrayList<>();
+        List<Card> playedCards = new ArrayList<>(); // 在 playCards 之前提取
         Player me = state.getPlayerById(myPlayerId);
         if (me != null) {
             for (String uiCardStr : uiCardStrs) {
                 for (Card c : me.getHandCards()) {
                     if ((c.getSuit().getSymbol() + c.getRank().getDisplayName()).equals(uiCardStr)) {
                         cardsToPlay.add(c.getCardId());
+                        playedCards.add(c); // 关键：在出牌前保存 Card 对象
                         break;
                     }
                 }
@@ -256,16 +397,37 @@ public class GameController implements GameActionHandler {
 
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
         if (result.isSuccess()) {
-            List<Card> playedCards = new ArrayList<>();
-            for (String cardId : cardsToPlay) {
-                for (Card c : me.getHandCards()) {
-                    if (c.getCardId().equals(cardId)) {
-                        playedCards.add(c);
-                        break;
-                    }
-                }
-            }
             recordPlayToTracker(currentPlayer.getPlayerId(), playedCards);
+            
+            // 【直接记录人类动作】使用出牌前提取的 Card 对象
+            if (currentHumanActions == null) {
+                currentHumanActions = new ArrayList<>();
+                HermesLog.log("GameController: Created new currentHumanActions list");
+            }
+            
+            HermesLog.log("GameController: playedCards size = " + playedCards.size());
+            
+            StringBuilder desc = new StringBuilder();
+            for (Card c : playedCards) {
+                if (desc.length() > 0) desc.append(",");
+                String suitSymbol = (c.getSuit() != null && c.getSuit().getSymbol() != null) ? c.getSuit().getSymbol() : "?";
+                String rankName = (c.getRank() != null && c.getRank().getDisplayName() != null) ? c.getRank().getDisplayName() : c.getCardId();
+                desc.append(suitSymbol).append(rankName);
+            }
+            
+            // 如果 desc 仍然为空，则使用 cardsToPlay 的 ID 列表
+            if (desc.length() == 0 && cardsToPlay != null && !cardsToPlay.isEmpty()) {
+                desc.append(String.join(",", cardsToPlay));
+                HermesLog.log("GameController: Using cardsToPlay as fallback, desc: " + desc.toString());
+            }
+            
+            String actionDesc = desc.toString();
+            if (!actionDesc.isEmpty()) {
+                currentHumanActions.add(actionDesc);
+                HermesLog.log("GameController: DIRECT record human action: " + actionDesc + " | currentHumanActions size: " + currentHumanActions.size());
+            } else {
+                HermesLog.log("GameController: WARNING - action description is empty, skipping record");
+            }
             selectedCardIds.clear();
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);

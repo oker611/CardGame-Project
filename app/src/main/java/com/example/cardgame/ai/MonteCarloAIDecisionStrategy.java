@@ -9,6 +9,9 @@ import java.util.concurrent.*;
 
 public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
+    // 调试开关（正式版改为 false）
+    private static final boolean DEBUG_AI = false;
+
     // 可调参数（遗传算法优化结果 + 手动调优）
     private static final int NUM_SAMPLES = 20;          // 蒙特卡洛模拟世界数量（提高到20）
     private static final int TOP_K_CANDIDATES = 4;      // 候选动作截断数
@@ -29,6 +32,10 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
     // 出牌失败计数（用于兜底逻辑）
     private int consecutiveFailCount = 0;
+
+    // 自适应因子（由 AdaptiveAIDecisionStrategy 设置）
+    private double aggressivenessFactor = 1.0;
+    private double defenseFactor = 1.0;
 
     public MonteCarloAIDecisionStrategy() {
         this.ruleEngine = new RuleEngine();
@@ -54,6 +61,97 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             System.out.println("[MonteCarloAI] 连续失败2次，强制过牌一次");
             consecutiveFailCount = 0; // 重置计数
             return null; // 过牌
+        }
+
+        // ========== 主动压制：对手手牌≤3且AI拥有出牌权 ==========
+        if (!isFirstTurn && (lastPlay == null || lastPlay.isEmpty())) {
+            // 获取人类玩家
+            Player humanPlayer = null;
+            for (Player p : gameState.getPlayers()) {
+                if (p.getType() == PlayerType.HUMAN) {
+                    humanPlayer = p;
+                    break;
+                }
+            }
+            if (humanPlayer != null && humanPlayer.getHandCards().size() <= 3) {
+                List<Play> allPlays = candidateGenerator.generate(hand, null, true, true);
+                if (!allPlays.isEmpty()) {
+                    // 优先出对子或三张，其次出大单牌
+                    allPlays.sort((p1, p2) -> {
+                        // 优先按牌数排序（多张牌 > 单牌）
+                        int countCompare = Integer.compare(p2.getCards().size(), p1.getCards().size());
+                        if (countCompare != 0) return countCompare;
+                        // 同牌数按总点数比较
+                        int sum1 = p1.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum();
+                        int sum2 = p2.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum();
+                        return Integer.compare(sum2, sum1);
+                    });
+                    Play best = allPlays.get(0);
+                    System.out.println("[MonteCarloAI] 主动压制：对手剩" + humanPlayer.getHandCards().size() + "张，出" + best.getCards());
+                    return best.getCards();
+                }
+            }
+        }
+
+        // ========== 多阶段残局防守（按对手剩余手牌数） ==========
+        if (!isFirstTurn && lastPlay != null && !lastPlay.isEmpty() && lastPlay.getPlayerId() != null) {
+            Player lastPlayer = gameState.getPlayerById(lastPlay.getPlayerId());
+            if (lastPlayer != null) {
+                int opponentCards = lastPlayer.getHandCards().size();
+                // 剩1张：必须阻止
+                // 剩2张：积极阻断（尽可能压牌，优先用中等牌）
+                // 剩3张：开始警惕（如果出牌较大则压，否则保留实力）
+                if (opponentCards <= 3) {
+                    System.out.println("[MonteCarloAI] 残局防守: 对手 " + lastPlayer.getPlayerId() + " 剩 " + opponentCards + " 张牌");
+                    
+                    List<Play> candidates = candidateGenerator.generate(hand, lastPlay, isFirstRound, isFirstTurn);
+                    List<Play> canBeat = new ArrayList<>();
+                    for (Play p : candidates) {
+                        if (!p.isEmpty()) {
+                            PlayValidator.ValidationResult result = ruleEngine.validatePlay(
+                                p.getCards(), lastPlay.getCards(), isFirstRound, isFirstTurn);
+                            if (result.valid) {
+                                canBeat.add(p);
+                            }
+                        }
+                    }
+                    
+                    if (!canBeat.isEmpty()) {
+                        if (opponentCards == 1) {
+                            // 强制压：选最小的能压牌（节省大牌）
+                            canBeat.sort(Comparator.comparingInt(p ->
+                                p.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
+                            Play best = canBeat.get(0);
+                            System.out.println("[MonteCarloAI] 1张牌，紧急压牌: " + best.getCards());
+                            return best.getCards();
+                        } else if (opponentCards == 2) {
+                            // 积极压：选最大的能压牌（确保压住）
+                            canBeat.sort((p1, p2) ->
+                                Integer.compare(p2.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum(),
+                                                p1.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
+                            Play best = canBeat.get(0);
+                            System.out.println("[MonteCarloAI] 2张牌，主动阻断: " + best.getCards());
+                            return best.getCards();
+                        } else { // opponentCards == 3
+                            // 警惕：如果上家出牌较大（比如点数 > 10）则压，否则保留
+                            int lastValue = lastPlay.getCards().stream()
+                                            .mapToInt(c -> c.getRank().getWeight()).max().orElse(0);
+                            if (lastValue >= 10) {
+                                // 选择最小的能压牌
+                                canBeat.sort(Comparator.comparingInt(p ->
+                                    p.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
+                                Play best = canBeat.get(0);
+                                System.out.println("[MonteCarloAI] 3张牌，警惕性压牌: " + best.getCards());
+                                return best.getCards();
+                            } else {
+                                System.out.println("[MonteCarloAI] 3张牌，上家出小牌(值=" + lastValue + ")，暂不压");
+                            }
+                        }
+                    } else {
+                        System.out.println("[MonteCarloAI] 残局防守失败: 无牌能压");
+                    }
+                }
+            }
         }
 
         // ========== 高级策略层（基于AIProfile）==========
@@ -144,18 +242,6 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             }
         }
 
-        // 1. 强制压牌检测（残局压制）- 仅当上一轮有出牌且为单牌时
-        if (lastPlay != null && !lastPlay.isEmpty() && phaseManager.shouldForceBeat(aiPlayer, gameState, lastPlay)) {
-            List<Card> lastPlayed = lastPlay.getCards();
-            Card bestBeat = findBestBeatCard(hand, lastPlayed);
-            if (bestBeat != null) {
-                List<Card> toPlay = Collections.singletonList(bestBeat);
-                // 强制压牌场景已确保合法性（单牌且牌值足够大或为2），直接返回
-                System.out.println("[MonteCarloAI] 强制压牌: " + bestBeat);
-                return toPlay;
-            }
-        }
-
         // 1.5 五张牌型压制检测（锄大地专属）
         // 只在上家出五张牌型时才尝试压制
         if (lastPlay != null && !lastPlay.isEmpty() && lastPlay.getCards().size() == 5) {
@@ -219,6 +305,10 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 List<Card> handAfterPlay = new ArrayList<>(hand);
                 handAfterPlay.removeAll(candidate.getCards());
                 double adjusted = phaseManager.adjustScore(rawScore, candidate, phase, aiPlayer, gameState, handAfterPlay);
+                
+                // 应用自适应因子
+                adjusted = applyAdaptiveFactors(adjusted, candidate, lastPlay, gameState, aiPlayer);
+                
                 scores.put(candidate, adjusted);
             }
             return scores;
@@ -303,6 +393,194 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
     public Map<String, AIPlayerProfile> getOpponentProfiles() {
         return opponentProfiles;
+    }
+
+    public void setAggressivenessFactor(double factor) {
+        this.aggressivenessFactor = Math.max(0.0, Math.min(2.0, factor));
+    }
+
+    public double getAggressivenessFactor() {
+        return aggressivenessFactor;
+    }
+
+    public void setDefenseFactor(double factor) {
+        this.defenseFactor = Math.max(0.0, Math.min(2.0, factor));
+    }
+
+    public double getDefenseFactor() {
+        return defenseFactor;
+    }
+
+    /**
+     * 应用自适应因子调整评分
+     * @param score 原始评分
+     * @param candidate 候选出牌
+     * @param lastPlay 上家出牌
+     * @param gameState 游戏状态
+     * @param aiPlayer AI玩家
+     * @return 调整后的评分
+     */
+    private double applyAdaptiveFactors(double score, Play candidate, Play lastPlay, 
+                                        GameState gameState, Player aiPlayer) {
+        if (aggressivenessFactor == 1.0 && defenseFactor == 1.0) {
+            return score;
+        }
+
+        double adjustedScore = score;
+        boolean isInitiativePlay = (lastPlay == null || lastPlay.isEmpty());
+        double emergencyFactor = 1.0;  // 用于后续乘算因子
+
+        // 1. 大牌惩罚（主动出牌时，消耗 2/A 扣分）
+        if (isInitiativePlay && candidate != null && !candidate.isEmpty()) {
+            int bigCount = 0;
+            for (Card card : candidate.getCards()) {
+                if (card.getRank() == Rank.ACE || card.getRank() == Rank.TWO) {
+                    bigCount++;
+                }
+            }
+            if (bigCount > 0) {
+                double penalty = bigCount * 1.0;
+                int totalCards = candidate.getCards().size();
+                if (totalCards >= 3) {
+                    penalty += bigCount * 0.8;
+                }
+                adjustedScore -= penalty * (1.5 - aggressivenessFactor);
+            }
+        }
+
+        // 2. 胜者优势奖励
+        if (isInitiativePlay && candidate != null && !candidate.isEmpty() && gameState != null && aiPlayer != null) {
+            String lastWinnerId = gameState.getLastWinnerId();
+            if (lastWinnerId != null && lastWinnerId.equals(aiPlayer.getPlayerId())) {
+                int totalCards = candidate.getCards().size();
+                if (totalCards >= 2) {
+                    double bonus = 8.0 * totalCards;
+                    adjustedScore += bonus;
+                    if (DEBUG_AI) {
+                        System.out.println("[MonteCarloAI] 胜者奖励：组合牌 +" + bonus);
+                    }
+                } else if (totalCards == 1) {
+                    int weight = candidate.getCards().get(0).getRank().getWeight();
+                    if (weight <= 7) {
+                        adjustedScore -= 15.0;
+                        if (DEBUG_AI) {
+                            System.out.println("[MonteCarloAI] 胜者惩罚：小单张 -15");
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. 全局紧急模式（对手手牌 ≤ 3 时，主动出牌禁止单张，鼓励组合牌）
+        if (isInitiativePlay && candidate != null && !candidate.isEmpty() && gameState != null && aiPlayer != null) {
+            int minOpponentHandSize = getMinOpponentHandSize(gameState, aiPlayer);
+            if (minOpponentHandSize <= 3) {
+                int totalCards = candidate.getCards().size();
+                if (totalCards == 1) {
+                    // 任何单张都严重惩罚
+                    adjustedScore -= 12.0;
+                    if (DEBUG_AI) {
+                        System.out.println("[MonteCarloAI] 紧急模式：单张 -12分");
+                    }
+                } else {
+                    // 组合牌重奖：每张牌 +15 分
+                    double comboBonus = 15.0 * totalCards;
+                    adjustedScore += comboBonus;
+                    if (DEBUG_AI) {
+                        System.out.println("[MonteCarloAI] 紧急模式：组合牌 +" + comboBonus);
+                    }
+                }
+                emergencyFactor = Math.max(emergencyFactor, 2.0);  // 进攻性大幅提高
+            }
+        }
+
+        // 4. 压牌紧急奖励（对手手牌 ≤ 2 时，压牌获得高分）
+        if (!isInitiativePlay && candidate != null && !candidate.isEmpty() && gameState != null && aiPlayer != null) {
+            int minOpponentHandSize = getMinOpponentHandSize(gameState, aiPlayer);
+            if (minOpponentHandSize <= 2) {
+                double urgencyBonus = 15.0;
+                int myHandSize = aiPlayer.getHandCards().size();
+                int handAfterPlay = myHandSize - candidate.getCards().size();
+                if (handAfterPlay <= 1) {
+                    urgencyBonus += 30.0;
+                    if (DEBUG_AI) {
+                        System.out.println("[MonteCarloAI] 压牌后即将获胜！额外+30分");
+                    }
+                }
+                adjustedScore += urgencyBonus;
+                if (DEBUG_AI) {
+                    System.out.println("[MonteCarloAI] 紧急压牌奖励 +" + urgencyBonus);
+                }
+                emergencyFactor = Math.max(emergencyFactor, 1.8);
+            }
+        }
+
+        // 5. 胜利冲刺（自己手牌 ≤ 2 时，出大牌加分）
+        if (isInitiativePlay && candidate != null && !candidate.isEmpty() && gameState != null && aiPlayer != null) {
+            int myHandSize = aiPlayer.getHandCards().size();
+            if (myHandSize <= 2) {
+                int totalCards = candidate.getCards().size();
+                if (totalCards == 1) {
+                    int weight = candidate.getCards().get(0).getRank().getWeight();
+                    if (weight >= 10) {  // 10/J/Q/K/A/2 视为大牌
+                        adjustedScore += 20.0;
+                        if (DEBUG_AI) {
+                            System.out.println("[MonteCarloAI] 胜利冲刺：出大牌 +20");
+                        }
+                    }
+                } else {
+                    adjustedScore += 15.0 * totalCards;
+                    if (DEBUG_AI) {
+                        System.out.println("[MonteCarloAI] 胜利冲刺：出组合牌 +" + (15.0 * totalCards));
+                    }
+                }
+            }
+        }
+
+        // 6. 原有因子调整（应用紧急因子）
+        boolean isAggressivePlay = isAggressivePlay(candidate, lastPlay);
+        boolean isDefensivePlay = isDefensivePlay(candidate, lastPlay);
+
+        if (isAggressivePlay) {
+            adjustedScore *= aggressivenessFactor * emergencyFactor;
+        } else {
+            adjustedScore *= emergencyFactor;
+        }
+        if (isDefensivePlay) {
+            adjustedScore *= defenseFactor;
+        }
+
+        return adjustedScore;
+    }
+    
+    private boolean isAggressivePlay(Play candidate, Play lastPlay) {
+        if (candidate == null || candidate.isEmpty()) return false;
+        
+        List<Card> cards = candidate.getCards();
+        if (cards.isEmpty()) return false;
+        
+        double avgWeight = cards.stream()
+                .mapToDouble(c -> c.getRank().getWeight())
+                .average()
+                .orElse(0);
+        
+        return avgWeight >= 10;
+    }
+    
+    private boolean isDefensivePlay(Play candidate, Play lastPlay) {
+        if (candidate == null || candidate.isEmpty()) return true;
+        
+        if (lastPlay == null || lastPlay.isEmpty()) return false;
+        
+        List<Card> cards = candidate.getCards();
+        if (cards.isEmpty()) return true;
+        
+        double avgWeight = cards.stream()
+                .mapToDouble(c -> c.getRank().getWeight())
+                .average()
+                .orElse(0);
+        
+        return avgWeight < 8;
     }
 
     /**

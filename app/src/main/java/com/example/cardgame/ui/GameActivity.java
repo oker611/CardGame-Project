@@ -113,7 +113,13 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         // 设置倒计时回调（如果 GameActionHandler 是 GameController 实例）
         if (gameActionHandler instanceof GameController) {
-            ((GameController) gameActionHandler).setCountdownCallback(this);
+            GameController gameController = (GameController) gameActionHandler;
+            gameController.setCountdownCallback(this);
+            
+            // 初始化自适应 AI
+            gameController.initAdaptiveAI(getApplicationContext());
+            gameController.setAIDifficulty(com.example.cardgame.ai.AIDifficulty.ADAPTIVE);
+            Log.d("GameActivity", "Adaptive AI initialized with ADAPTIVE difficulty");
         }
 
         isBluetoothGame = getIntent().getBooleanExtra("is_bluetooth_game", false);
@@ -236,8 +242,18 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d("GameActivity", "onDestroy() called, cleaning up resources...");
+        
         EventBus.getInstance().unregister(this);
         bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+        
+        if (gameActionHandler instanceof GameController) {
+            Log.d("GameActivity", "Calling cleanupAdaptiveAI() on GameController");
+            ((GameController) gameActionHandler).cleanupAdaptiveAI();
+            Log.d("GameActivity", "cleanupAdaptiveAI() completed");
+        }
+        
+        Log.d("GameActivity", "onDestroy() finished");
     }
 
     private void refreshUI() {
