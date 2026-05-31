@@ -8,14 +8,12 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.view.MotionEvent;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.FrameLayout;
@@ -28,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.cardview.widget.CardView;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.annotation.SuppressLint;
 
 import com.example.cardgame.CardGameApplication;
 import com.example.cardgame.R;
@@ -49,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.HashMap;
+import java.util.Locale;
 
 import com.example.cardgame.event.GameEventListener;
 import com.example.cardgame.event.GameEvent;
@@ -72,8 +72,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
     private boolean gameOverDialogShown = false;
 
-    private static final float CARD_WIDTH_DP = 50f;
-    private static final float CARD_HEIGHT_DP = 72f;
+    private static final float CARD_WIDTH_DP = 50f;;
     private static final float CARD_OVERLAP_DP = -8f;
 
     @Nullable
@@ -122,15 +121,11 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private final Runnable bluetoothRefreshRunnable = new Runnable() {
         @Override
         public void run() {
-            try {
             if (gameActionHandler != null && isBluetoothGame) {
                 // 蓝牙对局中只让房主驱动 AI，避免客户端也跑 AI 导致两端状态分叉
                 if (isHost) {
                     gameActionHandler.triggerNextAction();
                 }
-            }
-            } catch (Exception e) {
-                Log.e("GameActivity", "Bluetooth refresh failed", e);
             }
 
             bluetoothRefreshHandler.postDelayed(this, 1000);
@@ -161,7 +156,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         if (btnPlayInline != null) {
             btnPlayInline.setOnClickListener(v -> {
-                try {
                 if (gameActionHandler != null) {
                     PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                     if (result != null) {
@@ -171,26 +165,17 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                         }
                     }
                 }
-                } catch (Exception e) {
-                    Log.e("GameActivity", "Submit play failed", e);
-                    Toast.makeText(this, "出牌失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
-                }
             });
         }
 
         if (btnPassInline != null) {
             btnPassInline.setOnClickListener(v -> {
-                try {
                 if (gameActionHandler != null) {
                     PassResult result = gameActionHandler.passTurn();
                     if (result != null) {
                         Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
                         fullRefresh();
                     }
-                }
-                } catch (Exception e) {
-                    Log.e("GameActivity", "Pass turn failed", e);
-                    Toast.makeText(this, "过牌失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -306,6 +291,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 runOnUiThread(() -> Toast.makeText(GameActivity.this, "LLM 测试失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         }).start();
+
+        hideSystemUI();
     }
 
     @Override
@@ -334,6 +321,26 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 })
                 .setNegativeButton("Stay", null)
                 .show();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemUI();
+        }
+    }
+
+    private void hideSystemUI() {
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+        );
     }
 
     private void fullRefresh() {
@@ -460,16 +467,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
     }
 
-    private void updateActionButtonsAndHighlight() {
-        if (gameActionHandler == null) return;
-        GameViewData data = gameActionHandler.getGameViewData();
-        if (data == null) return;
-
-        // 只更新对手高亮和按钮
-        updateOpponentsFromViewData(data);
-        updateActionButtons(data);
-    }
-
     /**
      * 为单个玩家渲染出牌区：
      * 如果没有出牌记录且该玩家本轮已 Pass，则显示“不出”；
@@ -511,7 +508,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         sortedCards.sort((a, b) -> {
             int weightA = getCardRankWeight(a);
             int weightB = getCardRankWeight(b);
-            return Integer.compare(weightA, weightB);
+            return Integer.compare(weightB, weightA);
         });
 
         float density = getResources().getDisplayMetrics().density;
@@ -590,7 +587,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         sortedCards.sort((a, b) -> {
             int weightA = getCardRankWeight(a);
             int weightB = getCardRankWeight(b);
-            return Integer.compare(weightA, weightB);
+            return Integer.compare(weightB, weightA);
         });
 
         float density = getResources().getDisplayMetrics().density;
@@ -656,6 +653,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
     }
 
+    @SuppressLint("DiscouragedApi")
     private int getCardDrawableResource(String cardId) {
         if (cardId == null || cardId.length() < 2) return 0;
 
@@ -702,10 +700,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         String fileName = suitPart + "_" + rankPart;
         return getResources().getIdentifier(fileName, "drawable", getPackageName());
-    }
-
-    private int dpToPx(float dp) {
-        return Math.round(dp * getResources().getDisplayMetrics().density);
     }
 
     private void updateOpponentsFromViewData(GameViewData data) {
@@ -796,39 +790,61 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     }
 
     private void sortHandByRule(List<String> hand) {
-        java.util.Map<String, Integer> rankPriority = new java.util.HashMap<>();
-        rankPriority.put("2", 13);
-        rankPriority.put("A", 12);
-        rankPriority.put("K", 11);
-        rankPriority.put("Q", 10);
-        rankPriority.put("J", 9);
-        rankPriority.put("10", 8);
-        rankPriority.put("9", 7);
-        rankPriority.put("8", 6);
-        rankPriority.put("7", 5);
-        rankPriority.put("6", 4);
-        rankPriority.put("5", 3);
-        rankPriority.put("4", 2);
-        rankPriority.put("3", 1);
+        // 获取 ruleConfig 中的权重映射
+        Map<Rank, Integer> rankWeights = ruleConfig.rankWeights;
+        Map<Suit, Integer> suitWeights = ruleConfig.suitWeights;
 
-        java.util.Map<String, Integer> suitPriority = new java.util.HashMap<>();
-        suitPriority.put("♠", 4);
-        suitPriority.put("♥", 3);
-        suitPriority.put("♣", 2);
-        suitPriority.put("♦", 1);
-
+        // 辅助方法：将显示字符串转为 Rank 和 Suit
         hand.sort((card1, card2) -> {
-            String rank1 = card1.substring(1);
-            String rank2 = card2.substring(1);
+            String suitSym1 = card1.substring(0, 1);
+            String rankStr1 = card1.substring(1);
+            String suitSym2 = card2.substring(0, 1);
+            String rankStr2 = card2.substring(1);
 
-            int rankCompare = rankPriority.get(rank2) - rankPriority.get(rank1);
+            Rank rank1 = rankFromString(rankStr1);
+            Rank rank2 = rankFromString(rankStr2);
+            Suit suit1 = suitFromSymbol(suitSym1);
+            Suit suit2 = suitFromSymbol(suitSym2);
+
+            int w1 = rankWeights.get(rank1);
+            int w2 = rankWeights.get(rank2);
+            int rankCompare = Integer.compare(w2, w1);  // 降序
             if (rankCompare != 0) return rankCompare;
 
-            String suit1 = card1.substring(0, 1);
-            String suit2 = card2.substring(0, 1);
-
-            return suitPriority.get(suit2) - suitPriority.get(suit1);
+            int s1 = suitWeights.get(suit1);
+            int s2 = suitWeights.get(suit2);
+            return Integer.compare(s2, s1);  // 降序
         });
+    }
+
+    // 辅助转换方法
+    private Rank rankFromString(String rankStr) {
+        switch (rankStr) {
+            case "2": return Rank.TWO;
+            case "A": return Rank.ACE;
+            case "K": return Rank.KING;
+            case "Q": return Rank.QUEEN;
+            case "J": return Rank.JACK;
+            case "10": return Rank.TEN;
+            case "9": return Rank.NINE;
+            case "8": return Rank.EIGHT;
+            case "7": return Rank.SEVEN;
+            case "6": return Rank.SIX;
+            case "5": return Rank.FIVE;
+            case "4": return Rank.FOUR;
+            case "3": return Rank.THREE;
+            default: return Rank.THREE;
+        }
+    }
+
+    private Suit suitFromSymbol(String symbol) {
+        switch (symbol) {
+            case "♥": return Suit.HEARTS;
+            case "♠": return Suit.SPADES;
+            case "♦": return Suit.DIAMONDS;
+            case "♣": return Suit.CLUBS;
+            default: return Suit.DIAMONDS;
+        }
     }
 
     private void setupOpponents() {
@@ -862,21 +878,22 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         // 读取房间设置
         SharedPreferences prefs = getSharedPreferences("game_prefs", MODE_PRIVATE);
-        if (!isBluetoothGame) {
-            // 练习场模式，所有道具可用
+        // 统一从 SharedPreferences 读取道具设置（练习场和蓝牙模式都读取）
+        isTrackerEnabled = prefs.getBoolean("prop_card_tracker", false);
+        isSeeThroughEnabled = prefs.getBoolean("prop_see_through", false);
+        isPatternHintEnabled = prefs.getBoolean("prop_pattern_hint", false);
+
+        // 如果是练习场且用户从未保存过任何道具设置（三个都是false），则默认全部启用，保证原有体验
+        if (!isBluetoothGame && !isTrackerEnabled && !isSeeThroughEnabled && !isPatternHintEnabled) {
             isTrackerEnabled = true;
             isSeeThroughEnabled = true;
             isPatternHintEnabled = true;
-        } else {
-            // 蓝牙模式，根据房间设置
-            isTrackerEnabled = prefs.getBoolean("prop_card_tracker", false);
-            isSeeThroughEnabled = prefs.getBoolean("prop_see_through", false);
-            isPatternHintEnabled = prefs.getBoolean("prop_pattern_hint", false);
-            Log.d("PropDebug", "isBluetoothGame=" + isBluetoothGame);
-            Log.d("PropDebug", "tracker=" + prefs.getBoolean("prop_card_tracker", false));
-            Log.d("PropDebug", "seeThrough=" + prefs.getBoolean("prop_see_through", false));
-            Log.d("PropDebug", "patternHint=" + prefs.getBoolean("prop_pattern_hint", false));
         }
+
+        Log.d("PropDebug", "isBluetoothGame=" + isBluetoothGame);
+        Log.d("PropDebug", "tracker=" + isTrackerEnabled);
+        Log.d("PropDebug", "seeThrough=" + isSeeThroughEnabled);
+        Log.d("PropDebug", "patternHint=" + isPatternHintEnabled);
 
         // 更新 UI 颜色和可用性
         updatePropUI();
@@ -993,27 +1010,6 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         return new Card(null, suit, rank);
     }
 
-    private Rank getRankFromDisplay(String display) {
-        if (display == null || display.length() < 2) return null;
-        String rankStr = display.substring(1);
-        switch (rankStr) {
-            case "2": return Rank.TWO;
-            case "A": return Rank.ACE;
-            case "K": return Rank.KING;
-            case "Q": return Rank.QUEEN;
-            case "J": return Rank.JACK;
-            case "10": return Rank.TEN;
-            case "9": return Rank.NINE;
-            case "8": return Rank.EIGHT;
-            case "7": return Rank.SEVEN;
-            case "6": return Rank.SIX;
-            case "5": return Rank.FIVE;
-            case "4": return Rank.FOUR;
-            case "3": return Rank.THREE;
-            default: return null;
-        }
-    }
-
     private void updatePatternHint() {
         if (patternHintBar == null || patternHintBar.getVisibility() != View.VISIBLE) return;
         if (!isPatternHintEnabled) return;
@@ -1030,7 +1026,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
         if (selectedCards.isEmpty()) return;
 
-        PatternRecognizer recognizer = new PatternRecognizer(ruleConfig);
+        com.example.cardgame.rule.PatternRecognizer recognizer = new com.example.cardgame.rule.PatternRecognizer(ruleConfig);
         PatternRecognizer.PatternInfo info = recognizer.recognizePattern(selectedCards);
         if (info.getType() == PatternRecognizer.PatternType.INVALID) return;
 
@@ -1216,7 +1212,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     public void updateCountdown(int secondsLeft) {
         runOnUiThread(() -> {
             if (tvCountdown != null) {
-                tvCountdown.setText(String.format("无牌可出，%d秒后自动跳过", secondsLeft));
+                tvCountdown.setText(String.format(Locale.getDefault(), "无牌可出，%d秒后自动跳过", secondsLeft));
             }
         });
     }
@@ -1247,13 +1243,16 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             String newPlayerId = e.getNewCurrentPlayerId();
             Log.d("EventBus", "收到回合切换事件: newPlayerId=" + newPlayerId);
             runOnUiThread(() -> {
-                try {
                 fullRefresh();
-                GameViewData data = gameActionHandler != null ? gameActionHandler.getGameViewData() : null;
-                updateActionButtons(data);
-                } catch (Exception ex) {
-                    Log.e("GameActivity", "TurnChanged UI update failed", ex);
-                    Toast.makeText(this, "更新回合失败：" + ex.getMessage(), Toast.LENGTH_LONG).show();
+                if (actionButtonsContainer != null && playCardsContainer != null) {
+                    boolean isMyTurn = localPlayerId.equals(newPlayerId);
+                    if (isMyTurn) {
+                        actionButtonsContainer.setVisibility(View.VISIBLE);
+                        playCardsContainer.setVisibility(View.GONE);
+                    } else {
+                        actionButtonsContainer.setVisibility(View.GONE);
+                        playCardsContainer.setVisibility(View.VISIBLE);
+                    }
                 }
             });
         } else if (event instanceof GameOverEvent) {

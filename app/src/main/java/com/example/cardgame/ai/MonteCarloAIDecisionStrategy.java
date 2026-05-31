@@ -8,6 +8,8 @@ import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.util.CardTracker;
 import java.util.*;
 import java.util.concurrent.*;
+import com.example.cardgame.rule.ConfigurableRuleEngine;
+import com.example.cardgame.rule.RuleConfig;
 
 public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
