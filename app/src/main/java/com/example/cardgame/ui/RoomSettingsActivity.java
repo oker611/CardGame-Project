@@ -93,7 +93,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
     private void showAiStrategyHelpDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("AI 策略说明")
-                .setMessage("普通：均衡打法，适合新手或想体验基础难度的玩家。\n\n激进：AI 倾向主动出大牌压制，适合喜欢快节奏、挑战性的玩家。\n\n保守：AI 倾向保留大牌、谨慎出牌，适合想练习破局的玩家。\n\n可在房间设置中随时切换，影响本局及后续对局。")
+                .setMessage("简单：每次出最小牌，适合新手快速熟悉规则。\n\n困难：评估多种出牌可能性，适合中等挑战。\n\n智能：学习你的打法风格并调整策略，越玩越强。\n\n可在房间设置中随时切换，影响本局及后续对局。")
                 .setPositiveButton("知道了", null)
                 .show();
     }

@@ -43,7 +43,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 规则卡片（只保留南北方规则） -->
+            <!-- 规则卡片 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -89,7 +89,7 @@
                 </RadioGroup>
             </LinearLayout>
 
-            <!-- 道具卡片（记牌器、透视、牌型提示） -->
+            <!-- 道具卡片 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -155,7 +155,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="AI 策略"
+                        android:text="AI 难度"
                         android:textColor="#1E2A36"
                         android:textSize="16sp"
                         android:textStyle="bold" />
@@ -181,7 +181,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="普通"
+                        android:text="简单"
                         android:buttonTint="#2196F3"
                         android:checked="true" />
 
@@ -190,7 +190,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="激进"
+                        android:text="困难"
                         android:buttonTint="#2196F3" />
 
                     <RadioButton
@@ -198,7 +198,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="保守"
+                        android:text="智能"
                         android:buttonTint="#2196F3" />
                 </RadioGroup>
             </LinearLayout>
