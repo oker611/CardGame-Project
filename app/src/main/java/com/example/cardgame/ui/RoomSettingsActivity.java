@@ -129,6 +129,29 @@ public class RoomSettingsActivity extends AppCompatActivity {
         boolean patternHintEnabled = cbPatternHint.isChecked();
         String aiStrategy = getSelectedAiStrategy();
 
+        // 如果是智能模式，先弹窗询问是否开启智能助手
+        if ("DEFENSIVE".equals(aiStrategy)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("智能助手")
+                    .setMessage("是否开启牌面分析与个人风格分析？")
+                    .setPositiveButton("开启", (dialog, which) -> {
+                        startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                                patternHintEnabled, aiStrategy, true);
+                    })
+                    .setNegativeButton("不开启", (dialog, which) -> {
+                        startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                                patternHintEnabled, aiStrategy, false);
+                    })
+                    .show();
+        } else {
+            startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                    patternHintEnabled, aiStrategy, false);
+        }
+    }
+
+    private void startPracticeGameInternal(String selectedRule, boolean cardTrackerEnabled,
+                                           boolean seeThroughEnabled, boolean patternHintEnabled,
+                                           String aiStrategy, boolean enableAIAssistant) {
         getSharedPreferences("game_prefs", MODE_PRIVATE)
                 .edit()
                 .putString("game_rule", selectedRule)
@@ -136,6 +159,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
                 .putBoolean("prop_see_through", seeThroughEnabled)
                 .putBoolean("prop_pattern_hint", patternHintEnabled)
                 .putString("ai_strategy", aiStrategy)
+                .putBoolean("enable_ai_assistant", enableAIAssistant)
                 .apply();
 
         Intent intent = new Intent(this, GameActivity.class);
@@ -181,6 +205,29 @@ public class RoomSettingsActivity extends AppCompatActivity {
         boolean patternHintEnabled = cbPatternHint.isChecked();
         String aiStrategy = getSelectedAiStrategy();
 
+        // 如果是智能模式，先弹窗询问是否开启智能助手
+        if ("DEFENSIVE".equals(aiStrategy)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("智能助手")
+                    .setMessage("是否开启牌面分析与个人风格分析？")
+                    .setPositiveButton("开启", (dialog, which) -> {
+                        createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                                seeThroughEnabled, patternHintEnabled, aiStrategy, true);
+                    })
+                    .setNegativeButton("不开启", (dialog, which) -> {
+                        createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                                seeThroughEnabled, patternHintEnabled, aiStrategy, false);
+                    })
+                    .show();
+        } else {
+            createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                    seeThroughEnabled, patternHintEnabled, aiStrategy, false);
+        }
+    }
+
+    private void createBluetoothRoomAndEnterLobbyInternal(String selectedRule, boolean cardTrackerEnabled,
+                                                          boolean seeThroughEnabled, boolean patternHintEnabled,
+                                                          String aiStrategy, boolean enableAIAssistant) {
         getSharedPreferences("game_prefs", MODE_PRIVATE)
                 .edit()
                 .putString("game_rule", selectedRule)
@@ -188,6 +235,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
                 .putBoolean("prop_see_through", seeThroughEnabled)
                 .putBoolean("prop_pattern_hint", patternHintEnabled)
                 .putString("ai_strategy", aiStrategy)
+                .putBoolean("enable_ai_assistant", enableAIAssistant)
                 .apply();
 
         bluetoothActionHandler.createBluetoothRoom("P1");

@@ -69,32 +69,24 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private LinearLayout playAreaLeft;
     private LinearLayout playAreaRight;
     private RuleConfig ruleConfig;
-
     private boolean gameOverDialogShown = false;
-
+    private boolean enableAiAssistant = false;
     private static final float CARD_WIDTH_DP = 50f;;
     private static final float CARD_OVERLAP_DP = -8f;
-
     @Nullable
     private GameActionHandler gameActionHandler;
-
     @Nullable
     private BluetoothActionHandler bluetoothActionHandler;
-
     private boolean isBluetoothGame = false;
     private boolean isHost = false;
     private String localPlayerId = "P1";
-
     private final Handler bluetoothRefreshHandler = new Handler(Looper.getMainLooper());
-
     // 倒计时 UI 控件
     private TextView tvCountdown;
-
     private LinearLayout actionButtonsContainer;
     private LinearLayout playCardsContainer;
     private Button btnPlayInline;
     private Button btnPassInline;
-
     // 道具栏控件
     private LinearLayout propCardTracker;
     private LinearLayout propSeeThrough;
@@ -110,13 +102,11 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private boolean isTrackerEnabled = false;
     private boolean isSeeThroughEnabled = false;
     private boolean isPatternHintEnabled = false;
-
-
     // 牌型提示条控件
     private LinearLayout patternHintBar;
     private TextView hintSingle, hintPair, hintTriple, hintStraight, hintFlush, hintIron, hintFullHouse, hintStraightFlush;
-
     private FrameLayout cardTrackerLayout;
+    private TextView tvAiHint;
 
     private final Runnable bluetoothRefreshRunnable = new Runnable() {
         @Override
@@ -293,6 +283,25 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }).start();
 
         hideSystemUI();
+
+        // 初始化 AI 提示控件
+        tvAiHint = findViewById(R.id.tv_ai_hint);
+        SharedPreferences prefs = getSharedPreferences("game_prefs", MODE_PRIVATE);
+        enableAiAssistant = prefs.getBoolean("enable_ai_assistant", false);
+        if (enableAiAssistant) {
+            tvAiHint.setVisibility(View.VISIBLE);
+            tvAiHint.setText("🤖 AI 分析中...");
+        } else {
+            tvAiHint.setVisibility(View.GONE);
+        }
+
+        hideSystemUI();
+    }
+
+    public void updateAiHint(String hintText) {
+        if (tvAiHint != null && tvAiHint.getVisibility() == View.VISIBLE) {
+            tvAiHint.setText(hintText);
+        }
     }
 
     @Override
@@ -1198,6 +1207,20 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         dialog.show();
     }
 
+    private void showStyleAnalysisDialog() {
+        // 假数据：AI 同学后续会替换为真实的分析结果
+        String analysisText = "您的风格：激进\n\n"
+                + "P2（Bob）：激进\n"
+                + "P3（Cindy）：保守\n"
+                + "P4（David）：均衡";
+
+        new AlertDialog.Builder(this)
+                .setTitle("AI 风格分析")
+                .setMessage(analysisText)
+                .setPositiveButton("知道了", null)
+                .show();
+    }
+
     // ========== 实现 GameController.CountdownUICallback 接口 ==========
     @Override
     public void showCountdown() {
@@ -1261,6 +1284,10 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             runOnUiThread(() -> {
                 if (!gameOverDialogShown) {
                     fullRefresh();
+                }
+                // 如果开启了智能助手，显示风格分析弹窗
+                if (enableAiAssistant) {
+                    showStyleAnalysisDialog();
                 }
             });
             if (gameActionHandler instanceof GameController) {
