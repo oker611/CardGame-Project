@@ -6,6 +6,8 @@ import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.util.CardTracker;
 import java.util.*;
 import java.util.concurrent.*;
+import com.example.cardgame.rule.ConfigurableRuleEngine;
+import com.example.cardgame.rule.RuleConfig;
 
 public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
@@ -31,7 +33,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
     private int consecutiveFailCount = 0;
 
     public MonteCarloAIDecisionStrategy() {
-        this.ruleEngine = new RuleEngine();
+        this.ruleEngine = new ConfigurableRuleEngine(RuleConfig.SOUTHERN);
         // 先创建 phaseManager，因为 candidateGenerator 需要它
         this.phaseManager = new PhaseManager(ruleEngine);
         // 再创建 profile（默认强）

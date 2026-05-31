@@ -388,9 +388,14 @@ public class GameController implements GameActionHandler {
 
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
-            int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
+            // 使用 ruleConfig 中的权重
+            int w1 = ruleConfig.rankWeights.get(c1.getRank());
+            int w2 = ruleConfig.rankWeights.get(c2.getRank());
+            int rankCompare = Integer.compare(w2, w1);  // 降序
             if (rankCompare != 0) return rankCompare;
-            return Integer.compare(c2.getSuit().getWeight(), c1.getSuit().getWeight());
+            int s1 = ruleConfig.suitWeights.get(c1.getSuit());
+            int s2 = ruleConfig.suitWeights.get(c2.getSuit());
+            return Integer.compare(s2, s1);  // 降序
         });
         List<String> myHandCards = handCardsList.stream()
                 .map(c -> c.getSuit().getSymbol() + c.getRank().getDisplayName())

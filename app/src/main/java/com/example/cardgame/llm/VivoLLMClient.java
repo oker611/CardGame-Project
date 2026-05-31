@@ -18,6 +18,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class VivoLLMClient {
     private static final String API_URL = "https://api-ai.vivo.com.cn/v1/chat/completions";
     private static final String APP_KEY = BuildConfig.VIVO_APP_KEY;
