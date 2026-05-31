@@ -46,6 +46,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     public void createBluetoothRoom(String localPlayerId) {
         updateBluetoothStatus();
 
+        bluetoothViewData.clearSessionState();
         bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
         bluetoothViewData.setRole("HOST");
@@ -56,6 +57,8 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
         // HOST 自己占用 slot 0
         bluetoothViewData.addConnectedDevice(getLocalGamePlayerName(), "", "P1", 0);
+
+        eventRelay.register();
 
         new Thread(() -> bluetoothGateway.startAsHost(localPlayerId, getLocalGamePlayerName())).start();
     }
@@ -124,6 +127,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
     public void connectToDevice(String localPlayerId, String deviceAddress) {
         updateBluetoothStatus();
 
+        bluetoothViewData.clearSessionState();
         bluetoothViewData.clearErrorMessage();
         bluetoothViewData.setLocalPlayerId(localPlayerId);
         bluetoothViewData.setRole("CLIENT");
@@ -131,13 +135,17 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setStatusText("正在连接对方设备");
 
+        eventRelay.register();
+
         new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress, getLocalGamePlayerName())).start();
     }
 
     @Override
     public void disconnectBluetooth() {
         bluetoothGateway.disconnect();
+        eventRelay.unregister();
 
+        bluetoothViewData.clearSessionState();
         bluetoothViewData.setConnected(false);
         bluetoothViewData.setConnecting(false);
         bluetoothViewData.setHosting(false);

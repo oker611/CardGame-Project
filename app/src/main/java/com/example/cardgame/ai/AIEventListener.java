@@ -22,13 +22,16 @@ public class AIEventListener implements GameEventListener {
     private final GameEngine gameEngine;
     private final AIDecisionStrategy strategy;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final boolean isHost;
 
-    public AIEventListener(GameController gameController, GameEngine gameEngine, AIDecisionStrategy strategy) {
+    public AIEventListener(GameController gameController, GameEngine gameEngine,
+                           AIDecisionStrategy strategy, boolean isHost) {
         this.gameController = gameController;
         this.gameEngine = gameEngine;
         this.strategy = strategy;
+        this.isHost = isHost;
         EventBus.getInstance().register(this);
-        System.out.println("[AIEventListener] Registered");
+        System.out.println("[AIEventListener] Registered isHost=" + isHost);
     }
 
     @Override
@@ -49,8 +52,11 @@ public class AIEventListener implements GameEventListener {
             System.out.println("[AIEventListener] Player type: " + currentPlayer.getType());
 
             if (currentPlayer.getType() == PlayerType.AI) {
-                // 直接执行，不等待上一个AI完成（因为事件总线顺序执行，不会有并发）
-                // 但如果需要延迟，确保不会跳过后续事件
+                // 仅 HOST 端运行 AI 逻辑；CLIENT 端 AI 回合由网络消息驱动
+                if (!isHost) {
+                    System.out.println("[AIEventListener] AI turn skipped on non-host device for " + newPlayerId);
+                    return;
+                }
                 handler.postDelayed(() -> {
                     try {
                         GameState gameState = gameEngine.getGameState();
@@ -81,8 +87,6 @@ public class AIEventListener implements GameEventListener {
                             }
                         } else {
                             System.out.println("[AIEventListener] AI playing: " + cards);
-                            PlayResult result = gameController.aiPlayCards(cards);
-                            System.out.println("[AIEventListener] Result: " + result.isSuccess() + " - " + result.getMessage());
                             PlayResult result = gameController.aiPlayCards(cards);
                             System.out.println("[AIEventListener] Result: " + result.isSuccess() + " - " + result.getMessage());
 

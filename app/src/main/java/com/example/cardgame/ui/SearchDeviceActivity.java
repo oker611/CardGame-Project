@@ -272,6 +272,12 @@ public class SearchDeviceActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+    }
+
     private void showHelpDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_help, null);
         TextView tvTitle = dialogView.findViewById(R.id.tv_help_title);

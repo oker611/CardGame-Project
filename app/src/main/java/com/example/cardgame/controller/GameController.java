@@ -93,6 +93,9 @@ public class GameController implements GameActionHandler {
 
     @Override
     public void startNewGame() {
+        cleanup();
+        selectedCardIds.clear();
+        lastTriggerTime = 0;
         if (!bluetoothMode) myPlayerId = "P1";
 
         List<Player> players = new ArrayList<>();
@@ -199,8 +202,10 @@ public class GameController implements GameActionHandler {
     private void initAIEventListener() {
         if (aiEventListener != null) aiEventListener.unregister();
         aiStrategy = new MonteCarloAIDecisionStrategy();
-        aiEventListener = new AIEventListener(this, gameEngine, aiStrategy);
-        HermesLog.log("GameController: MonteCarlo AI Strategy initialized");
+        // 非蓝牙模式或蓝牙 HOST 模式才运行 AI；CLIENT 端 AI 由网络消息驱动
+        boolean aiHost = !bluetoothMode || hostMode;
+        aiEventListener = new AIEventListener(this, gameEngine, aiStrategy, aiHost);
+        HermesLog.log("GameController: MonteCarlo AI Strategy initialized isHost=" + aiHost);
     }
 
     public CardTracker getCardTracker() {
@@ -412,7 +417,8 @@ public class GameController implements GameActionHandler {
             }
         }
 
-        return new GameViewData(me.getPlayerId(), me.getPlayerName(), players,
+        String currentPlayerName = currentPlayer.getPlayerName();
+        return new GameViewData(currentPlayer.getPlayerId(), currentPlayerName, players,
                 new ArrayList<>(selectedCardIds), myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),

@@ -68,6 +68,8 @@ public class GameEngine {
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         System.out.println("[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
 
+        ensureRuleEngineReady();
+
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
             System.out.println("[CardGame][PLAY] rejected: not current player, currentPlayerId="
@@ -273,6 +275,7 @@ public class GameEngine {
         }
 
         this.gameState = syncedState;
+        ensureRuleEngineReady();
 
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from remote sync, currentPlayerId="
                 + gameState.getCurrentPlayerId());
@@ -304,6 +307,7 @@ public class GameEngine {
         rebuiltState.setGameOver(false);
 
         this.gameState = rebuiltState;
+        ensureRuleEngineReady();
 
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from hand cards, currentPlayerId="
                 + rebuiltState.getCurrentPlayerId());
@@ -393,9 +397,19 @@ public class GameEngine {
         rebuiltState.setGameOver(false);
 
         this.gameState = rebuiltState;
+        ensureRuleEngineReady();
 
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt (multi), playerCount="
                 + players.size() + ", currentPlayerId=" + rebuiltState.getCurrentPlayerId());
+    }
+
+    private void ensureRuleEngineReady() {
+        if (ruleConfig == null) {
+            ruleConfig = RuleConfig.SOUTHERN;
+        }
+        if (ruleEngine == null) {
+            ruleEngine = new ConfigurableRuleEngine(ruleConfig);
+        }
     }
 
     /**

@@ -86,7 +86,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(refreshBluetoothStateRunnable);
+        handler.removeCallbacksAndMessages(null);
     }
 
     private void initRoomState() {
@@ -222,6 +222,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
             intent.putExtra("is_host", false);
             intent.putExtra("local_player_id", localPlayerId);
             intent.putExtra("rule_type", ruleType);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
             return;
@@ -343,6 +344,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 intent.putExtra("is_host", true);
                 intent.putExtra("local_player_id", "P1");
                 intent.putExtra("rule_type", ruleType);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
                 if (hasRealRemotePlayer) {
                     Toast.makeText(this, "蓝牙对局（4人）开始", Toast.LENGTH_SHORT).show();

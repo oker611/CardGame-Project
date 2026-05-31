@@ -38,6 +38,7 @@ public class BluetoothConnectionManager {
 
     /** RFCOMM 通道稳定等待时间（毫秒）。连接后短暂等待，避免部分设备上 InputStream 未就绪。 */
     private static final long RFCOMM_STABILIZE_DELAY_MS = 300L;
+    private static final long SOCKET_CONNECT_TIMEOUT_MS = 8000L;
 
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
@@ -519,6 +520,7 @@ public class BluetoothConnectionManager {
                 Thread.sleep(RFCOMM_STABILIZE_DELAY_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                closeSocketQuietly(socket);
                 throw new IOException("Interrupted while waiting for RFCOMM stabilization", e);
             }
         }
@@ -544,27 +546,74 @@ public class BluetoothConnectionManager {
     @SuppressLint("MissingPermission")
     private BluetoothSocket connectWithFallback(BluetoothDevice device) throws IOException {
         // 第一次尝试：安全 RFCOMM
+        BluetoothSocket socket = null;
         try {
-            BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
-            socket.connect();
+            socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
+            connectSocketWithTimeout(socket, SOCKET_CONNECT_TIMEOUT_MS);
             Log.i("CardGame", "[INFO] [蓝牙] 使用安全RFCOMM连接成功 | device=" + device.getAddress());
             return socket;
         } catch (IOException firstAttemptError) {
+            closeSocketQuietly(socket);
             Log.w("CardGame", "[WARN] [蓝牙] 安全RFCOMM连接失败，尝试不安全RFCOMM"
                     + " | device=" + device.getAddress()
                     + " | error=" + firstAttemptError.getMessage());
         }
 
         // 第二次尝试：不安全 RFCOMM（兼容部分国产 ROM）
+        BluetoothSocket fallbackSocket = null;
         try {
-            BluetoothSocket fallbackSocket = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID);
-            fallbackSocket.connect();
+            fallbackSocket = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID);
+            connectSocketWithTimeout(fallbackSocket, SOCKET_CONNECT_TIMEOUT_MS);
             Log.i("CardGame", "[INFO] [蓝牙] 使用不安全RFCOMM连接成功 | device=" + device.getAddress());
             return fallbackSocket;
         } catch (IOException secondAttemptError) {
+            closeSocketQuietly(fallbackSocket);
             throw new IOException(
                     "Failed to connect via both secure and insecure RFCOMM to " + device.getAddress(),
                     secondAttemptError);
+        }
+    }
+
+    /**
+     * 带超时的 socket.connect()。
+     * 原生 BluetoothSocket.connect() 在部分 ROM 上可能长时间阻塞，
+     * 通过独立线程 + join(timeout) 避免永久挂起。
+     */
+    @SuppressLint("MissingPermission")
+    private void connectSocketWithTimeout(BluetoothSocket socket, long timeoutMs) throws IOException {
+        final IOException[] error = { null };
+        Thread connectThread = new Thread(() -> {
+            try {
+                socket.connect();
+            } catch (IOException e) {
+                error[0] = e;
+            }
+        }, "CardGame-BT-Connect");
+        connectThread.start();
+        try {
+            connectThread.join(timeoutMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            closeSocketQuietly(socket);
+            throw new IOException("Connect interrupted");
+        }
+        if (connectThread.isAlive()) {
+            closeSocketQuietly(socket);
+            connectThread.interrupt();
+            throw new IOException("Connection timed out after " + timeoutMs + "ms");
+        }
+        if (error[0] != null) {
+            closeSocketQuietly(socket);
+            throw error[0];
+        }
+    }
+
+    private void closeSocketQuietly(BluetoothSocket socket) {
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -673,6 +722,89 @@ public class BluetoothConnectionManager {
         serverSocket = null;
 
         Log.i("CardGame", "[INFO] [蓝牙] 服务端Socket已关闭（房间已开始游戏）");
+    }
+
+    /**
+     * 接受一个原始客户端连接（不修改 legacy 字段，不加入 clientConnections）。
+     * 用于重连场景，由 Gateway 自行管理通道生命周期。
+     *
+     * @return ClientConnection，如果服务器未启动或已关闭则返回 null
+     */
+    @SuppressLint("MissingPermission")
+    public ClientConnection acceptRawConnection() throws IOException {
+        if (serverSocket == null) {
+            throw new IOException("Server socket not started");
+        }
+
+        acceptThread = Thread.currentThread();
+        BluetoothSocket socket;
+        try {
+            socket = serverSocket.accept();
+        } catch (IOException e) {
+            if (!accepting) {
+                throw new IOException("Server stopped", e);
+            }
+            throw e;
+        } finally {
+            acceptThread = null;
+        }
+
+        BluetoothDevice remoteDevice = socket.getRemoteDevice();
+        String deviceAddress = remoteDevice.getAddress();
+        String deviceName = safeDeviceName(remoteDevice);
+
+        Log.i("CardGame", "[INFO] [蓝牙] 重连监听接受连接 | name=" + deviceName
+                + ", address=" + deviceAddress);
+
+        return new ClientConnection(
+                deviceAddress,
+                deviceName,
+                socket,
+                socket.getInputStream(),
+                socket.getOutputStream()
+        );
+    }
+
+    /**
+     * 服务端 Socket 是否仍在监听。
+     */
+    public boolean isServerSocketOpen() {
+        return serverSocket != null && accepting;
+    }
+
+    /**
+     * 中断 accept 线程并关闭 serverSocket。
+     * 确保任何正在进行或即将进行的 accept() 调用都会立即返回错误。
+     */
+    public void interruptAccept() {
+        accepting = false;
+        Thread t = acceptThread;
+        if (t != null) {
+            t.interrupt();
+        }
+        acceptThread = null;
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch (IOException ignored) {
+        }
+        serverSocket = null;
+    }
+
+    /**
+     * 重新创建 serverSocket 并标记为可接受状态（在 interruptAccept 之后使用）。
+     */
+    @SuppressLint("MissingPermission")
+    public void resumeAccept() {
+        accepting = true;
+        try {
+            serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord(
+                    SERVICE_NAME, SERVICE_UUID);
+            Log.i("CardGame", "[INFO] [蓝牙] serverSocket 已重新创建，用于重连监听");
+        } catch (IOException e) {
+            Log.e("CardGame", "[ERROR] [蓝牙] 重新创建 serverSocket 失败", e);
+        }
     }
 
     /**

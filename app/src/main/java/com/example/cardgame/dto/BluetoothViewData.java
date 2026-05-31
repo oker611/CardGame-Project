@@ -205,54 +205,84 @@ public class BluetoothViewData {
 
     // ===== 多连接 getter / setter =====
 
+    public void clearSessionState() {
+        this.connected = false;
+        this.connecting = false;
+        this.hosting = false;
+        this.role = "NONE";
+        this.localPlayerId = null;
+        this.remotePlayerId = null;
+        this.connectedDeviceName = null;
+        this.connectedDeviceAddress = null;
+        this.assignedPlayerId = null;
+        this.assignedSlotIndex = -1;
+        this.statusText = "Not connected";
+        this.errorMessage = "";
+        this.lastSentMessageType = null;
+        this.lastSentSummary = null;
+        this.lastReceivedMessageType = null;
+        this.lastReceivedSummary = null;
+        clearConnectedDevices();
+    }
+
     public List<ConnectedDevice> getConnectedDevices() {
-        return connectedDevices;
+        synchronized (connectedDevices) {
+            return new ArrayList<>(connectedDevices);
+        }
     }
 
     public int getConnectedDeviceCount() {
-        return connectedDevices.size();
+        synchronized (connectedDevices) {
+            return connectedDevices.size();
+        }
     }
 
     public void addConnectedDevice(String deviceName, String deviceAddress, String playerId, int slotIndex) {
-        // 先移除同地址的旧条目
-        removeConnectedDeviceByAddress(deviceAddress);
-        connectedDevices.add(new ConnectedDevice(deviceName, deviceAddress, playerId, slotIndex));
+        synchronized (connectedDevices) {
+            removeConnectedDeviceByAddress(deviceAddress);
+            connectedDevices.add(new ConnectedDevice(deviceName, deviceAddress, playerId, slotIndex));
 
-        // 同步旧字段
-        if (connectedDevices.size() == 1) {
-            this.connectedDeviceName = deviceName;
-            this.connectedDeviceAddress = deviceAddress;
-            this.remotePlayerId = playerId;
-            this.connected = true;
+            if (connectedDevices.size() == 1) {
+                this.connectedDeviceName = deviceName;
+                this.connectedDeviceAddress = deviceAddress;
+                this.remotePlayerId = playerId;
+                this.connected = true;
+            }
         }
     }
 
     public void removeConnectedDeviceByAddress(String deviceAddress) {
-        connectedDevices.removeIf(d -> java.util.Objects.equals(d.deviceAddress, deviceAddress));
-        if (connectedDevices.isEmpty()) {
-            this.connected = false;
-            this.connectedDeviceName = null;
-            this.connectedDeviceAddress = null;
-            this.remotePlayerId = null;
+        synchronized (connectedDevices) {
+            connectedDevices.removeIf(d -> java.util.Objects.equals(d.deviceAddress, deviceAddress));
+            if (connectedDevices.isEmpty()) {
+                this.connected = false;
+                this.connectedDeviceName = null;
+                this.connectedDeviceAddress = null;
+                this.remotePlayerId = null;
+            }
         }
     }
 
     public void removeConnectedDeviceByPlayerId(String playerId) {
-        connectedDevices.removeIf(d -> java.util.Objects.equals(d.playerId, playerId));
-        if (connectedDevices.isEmpty()) {
+        synchronized (connectedDevices) {
+            connectedDevices.removeIf(d -> java.util.Objects.equals(d.playerId, playerId));
+            if (connectedDevices.isEmpty()) {
+                this.connected = false;
+                this.connectedDeviceName = null;
+                this.connectedDeviceAddress = null;
+                this.remotePlayerId = null;
+            }
+        }
+    }
+
+    public void clearConnectedDevices() {
+        synchronized (connectedDevices) {
+            connectedDevices.clear();
             this.connected = false;
             this.connectedDeviceName = null;
             this.connectedDeviceAddress = null;
             this.remotePlayerId = null;
         }
-    }
-
-    public void clearConnectedDevices() {
-        connectedDevices.clear();
-        this.connected = false;
-        this.connectedDeviceName = null;
-        this.connectedDeviceAddress = null;
-        this.remotePlayerId = null;
     }
 
     public String getAssignedPlayerId() {

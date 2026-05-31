@@ -19,10 +19,12 @@ public class InitGamePayload {
     private GameState gameState;
 
     // ——— 新字段（4-player支持） ———
-    /** playerId → 该玩家手牌列表 */
+    /** playerId → 该玩家手牌列表（仅包含目标客户端自身手牌，其余为空列表） */
     private Map<String, List<Card>> playerHandCards;
     /** 出牌顺序（按玩家ID排列） */
     private List<String> playerOrder;
+    /** playerId → 剩余牌数（UI 显示用，不暴露具体牌面） */
+    private Map<String, Integer> playerCardCounts;
 
     public InitGamePayload() {
     }
@@ -55,6 +57,21 @@ public class InitGamePayload {
         this.playerOrder = playerOrder;
         this.currentPlayerId = currentPlayerId;
         this.gameState = gameState;
+    }
+
+    // ===== 新构造函数（N-player + 牌数统计） =====
+    public InitGamePayload(
+            Map<String, List<Card>> playerHandCards,
+            List<String> playerOrder,
+            String currentPlayerId,
+            GameState gameState,
+            Map<String, Integer> playerCardCounts
+    ) {
+        this.playerHandCards = playerHandCards;
+        this.playerOrder = playerOrder;
+        this.currentPlayerId = currentPlayerId;
+        this.gameState = gameState;
+        this.playerCardCounts = playerCardCounts;
     }
 
     // ===== 旧 getter / setter（保留兼容） =====
@@ -123,5 +140,13 @@ public class InitGamePayload {
 
     public void setPlayerOrder(List<String> playerOrder) {
         this.playerOrder = playerOrder;
+    }
+
+    public Map<String, Integer> getPlayerCardCounts() {
+        return playerCardCounts;
+    }
+
+    public void setPlayerCardCounts(Map<String, Integer> playerCardCounts) {
+        this.playerCardCounts = playerCardCounts;
     }
 }

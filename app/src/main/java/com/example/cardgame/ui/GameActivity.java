@@ -42,6 +42,7 @@ import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Suit;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.rule.PatternRecognizer;
+import com.example.cardgame.rule.RuleConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,11 +122,15 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private final Runnable bluetoothRefreshRunnable = new Runnable() {
         @Override
         public void run() {
+            try {
             if (gameActionHandler != null && isBluetoothGame) {
                 // 蓝牙对局中只让房主驱动 AI，避免客户端也跑 AI 导致两端状态分叉
                 if (isHost) {
                     gameActionHandler.triggerNextAction();
                 }
+            }
+            } catch (Exception e) {
+                Log.e("GameActivity", "Bluetooth refresh failed", e);
             }
 
             bluetoothRefreshHandler.postDelayed(this, 1000);
@@ -156,6 +161,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         if (btnPlayInline != null) {
             btnPlayInline.setOnClickListener(v -> {
+                try {
                 if (gameActionHandler != null) {
                     PlayResult result = gameActionHandler.submitPlay(new ArrayList<>(selectedCardIds));
                     if (result != null) {
@@ -165,17 +171,26 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                         }
                     }
                 }
+                } catch (Exception e) {
+                    Log.e("GameActivity", "Submit play failed", e);
+                    Toast.makeText(this, "出牌失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
             });
         }
 
         if (btnPassInline != null) {
             btnPassInline.setOnClickListener(v -> {
+                try {
                 if (gameActionHandler != null) {
                     PassResult result = gameActionHandler.passTurn();
                     if (result != null) {
                         Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
                         fullRefresh();
                     }
+                }
+                } catch (Exception e) {
+                    Log.e("GameActivity", "Pass turn failed", e);
+                    Toast.makeText(this, "过牌失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -278,12 +293,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         Button btnExitGame = findViewById(R.id.btn_exit_game);
         btnExitGame.setOnClickListener(v -> {
-            bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
-
-            Intent intent = new Intent(GameActivity.this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            startActivity(intent);
-            finish();
+            showExitGameConfirmDialog();
         });
 
         // 测试 vivo LLM 连接
@@ -305,7 +315,37 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
     }
 
+    @Override
+    public void onBackPressed() {
+        showExitGameConfirmDialog();
+    }
+
+    private void showExitGameConfirmDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Exit game?")
+                .setMessage("Current match is still running.")
+                .setPositiveButton("Exit", (dialog, which) -> {
+                    bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+
+                    Intent intent = new Intent(GameActivity.this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("Stay", null)
+                .show();
+    }
+
     private void fullRefresh() {
+        try {
+            doFullRefresh();
+        } catch (Exception e) {
+            Log.e("GameActivity", "fullRefresh failed", e);
+            Toast.makeText(this, "刷新牌局失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void doFullRefresh() {
         if (gameActionHandler == null) return;
 
         GameViewData data = gameActionHandler.getGameViewData();
@@ -323,7 +363,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
-        // updateActionButtons(data);  // 已由 TurnChangedEvent 直接控制
+        updateActionButtons(data);
 
         if (cardAdapter == null) {
             cardAdapter = new CardAdapter(this, handCards, position -> {
@@ -1207,16 +1247,13 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             String newPlayerId = e.getNewCurrentPlayerId();
             Log.d("EventBus", "收到回合切换事件: newPlayerId=" + newPlayerId);
             runOnUiThread(() -> {
+                try {
                 fullRefresh();
-                if (actionButtonsContainer != null && playCardsContainer != null) {
-                    boolean isMyTurn = localPlayerId.equals(newPlayerId);
-                    if (isMyTurn) {
-                        actionButtonsContainer.setVisibility(View.VISIBLE);
-                        playCardsContainer.setVisibility(View.GONE);
-                    } else {
-                        actionButtonsContainer.setVisibility(View.GONE);
-                        playCardsContainer.setVisibility(View.VISIBLE);
-                    }
+                GameViewData data = gameActionHandler != null ? gameActionHandler.getGameViewData() : null;
+                updateActionButtons(data);
+                } catch (Exception ex) {
+                    Log.e("GameActivity", "TurnChanged UI update failed", ex);
+                    Toast.makeText(this, "更新回合失败：" + ex.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
         } else if (event instanceof GameOverEvent) {

@@ -108,6 +108,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
         intent.putExtra("is_host", false);
         intent.putExtra("local_player_id", "P1");
         intent.putExtra("rule_type", selectedRule);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
