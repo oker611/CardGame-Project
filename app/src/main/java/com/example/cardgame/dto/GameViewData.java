@@ -2,6 +2,7 @@ package com.example.cardgame.dto;
 
 import java.util.List;
 import java.util.Map;
+import com.example.cardgame.model.Card;
 
 public class GameViewData {
 
@@ -17,6 +18,7 @@ public class GameViewData {
 
     // ✅ 新增：每个玩家最后一次出的牌（key=playerId, value=牌字符串列表）
     private Map<String, List<String>> playerLastPlayCards;
+    private List<Card> allPlayedCards;
 
     // 原构造函数保留，但为了兼容性，新增一个重载（或者直接修改原构造函数）
     // 由于其他地方可能调用旧构造函数，我们提供一个新构造函数并保留旧的（但旧的赋默认空map）
@@ -29,7 +31,8 @@ public class GameViewData {
                         String lastPlayText,
                         boolean gameOver,
                         String winnerName,
-                        Map<String, List<String>> playerLastPlayCards) {
+                        Map<String, List<String>> playerLastPlayCards,
+                        List<Card> allPlayedCards) {
         this.currentPlayerId = currentPlayerId;
         this.currentPlayerName = currentPlayerName;
         this.players = players;
@@ -40,6 +43,7 @@ public class GameViewData {
         this.winnerName = winnerName;
         this.playerLastPlayCards = playerLastPlayCards;
         this.lastPlayCards = lastPlayCards;
+        this.allPlayedCards = allPlayedCards;
     }
 
     // 为了兼容旧代码（如果有其他地方调用），保留一个无 playerLastPlayCards 的构造函数（不建议使用）
@@ -53,7 +57,7 @@ public class GameViewData {
                         boolean gameOver,
                         String winnerName) {
         this(currentPlayerId, currentPlayerName, players, selectedCardIds, myHandCards,
-                lastPlayText, gameOver, winnerName, null);
+                lastPlayText, gameOver, winnerName, null, null);
     }
 
     public String getCurrentPlayerId() {
@@ -94,5 +98,9 @@ public class GameViewData {
 
     public Map<String, List<String>> getPlayerLastPlayCards() {
         return playerLastPlayCards;
+    }
+
+    public List<Card> getAllPlayedCards() {
+        return allPlayedCards;
     }
 }

@@ -13,6 +13,7 @@ import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.rule.RuleConfig;
 import com.example.cardgame.rule.RuleEngine;
+import com.example.cardgame.rule.ConfigurableRuleEngine;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.util.Logger;
@@ -24,8 +25,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 
-
-
 public class GameEngine {
 
     private static final boolean DEBUG_AUTO_PLAY = false;
@@ -36,29 +35,36 @@ public class GameEngine {
     private final DealManager dealManager;
     private final TurnManager turnManager;
     private final SettlementManager settlementManager;
+    private List<Card> allPlayedCards = new ArrayList<>();
 
     public GameEngine() {
         this.dealManager = new DealManager();
         this.turnManager = new TurnManager();
         this.settlementManager = new SettlementManager();
-        this.ruleEngine = new RuleEngine();
     }
 
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
+        this.ruleEngine = new ConfigurableRuleEngine(ruleConfig);
         this.gameState = new GameState();
         this.gameState.setPlayers(players);
         this.gameState.setGameOver(false);
         this.gameState.setOpeningTurn(true);
+        if (this.allPlayedCards != null) {
+            this.allPlayedCards.clear();
+        } else {
+            this.allPlayedCards = new ArrayList<>();
+        }
     }
 
     public void dealCards() {
         if (gameState != null) dealManager.dealCards(gameState);
-
     }
 
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
         System.out.println("[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
+
+        ensureRuleEngineReady();
 
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
@@ -89,16 +95,12 @@ public class GameEngine {
         Play currentPlay = new Play(playerId, selectedCards, finalPattern);
 
         player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
+        allPlayedCards.addAll(selectedCards);
 
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
-
-        // 记录上一赢家
         gameState.setLastWinnerId(playerId);
-
-        // 重置连续 Pass 计数器（因为有人出牌了）
         gameState.resetConsecutivePassCount();
-
 
         if (gameState.isOpeningTurn()) gameState.setOpeningTurn(false);
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
@@ -108,21 +110,17 @@ public class GameEngine {
                 + ", pattern=" + currentPlay.getPattern());
 
         settlementManager.checkAndSettle(gameState);
-        // ===== [事件驱动重构] 发布游戏结束事件 =====
         if (gameState.isGameOver() && gameState.getWinnerId() != null) {
             EventBus.getInstance().post(new GameOverEvent(gameState.getWinnerId()));
             Log.d("EventBus", "posted GameOverEvent for " + gameState.getWinnerId());
         }
-        // ===== 结束 =====
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
         } else {
             Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
         }
-        // ===== [事件驱动重构] 发布出牌事件 =====
         EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
         Log.d("EventBus", "posted CardPlayedEvent for " + playerId);
-        // ===== 结束 =====
         return createPlayResult(true, "PLAY_OK", gameState);
     }
 
@@ -145,45 +143,32 @@ public class GameEngine {
             return createPassResult(false, "New round starter cannot pass", gameState);
         }
 
-
-        // 标记当前玩家为 pass，并清除其个人出牌记录
         player.setPassed(true);
         gameState.updateLastPlayByPlayer(playerId, null);
-        gameState.incrementConsecutivePassCount();   // 连续 Pass 计数加1
+        gameState.incrementConsecutivePassCount();
 
-        // 检查是否连续三人 Pass（计数器 >= 3）
         if (gameState.getConsecutivePassCount() >= 3) {
-            // 获取上一轮赢家
             String winnerId = gameState.getLastWinnerId();
-
-            // 清空桌面、所有玩家 Pass 状态、所有出牌记录
             gameState.setLastPlay(null);
             gameState.clearAllPassStatus();
             gameState.clearAllLastPlayRecords();
-            gameState.resetConsecutivePassCount();   // 重置计数器
-
-            // 设置下一轮出牌的玩家为上一赢家
+            gameState.resetConsecutivePassCount();
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
                 EventBus.getInstance().post(new TurnChangedEvent(winnerId, "NEW_ROUND"));
                 System.out.println("[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
-                // 降级：按顺序切换（基本不会触发）
                 turnManager.switchPlayer(gameState);
                 System.out.println("[CardGame][PASS] 降级：按顺序切换玩家");
             }
-
             System.out.println("[CardGame][PASS] 桌面已完全清空，新回合开始");
         } else {
-            // 正常 Pass，切换到下一个玩家
             turnManager.switchPlayer(gameState);
         }
 
         System.out.println("[CardGame][PASS] success playerId=" + playerId);
-        // ===== [事件驱动重构] 发布过牌事件 =====
         EventBus.getInstance().post(new PlayerPassedEvent(playerId));
         Log.d("EventBus", "posted PlayerPassedEvent for " + playerId);
-        // ===== 结束 =====
         return createPassResult(true, "PASS_OK", gameState);
     }
 
@@ -253,100 +238,67 @@ public class GameEngine {
         return sb.toString();
     }
 
-    /**
-     * Rebuild the full game state from bluetooth sync data.
-     * This version is used when the sender directly sends a complete GameState.
-     */
     public void rebuildGameState(GameState syncedState) {
         if (syncedState == null) {
             System.out.println("[CardGame][BLUETOOTH] rebuildGameState failed: syncedState is null");
             return;
         }
-
         this.gameState = syncedState;
-
+        ensureRuleEngineReady();
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from remote sync, currentPlayerId="
                 + gameState.getCurrentPlayerId());
     }
 
-    /**
-     * Rebuild a minimal bluetooth game state from two hands.
-     * This is kept for compatibility with InitGamePayload localHandCards / remoteHandCards.
-     */
     public void rebuildGameState(List<Card> myHand, List<Card> opponentHand, String currentPlayerId) {
         GameState rebuiltState = new GameState();
-
         List<Player> players = new ArrayList<>();
-
         Player localPlayer = new Player("P1", "Me");
         localPlayer.setType(PlayerType.HUMAN);
         localPlayer.setHandCards(myHand);
-
         Player remotePlayer = new Player("P2", "Remote");
         remotePlayer.setType(PlayerType.REMOTE);
         remotePlayer.setHandCards(opponentHand);
-
         players.add(localPlayer);
         players.add(remotePlayer);
-
         rebuiltState.setPlayers(players);
         rebuiltState.setCurrentPlayerId(currentPlayerId != null ? currentPlayerId : "P1");
         rebuiltState.setOpeningTurn(false);
         rebuiltState.setGameOver(false);
-
         this.gameState = rebuiltState;
-
+        ensureRuleEngineReady();
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from hand cards, currentPlayerId="
                 + rebuiltState.getCurrentPlayerId());
     }
 
-    /**
-     * Execute a play action received from bluetooth.
-     */
     public PlayResult executeRemotePlay(Play play) {
         if (play == null) {
             System.out.println("[CardGame][BLUETOOTH] executeRemotePlay failed: play is null");
             return createPlayResult(false, "Remote play is null", gameState);
         }
-
         if (play.getCards() == null || play.getCards().isEmpty()) {
             System.out.println("[CardGame][BLUETOOTH] executeRemotePlay failed: cards are empty");
             return createPlayResult(false, "Remote play cards are empty", gameState);
         }
-
         List<String> cardIds = new ArrayList<>();
         for (Card card : play.getCards()) {
             if (card != null && card.getCardId() != null) {
                 cardIds.add(card.getCardId());
             }
         }
-
         System.out.println("[CardGame][BLUETOOTH] executeRemotePlay playerId="
-                + play.getPlayerId()
-                + ", cardIds="
-                + cardIds);
-
+                + play.getPlayerId() + ", cardIds=" + cardIds);
         return playCards(play.getPlayerId(), cardIds);
     }
 
-    /**
-     * Execute a pass action received from bluetooth.
-     */
     public PassResult executeRemotePass(String playerId) {
         System.out.println("[CardGame][BLUETOOTH] executeRemotePass playerId=" + playerId);
         return passTurn(playerId);
     }
 
     public void configureBluetoothPlayerTypes(String localPlayerId, String remotePlayerId) {
-        if (gameState == null || gameState.getPlayers() == null) {
-            return;
-        }
-
+        if (gameState == null || gameState.getPlayers() == null) return;
         for (Player player : gameState.getPlayers()) {
-            if (player == null) {
-                continue;
-            }
-
+            if (player == null) continue;
             if (player.getPlayerId().equals(localPlayerId)) {
                 player.setType(PlayerType.HUMAN);
             } else if (player.getPlayerId().equals(remotePlayerId)) {
@@ -355,54 +307,44 @@ public class GameEngine {
                 player.setType(PlayerType.AI);
             }
         }
-
         System.out.println("[CardGame][BLUETOOTH] Player types configured | local="
                 + localPlayerId + ", remote=" + remotePlayerId);
     }
 
-    /**
-     * Multi-player version: rebuild game state from a map of playerId→handCards.
-     */
     public void rebuildGameStateMulti(Map<String, List<Card>> handsByPlayerId, String currentPlayerId) {
         GameState rebuiltState = new GameState();
-
         List<Player> players = new ArrayList<>();
-
         for (Map.Entry<String, List<Card>> entry : handsByPlayerId.entrySet()) {
             String playerId = entry.getKey();
             List<Card> hand = entry.getValue();
-
             Player player = new Player(playerId, "Player " + playerId);
             player.setHandCards(hand != null ? new ArrayList<>(hand) : new ArrayList<>());
-            player.setType(PlayerType.AI); // 默认AI，后续由 configureBluetoothPlayerTypes 修正
+            player.setType(PlayerType.AI);
             players.add(player);
         }
-
         rebuiltState.setPlayers(players);
         rebuiltState.setCurrentPlayerId(currentPlayerId != null ? currentPlayerId : "P1");
         rebuiltState.setOpeningTurn(false);
         rebuiltState.setGameOver(false);
-
         this.gameState = rebuiltState;
-
+        ensureRuleEngineReady();
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt (multi), playerCount="
                 + players.size() + ", currentPlayerId=" + rebuiltState.getCurrentPlayerId());
     }
 
-    /**
-     * Multi-player version: configure player types from a type map.
-     * Map key=playerId, value=typeName ("HUMAN", "REMOTE", "AI").
-     */
-    public void configureBluetoothPlayerTypesMulti(Map<String, String> typeMap) {
-        if (gameState == null || gameState.getPlayers() == null || typeMap == null) {
-            return;
+    private void ensureRuleEngineReady() {
+        if (ruleConfig == null) {
+            ruleConfig = RuleConfig.SOUTHERN;
         }
+        if (ruleEngine == null) {
+            ruleEngine = new ConfigurableRuleEngine(ruleConfig);
+        }
+    }
 
+    public void configureBluetoothPlayerTypesMulti(Map<String, String> typeMap) {
+        if (gameState == null || gameState.getPlayers() == null || typeMap == null) return;
         for (Player player : gameState.getPlayers()) {
-            if (player == null) {
-                continue;
-            }
-
+            if (player == null) continue;
             String typeName = typeMap.get(player.getPlayerId());
             if (typeName != null) {
                 try {
@@ -414,33 +356,22 @@ public class GameEngine {
                 player.setType(PlayerType.AI);
             }
         }
-
         System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | typeMap=" + typeMap);
     }
 
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {
         if (type == null) return CardPattern.INVALID;
         switch (type) {
-            case SINGLE:
-                return CardPattern.SINGLE;
-            case PAIR:
-                return CardPattern.PAIR;
-            case TRIPLE:
-                return CardPattern.TRIPLE;
-            case QUADRUPLE:
-                return CardPattern.QUADRUPLE;
-            case STRAIGHT:
-                return CardPattern.STRAIGHT;
-            case FLUSH:
-                return CardPattern.FLUSH;
-            case FULL_HOUSE:
-                return CardPattern.FULL_HOUSE;
-            case IRON_BRANCH:
-                return CardPattern.IRON_BRANCH;
-            case STRAIGHT_FLUSH:
-                return CardPattern.STRAIGHT_FLUSH;
-            default:
-                return CardPattern.INVALID;
+            case SINGLE: return CardPattern.SINGLE;
+            case PAIR: return CardPattern.PAIR;
+            case TRIPLE: return CardPattern.TRIPLE;
+            case QUADRUPLE: return CardPattern.QUADRUPLE;
+            case STRAIGHT: return CardPattern.STRAIGHT;
+            case FLUSH: return CardPattern.FLUSH;
+            case FULL_HOUSE: return CardPattern.FULL_HOUSE;
+            case IRON_BRANCH: return CardPattern.IRON_BRANCH;
+            case STRAIGHT_FLUSH: return CardPattern.STRAIGHT_FLUSH;
+            default: return CardPattern.INVALID;
         }
     }
 
@@ -454,9 +385,10 @@ public class GameEngine {
         return CardPattern.INVALID;
     }
 
-    /**
-     * 清空规则引擎缓存（游戏重置时调用）
-     */
+    public List<Card> getAllPlayedCards() {
+        return new ArrayList<>(allPlayedCards);
+    }
+
     public void clearRuleCache() {
         if (ruleEngine != null) {
             ruleEngine.clearCache();

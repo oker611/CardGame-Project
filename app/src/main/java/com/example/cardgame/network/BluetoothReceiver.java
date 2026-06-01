@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BluetoothReceiver {
 
@@ -20,6 +21,8 @@ public class BluetoothReceiver {
 
     private volatile boolean listening;
     private Thread receiveThread;
+
+    private final ConcurrentHashMap<String, Integer> expectedSequences = new ConcurrentHashMap<>();
 
     public BluetoothReceiver(
             InputStream inputStream,
@@ -129,12 +132,39 @@ public class BluetoothReceiver {
                 throw new IOException("Invalid bluetooth message: " + rawJson);
             }
 
+            checkSequenceNumber(message);
+
             if (messageListener != null) {
                 messageListener.onMessageReceived(message);
             }
         } catch (Exception exception) {
             notifyReceiveError(exception);
         }
+    }
+
+    private void checkSequenceNumber(BluetoothMessage message) {
+        String senderId = message.getSenderPlayerId();
+        if (senderId == null) return;
+
+        int seq = message.getSequenceNumber();
+        Integer expected = expectedSequences.get(senderId);
+
+        if (expected == null) {
+            expectedSequences.put(senderId, seq + 1);
+            return;
+        }
+
+        if (seq != expected) {
+            int gap = seq - expected;
+            HermesLog.log("RECV SEQ GAP sender=" + senderId
+                    + " expected=" + expected + " actual=" + seq
+                    + " gap=" + gap + " type=" + message.getMessageType());
+            Log.w("CardGame", "[WARN] [蓝牙] 消息序列号不连续 | sender=" + senderId
+                    + " expected=" + expected + " actual=" + seq
+                    + " gap=" + gap);
+        }
+
+        expectedSequences.put(senderId, seq + 1);
     }
 
     private void notifyReceiveError(Exception exception) {

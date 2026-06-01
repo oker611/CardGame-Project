@@ -1,5 +1,6 @@
 package com.example.cardgame.network;
 
+import com.example.cardgame.network.payload.AckPayload;
 import com.example.cardgame.network.payload.ErrorPayload;
 import com.example.cardgame.network.payload.GameOverPayload;
 import com.example.cardgame.network.payload.InitGamePayload;
@@ -7,6 +8,7 @@ import com.example.cardgame.network.payload.JoinPayload;
 import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
+import com.example.cardgame.network.payload.ReconnectPayload;
 import com.google.gson.Gson;
 
 import java.util.UUID;
@@ -189,8 +191,58 @@ public class BluetoothMessageCodec {
         return gson.fromJson(payloadJson, JoinPayload.class);
     }
 
+    public BluetoothMessage buildAckMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            AckPayload payload
+    ) {
+        return buildMessage(
+                MessageType.ACK,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public AckPayload decodeAckPayload(String payloadJson) {
+        return gson.fromJson(payloadJson, AckPayload.class);
+    }
+
     public PlayerLeftPayload decodePlayerLeftPayload(String payloadJson) {
         return gson.fromJson(payloadJson, PlayerLeftPayload.class);
+    }
+
+    public BluetoothMessage buildReconnectMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            ReconnectPayload payload
+    ) {
+        return buildMessage(
+                MessageType.RECONNECT,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public BluetoothMessage buildReconnectAckMessage(
+            String senderPlayerId,
+            String receiverPlayerId,
+            InitGamePayload payload
+    ) {
+        return buildMessage(
+                MessageType.RECONNECT_ACK,
+                senderPlayerId,
+                receiverPlayerId,
+                gson.toJson(payload),
+                null
+        );
+    }
+
+    public ReconnectPayload decodeReconnectPayload(String payloadJson) {
+        return gson.fromJson(payloadJson, ReconnectPayload.class);
     }
 
     private BluetoothMessage buildMessage(
@@ -208,7 +260,8 @@ public class BluetoothMessageCodec {
                 receiverPlayerId,
                 System.currentTimeMillis(),
                 payloadJson,
-                errorMessage
+                errorMessage,
+                0
         );
     }
 }

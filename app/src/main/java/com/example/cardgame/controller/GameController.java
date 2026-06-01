@@ -40,11 +40,13 @@ import java.util.stream.Collectors;
 public class GameController implements GameActionHandler {
 
     private final GameEngine gameEngine;
+    private RuleConfig ruleConfig;
     private final List<String> selectedCardIds = new ArrayList<>();
 
     private String myPlayerId = "P1";
     private boolean bluetoothMode = false;
     private boolean hostMode = false;
+    private String selectedRuleType = "南方规则";
     private BluetoothActionHandler bluetoothActionHandler;
 
     private AIEventListener aiEventListener;
@@ -57,10 +59,35 @@ public class GameController implements GameActionHandler {
     private List<String> currentHumanActions = new ArrayList<>();
     private Context appContext;
 
-    private final PlayValidator playValidator = new PlayValidator();
+    private PlayValidator playValidator;
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
+
+    public void setSelectedRuleType(String ruleType) {
+        this.selectedRuleType = ruleType != null ? ruleType : "南方规则";
+        this.ruleConfig = resolveRuleConfig();
+        this.playValidator = new PlayValidator(ruleConfig);
+    }
+
+    private RuleConfig ensureRuleConfigReady() {
+        if (ruleConfig == null) {
+            ruleConfig = resolveRuleConfig();
+        }
+        if (playValidator == null) {
+            playValidator = new PlayValidator(ruleConfig);
+        }
+        return ruleConfig;
+    }
+
+    private RuleConfig resolveRuleConfig() {
+        return "北方规则".equals(selectedRuleType)
+                ? RuleConfig.NORTHERN : RuleConfig.SOUTHERN;
+    }
+  
     private static final long NO_PLAY_WAIT_MS = 3000;
     private CountdownUICallback countdownCallback;
+
+    private long lastTriggerTime = 0;
+    private static final long TRIGGER_COOLDOWN_MS = 1000;
 
     public interface CountdownUICallback {
         void showCountdown();
@@ -149,6 +176,9 @@ public class GameController implements GameActionHandler {
 
     @Override
     public void startNewGame() {
+        cleanup();
+        selectedCardIds.clear();
+        lastTriggerTime = 0;
         if (!bluetoothMode) myPlayerId = "P1";
 
         // 清空规则引擎缓存（避免内存堆积）
@@ -163,10 +193,13 @@ public class GameController implements GameActionHandler {
         HermesLog.log("GameController: Reset currentHumanActions for new game, size: " + currentHumanActions.size());
 
         List<Player> players = new ArrayList<>();
-        Player p1 = new Player("P1", "Alice");
-        Player p2 = new Player("P2", "Bob");
-        Player p3 = new Player("P3", "Cindy");
-        Player p4 = new Player("P4", "David");
+        Map<String, String> bluetoothNames = bluetoothMode && bluetoothActionHandler != null
+                ? bluetoothActionHandler.getPlayerNamesById()
+                : new HashMap<>();
+        Player p1 = new Player("P1", playerNameFor("P1", "Alice", bluetoothNames));
+        Player p2 = new Player("P2", playerNameFor("P2", "Bob", bluetoothNames));
+        Player p3 = new Player("P3", playerNameFor("P3", "Cindy", bluetoothNames));
+        Player p4 = new Player("P4", playerNameFor("P4", "David", bluetoothNames));
 
         if (bluetoothMode) {
             p1.setType(PlayerType.AI);
@@ -186,7 +219,9 @@ public class GameController implements GameActionHandler {
 
         for (Player p : players) p.resetConsecutiveNoPlayCount();
 
-        RuleConfig ruleConfig = new RuleConfig();
+        this.ruleConfig = "北方规则".equals(selectedRuleType)
+                ? RuleConfig.NORTHERN : RuleConfig.SOUTHERN;
+        this.playValidator = new PlayValidator(ruleConfig);
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
         // 在 gameEngine.dealCards(); 之后添加
@@ -215,10 +250,14 @@ public class GameController implements GameActionHandler {
                 System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | "
                         + "local=" + myPlayerId + ", remote=" + remoteIds);
             } else {
-                gameEngine.configureBluetoothPlayerTypes(
-                        myPlayerId,
-                        "P1".equals(myPlayerId) ? "P2" : "P1"
-                );
+                // 没有真实远程玩家（纯 AI 局），P1=HUMAN，其余=AI
+                for (Player p : gameEngine.getGameState().getPlayers()) {
+                    if (p.getPlayerId().equals(myPlayerId)) {
+                        p.setType(PlayerType.HUMAN);
+                    } else {
+                        p.setType(PlayerType.AI);
+                    }
+                }
                 System.out.println("[CardGame][BLUETOOTH] Player types configured (legacy) | "
                         + "local=" + myPlayerId);
             }
@@ -256,8 +295,8 @@ public class GameController implements GameActionHandler {
 
     private void initAIEventListener() {
         if (aiEventListener != null) aiEventListener.unregister();
-        
-        // 如果已经有策略实例（比如自适应AI），保留它，不要创建新实例
+
+                // 如果已经有策略实例（比如自适应AI），保留它，不要创建新实例
         // 这样可以保留之前设置的自适应因子
         if (aiStrategy == null) {
             aiStrategy = new MonteCarloAIDecisionStrategy();
@@ -265,9 +304,11 @@ public class GameController implements GameActionHandler {
         } else {
             HermesLog.log("GameController: Reusing existing AI Strategy: " + aiStrategy.getClass().getSimpleName());
         }
-        
-        aiEventListener = new AIEventListener(this, gameEngine, aiStrategy);
-    }
+        // 非蓝牙模式或蓝牙 HOST 模式才运行 AI；CLIENT 端 AI 由网络消息驱动
+        boolean aiHost = !bluetoothMode || hostMode;
+        aiEventListener = new AIEventListener(this, gameEngine, aiStrategy, aiHost);
+        HermesLog.log("GameController: AIEventListener created isHost=" + aiHost);
+   }
 
     public CardTracker getCardTracker() {
         if (aiStrategy instanceof MonteCarloAIDecisionStrategy) {
@@ -375,6 +416,11 @@ public class GameController implements GameActionHandler {
         
         HumanStyleProfile existingProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
         styleAnalyzer.analyzeStyleAsync(myPlayerId, currentHumanActions, existingProfile);
+    }
+
+    private String playerNameFor(String playerId, String fallback, Map<String, String> namesById) {
+        String name = namesById != null ? namesById.get(playerId) : null;
+        return name != null && !name.trim().isEmpty() ? name.trim() : fallback;
     }
 
     // ==================== 接口方法：供 UI 调用（显示字符串） ====================
@@ -530,6 +576,7 @@ public class GameController implements GameActionHandler {
     public GameViewData getGameViewData() {
         GameState state = gameEngine.getGameState();
         if (state == null) return emptyViewData();
+        RuleConfig activeRuleConfig = ensureRuleConfigReady();
         Player currentPlayer = state.getCurrentPlayer();
         Player me = state.getPlayerById(myPlayerId);
         if (currentPlayer == null || me == null) return emptyViewData();
@@ -547,9 +594,14 @@ public class GameController implements GameActionHandler {
 
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
-            int rankCompare = Integer.compare(c2.getRank().getWeight(), c1.getRank().getWeight());
+            // 使用 ruleConfig 中的权重
+            int w1 = activeRuleConfig.rankWeights.get(c1.getRank());
+            int w2 = activeRuleConfig.rankWeights.get(c2.getRank());
+            int rankCompare = Integer.compare(w2, w1);  // 降序
             if (rankCompare != 0) return rankCompare;
-            return Integer.compare(c2.getSuit().getWeight(), c1.getSuit().getWeight());
+            int s1 = activeRuleConfig.suitWeights.get(c1.getSuit());
+            int s2 = activeRuleConfig.suitWeights.get(c2.getSuit());
+            return Integer.compare(s2, s1);  // 降序
         });
         List<String> myHandCards = handCardsList.stream()
                 .map(c -> c.getSuit().getSymbol() + c.getRank().getDisplayName())
@@ -571,16 +623,18 @@ public class GameController implements GameActionHandler {
             }
         }
 
-        return new GameViewData(me.getPlayerId(), me.getPlayerName(), players,
+        String currentPlayerName = currentPlayer.getPlayerName();
+        return new GameViewData(currentPlayer.getPlayerId(), currentPlayerName, players,
                 new ArrayList<>(selectedCardIds), myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",
-                playerLastPlayCards);
+                playerLastPlayCards,
+                gameEngine.getAllPlayedCards());
     }
 
     private GameViewData emptyViewData() {
-        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>());
+        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>(), null);
     }
 
     private List<PlayerViewData> reorderPlayersForSelf(List<PlayerViewData> original, String myPlayerId) {
@@ -688,6 +742,12 @@ public class GameController implements GameActionHandler {
 
     // 注意：如果 GameActionHandler 接口中没有 triggerNextAction，请删除下面的 @Override
     public void triggerNextAction() {
+        long now = System.currentTimeMillis();
+        if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) {
+            return; // 1秒内重复调用则忽略
+        }
+        lastTriggerTime = now;
+
         if (gameEngine.isGameOver() || gameEngine.getGameState() == null) return;
         Player current = gameEngine.getGameState().getCurrentPlayer();
         if (current == null) return;

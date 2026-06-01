@@ -6,7 +6,7 @@ import com.example.cardgame.rule.RuleEngine;
 import java.util.*;
 
 /**
- * 快速模拟器（已支持五张牌型压制）
+ * 快速模拟器（已支持五张牌型压制、对手风格感知）
  */
 public class FastGameSimulator {
 
@@ -58,9 +58,7 @@ public class FastGameSimulator {
         return SimulatedOpponentPolicy.decidePlay(hand, lastPlay, handSize, ruleEngine, aggressiveness, defensive);
     }
 
-    /**
-     * 模拟对手策略 - 提升蒙特卡洛模拟真实度
-     */
+    // ========== 模拟对手策略（包含风格感知） ==========
     private static class SimulatedOpponentPolicy {
 
         public static List<Card> decidePlay(List<Card> hand, Play lastPlay, int handSize,
@@ -191,7 +189,6 @@ public class FastGameSimulator {
             // 如果出的牌中包含2或A，且手牌中还有其他小牌，则视为浪费
             boolean hasHigh = play.stream().anyMatch(c -> 
                     c.getRank() == Rank.TWO || c.getRank() == Rank.ACE);
-            // 使用cardId比较，避免Card对象equals失效问题
             Set<String> playCardIds = new HashSet<>();
             for (Card c : play) {
                 playCardIds.add(c.getCardId());
@@ -277,6 +274,7 @@ public class FastGameSimulator {
         }
     }
 
+    // ========== 辅助方法 ==========
     private List<Card> findHigherFiveCardPattern(List<Card> hand, List<Card> lastPlay) {
         if (hand.size() < 5) return null;
         PatternRecognizer.PatternInfo lastInfo = ruleEngine.recognizePattern(lastPlay);
@@ -351,10 +349,6 @@ public class FastGameSimulator {
         int idx = players.indexOf(p);
         Player next = players.get((idx + 1) % players.size());
         state.setCurrentPlayerId(next.getPlayerId());
-    }
-
-    private int getCardValue(Card card) {
-        return card.getRank().getWeight() * 10 + card.getSuit().getWeight();
     }
 
     private Map<Rank, List<Card>> groupByRank(List<Card> cards) {

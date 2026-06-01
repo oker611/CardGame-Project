@@ -24,6 +24,7 @@ public class GameState {
     public void setLastWinnerId(String lastWinnerId) { this.lastWinnerId = lastWinnerId; }
 
     private Map<String, List<Card>> lastPlayByPlayer = new HashMap<>();
+    private List<Card> allPlayedCards = new ArrayList<>();
 
     public GameState() {
         this.players = new ArrayList<>();
@@ -44,6 +45,7 @@ public class GameState {
         this.gameOver = gameOver;
         this.winnerId = winnerId;
         this.lastPlayByPlayer = new HashMap<>();
+        this.allPlayedCards = new ArrayList<>();
     }
 
     public List<Player> getPlayers() {
@@ -122,6 +124,14 @@ public class GameState {
                 player.setPassed(false);
             }
         }
+    }
+
+    public List<Card> getAllPlayedCards() {
+        return allPlayedCards;
+    }
+
+    public void setAllPlayedCards(List<Card> allPlayedCards) {
+        this.allPlayedCards = allPlayedCards != null ? new ArrayList<>(allPlayedCards) : new ArrayList<>();
     }
 
     public boolean areAllOtherPlayersPassed(String currentPlayerId) {

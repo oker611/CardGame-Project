@@ -23,8 +23,12 @@ public class RulesActivity extends AppCompatActivity {
 
         // 设置规则内容
         TextView tvContent = findViewById(R.id.tv_rules_content);
-        String rules = getString(R.string.rules_text);
-        tvContent.setText(rules);
+        String htmlRules = getString(R.string.rules_text);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            tvContent.setText(android.text.Html.fromHtml(htmlRules, android.text.Html.FROM_HTML_MODE_LEGACY));
+        } else {
+            tvContent.setText(android.text.Html.fromHtml(htmlRules));
+        }
 
         // 返回按钮
         ImageButton btnBack = findViewById(R.id.btn_back_home);

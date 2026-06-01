@@ -5,6 +5,7 @@ import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.rule.PlayValidator;
+import com.example.cardgame.rule.RuleConfig;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -15,14 +16,16 @@ import java.util.stream.Collectors;
 public class AIPlayer {
     private String playerId;
     private List<Card> hand;
+    private final RuleConfig config;
     private PatternRecognizer patternRecognizer;
     private PlayValidator playValidator;
 
     public AIPlayer(String playerId) {
         this.playerId = playerId;
         this.hand = new ArrayList<>();
-        this.patternRecognizer = new PatternRecognizer();
-        this.playValidator = new PlayValidator();
+        this.config = RuleConfig.SOUTHERN;
+        this.patternRecognizer = new PatternRecognizer(config);
+        this.playValidator = new PlayValidator(config);
     }
 
     // 设置手牌（由 GameEngine 发牌时调用）
@@ -50,7 +53,7 @@ public class AIPlayer {
         if (lastPlay == null || lastPlay.isEmpty()) {
             if (isFirstRound && isFirstTurn) {
                 // 首轮首出：必须出包含方块3的牌
-                return findPlayWithDiamondThree();
+                return findPlayForFirstTurn();
             } else {
                 // 非首轮首出：出最小单张（也可改为最小对子，策略自选）
                 return findSmallestSingle();
@@ -102,25 +105,32 @@ public class AIPlayer {
         return smallest == null ? null : Collections.singletonList(smallest);
     }
 
-    /** 寻找包含方块3的出牌（首轮首出专用） */
-    private List<Card> findPlayWithDiamondThree() {
-        // 优先出单张方块3
+    private List<Card> findPlayForFirstTurn() {
+        // 如果配置无首轮限制（如北方规则），直接出最小单张
+        if (config.requiredOpeningRank == null) {
+            return findSmallestSingle();
+        }
+
+        // 优先出单张必出牌
         for (Card c : hand) {
-            if (c.isThreeOfDiamonds()) {
+            if (c.getRank() == config.requiredOpeningRank
+                    && c.getSuit() == config.requiredOpeningSuit) {
                 return Collections.singletonList(c);
             }
         }
-        // 方块3理论上一定会被发到某个玩家手中，但以防万一，找包含方块3的对子
+        // 找包含必出牌的同点数对子
+        Rank requiredRank = config.requiredOpeningRank;
         for (Card c : hand) {
-            if (c.getSuit() == Suit.DIAMONDS && c.getRank() == Rank.THREE) {
+            if (c.getRank() == requiredRank
+                    && c.getSuit() == config.requiredOpeningSuit) {
                 for (Card other : hand) {
-                    if (other != c && other.getRank() == Rank.THREE) {
+                    if (other != c && other.getRank() == requiredRank) {
                         return Arrays.asList(c, other);
                     }
                 }
             }
         }
-        // 兜底：出最小单张（不应发生）
+        // 兜底
         return findSmallestSingle();
     }
 

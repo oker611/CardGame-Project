@@ -17,7 +17,7 @@ public class CandidateGenerator {
     private PhaseManager phaseManager;
     private AIPlayerProfile profile;
 
-    // 原有构造函数保持不变（兼容性）
+    // 原有构造函数（兼容旧调用）
     public CandidateGenerator(RuleEngine ruleEngine, int topK) {
         this(ruleEngine, topK, null, null);
     }

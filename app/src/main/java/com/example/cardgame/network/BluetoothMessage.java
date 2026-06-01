@@ -10,6 +10,7 @@ public class BluetoothMessage {
     private long timestamp;
     private String payloadJson;
     private String errorMessage;
+    private int sequenceNumber;
 
     public BluetoothMessage(
             String messageId,
@@ -19,7 +20,8 @@ public class BluetoothMessage {
             String receiverPlayerId,
             long timestamp,
             String payloadJson,
-            String errorMessage
+            String errorMessage,
+            int sequenceNumber
     ) {
         this.messageId = messageId;
         this.protocolVersion = protocolVersion;
@@ -29,6 +31,7 @@ public class BluetoothMessage {
         this.timestamp = timestamp;
         this.payloadJson = payloadJson;
         this.errorMessage = errorMessage;
+        this.sequenceNumber = sequenceNumber;
     }
 
     public String getMessageId() {
@@ -61,5 +64,13 @@ public class BluetoothMessage {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public int getSequenceNumber() {
+        return sequenceNumber;
+    }
+
+    void setSequenceNumber(int sequenceNumber) {
+        this.sequenceNumber = sequenceNumber;
     }
 }

@@ -17,6 +17,7 @@ public interface GameActionHandler {
     void toggleCardSelection(String cardId);
 
     GameViewData getGameViewData();
+    void setSelectedRuleType(String ruleType);
 
     default void setBluetoothActionHandler(BluetoothActionHandler bluetoothActionHandler) {
         // default no-op

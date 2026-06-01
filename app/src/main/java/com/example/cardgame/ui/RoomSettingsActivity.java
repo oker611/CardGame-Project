@@ -1,16 +1,21 @@
 package com.example.cardgame.ui;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -22,43 +27,78 @@ import com.example.cardgame.util.BluetoothPermissionHelper;
 public class RoomSettingsActivity extends AppCompatActivity {
 
     private static final int REQUEST_BLUETOOTH_PERMISSION = 2001;
-    private static final int REQUEST_ENABLE_BLUETOOTH = 2002;
-    private static final int REQUEST_DISCOVERABLE = 2003;
-    private static final int DISCOVERABLE_DURATION_SECONDS = 300;
+    private static final int DISCOVERABLE_DURATION_SECONDS = 300;   // 添加这一行
 
-    private RadioGroup rgRounds, rgRule, rgPlayStyle;
-    private CheckBox cbCardTracker, cbAntiCheat, cbTimeoutDismiss, cbSwapCards;
+    private RadioGroup rgRule;
+    private CheckBox cbCardTracker, cbSeeThrough, cbPatternHint;
+    private RadioGroup rgAiStrategy;
     private Button btnBack, btnStartBluetooth;
-
     private BluetoothActionHandler bluetoothActionHandler;
-    private boolean waitingDiscoverableResult = false;
+
+    private final ActivityResultLauncher<Intent> enableBluetoothLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    startBluetoothRoomFlow();
+                } else {
+                    Toast.makeText(this, "蓝牙未开启，无法创建房间", Toast.LENGTH_LONG).show();
+                }
+            }
+    );
+
+    private final ActivityResultLauncher<Intent> discoverableLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_CANCELED) {
+                    Toast.makeText(this, "未允许设备被发现，其他玩家可能搜不到房间", Toast.LENGTH_LONG).show();
+                } else {
+                    createBluetoothRoomAndEnterLobby();
+                }
+            }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_room_settings);
-
+        boolean isPractice = getIntent().getBooleanExtra("is_practice", false);
         bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
 
         TextView tvTitle = findViewById(R.id.tv_title);
         Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
         tvTitle.setTypeface(typeface);
 
-        rgRounds = findViewById(R.id.rg_rounds);
+        // 初始化控件
         rgRule = findViewById(R.id.rg_rule);
-        rgPlayStyle = findViewById(R.id.rg_play_style);
         cbCardTracker = findViewById(R.id.cb_card_tracker);
-        cbAntiCheat = findViewById(R.id.cb_anti_cheat);
-        cbTimeoutDismiss = findViewById(R.id.cb_timeout_dismiss);
-        cbSwapCards = findViewById(R.id.cb_swap_cards);
+        cbSeeThrough = findViewById(R.id.cb_see_through);
+        cbPatternHint = findViewById(R.id.cb_pattern_hint);
+        rgAiStrategy = findViewById(R.id.rg_ai_strategy);
+        ImageButton btnAiStrategyHelp = findViewById(R.id.btn_ai_strategy_help);
         btnBack = findViewById(R.id.btn_back_settings);
         btnStartBluetooth = findViewById(R.id.btn_start_bluetooth);
 
         btnBack.setOnClickListener(v -> finish());
+        btnAiStrategyHelp.setOnClickListener(v -> showAiStrategyHelpDialog());
 
-        btnStartBluetooth.setOnClickListener(v -> startBluetoothRoomFlow());
+        if (isPractice) {
+            btnStartBluetooth.setText("开始游戏");
+            btnStartBluetooth.setOnClickListener(v -> startPracticeGame());
+        } else {
+            btnStartBluetooth.setText("开始蓝牙连接");
+            btnStartBluetooth.setOnClickListener(v -> startBluetoothRoomFlow());
+        }
     }
 
+    private void showAiStrategyHelpDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("AI 策略说明")
+                .setMessage("简单：每次出最小牌，适合新手快速熟悉规则。\n\n困难：评估多种出牌可能性，适合中等挑战。\n\n智能：学习你的打法风格并调整策略，越玩越强。\n\n可在房间设置中随时切换，影响本局及后续对局。")
+                .setPositiveButton("知道了", null)
+                .show();
+    }
+
+    @SuppressLint("MissingPermission")
     private void startBluetoothRoomFlow() {
         if (!BluetoothPermissionHelper.isBluetoothAvailable()) {
             Toast.makeText(this, "当前设备不支持蓝牙", Toast.LENGTH_SHORT).show();
@@ -82,10 +122,64 @@ public class RoomSettingsActivity extends AppCompatActivity {
         requestDiscoverableBeforeCreateRoom();
     }
 
+    private void startPracticeGame() {
+        String selectedRule = getSelectedRule();
+        boolean cardTrackerEnabled = cbCardTracker.isChecked();
+        boolean seeThroughEnabled = cbSeeThrough.isChecked();
+        boolean patternHintEnabled = cbPatternHint.isChecked();
+        String aiStrategy = getSelectedAiStrategy();
+
+        // 如果是智能模式，先弹窗询问是否开启智能助手
+        if ("DEFENSIVE".equals(aiStrategy)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("智能助手")
+                    .setMessage("是否开启牌面分析与个人风格分析？")
+                    .setPositiveButton("开启", (dialog, which) -> {
+                        startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                                patternHintEnabled, aiStrategy, true);
+                    })
+                    .setNegativeButton("不开启", (dialog, which) -> {
+                        startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                                patternHintEnabled, aiStrategy, false);
+                    })
+                    .show();
+        } else {
+            startPracticeGameInternal(selectedRule, cardTrackerEnabled, seeThroughEnabled,
+                    patternHintEnabled, aiStrategy, false);
+        }
+    }
+
+    private void startPracticeGameInternal(String selectedRule, boolean cardTrackerEnabled,
+                                           boolean seeThroughEnabled, boolean patternHintEnabled,
+                                           String aiStrategy, boolean enableAIAssistant) {
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.disconnectBluetooth();
+        }
+
+        getSharedPreferences("game_prefs", MODE_PRIVATE)
+                .edit()
+                .putString("game_rule", selectedRule)
+                .putBoolean("prop_card_tracker", cardTrackerEnabled)
+                .putBoolean("prop_see_through", seeThroughEnabled)
+                .putBoolean("prop_pattern_hint", patternHintEnabled)
+                .putString("ai_strategy", aiStrategy)
+                .putBoolean("enable_ai_assistant", enableAIAssistant)
+                .apply();
+
+        Intent intent = new Intent(this, GameActivity.class);
+        intent.putExtra("is_bluetooth_game", false);
+        intent.putExtra("is_host", false);
+        intent.putExtra("local_player_id", "P1");
+        intent.putExtra("rule_type", selectedRule);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
     private void requestEnableBluetooth() {
         try {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
+            enableBluetoothLauncher.launch(enableIntent);
         } catch (Exception e) {
             Toast.makeText(this, "无法打开蓝牙，请到系统设置中手动开启", Toast.LENGTH_LONG).show();
         }
@@ -93,16 +187,10 @@ public class RoomSettingsActivity extends AppCompatActivity {
 
     private void requestDiscoverableBeforeCreateRoom() {
         try {
-            waitingDiscoverableResult = true;
-
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(
-                    BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,
-                    DISCOVERABLE_DURATION_SECONDS
-            );
-            startActivityForResult(discoverableIntent, REQUEST_DISCOVERABLE);
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION_SECONDS);
+            discoverableLauncher.launch(discoverableIntent);
         } catch (Exception e) {
-            waitingDiscoverableResult = false;
             Toast.makeText(this, "无法设置设备可被发现，请检查蓝牙权限", Toast.LENGTH_LONG).show();
         }
     }
@@ -115,62 +203,60 @@ public class RoomSettingsActivity extends AppCompatActivity {
 
         Toast.makeText(this, "正在创建蓝牙房间，等待其他玩家加入...", Toast.LENGTH_SHORT).show();
 
+        String selectedRule = getSelectedRule();
+        boolean cardTrackerEnabled = cbCardTracker.isChecked();
+        boolean seeThroughEnabled = cbSeeThrough.isChecked();
+        boolean patternHintEnabled = cbPatternHint.isChecked();
+        String aiStrategy = getSelectedAiStrategy();
+
+        // 如果是智能模式，先弹窗询问是否开启智能助手
+        if ("DEFENSIVE".equals(aiStrategy)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("智能助手")
+                    .setMessage("是否开启牌面分析与个人风格分析？")
+                    .setPositiveButton("开启", (dialog, which) -> {
+                        createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                                seeThroughEnabled, patternHintEnabled, aiStrategy, true);
+                    })
+                    .setNegativeButton("不开启", (dialog, which) -> {
+                        createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                                seeThroughEnabled, patternHintEnabled, aiStrategy, false);
+                    })
+                    .show();
+        } else {
+            createBluetoothRoomAndEnterLobbyInternal(selectedRule, cardTrackerEnabled,
+                    seeThroughEnabled, patternHintEnabled, aiStrategy, false);
+        }
+    }
+
+    private void createBluetoothRoomAndEnterLobbyInternal(String selectedRule, boolean cardTrackerEnabled,
+                                                          boolean seeThroughEnabled, boolean patternHintEnabled,
+                                                          String aiStrategy, boolean enableAIAssistant) {
+        getSharedPreferences("game_prefs", MODE_PRIVATE)
+                .edit()
+                .putString("game_rule", selectedRule)
+                .putBoolean("prop_card_tracker", cardTrackerEnabled)
+                .putBoolean("prop_see_through", seeThroughEnabled)
+                .putBoolean("prop_pattern_hint", patternHintEnabled)
+                .putString("ai_strategy", aiStrategy)
+                .putBoolean("enable_ai_assistant", enableAIAssistant)
+                .apply();
+
         bluetoothActionHandler.createBluetoothRoom("P1");
 
         Intent intent = new Intent(RoomSettingsActivity.this, RoomLobbyActivity.class);
         intent.putExtra("is_host", true);
         intent.putExtra("local_player_id", "P1");
+        intent.putExtra("rule_type", selectedRule);
         startActivity(intent);
         finish();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String[] permissions,
-                                           int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (BluetoothPermissionHelper.hasHostBluetoothPermissions(this)) {
-                startBluetoothRoomFlow();
-            } else {
-                Toast.makeText(this, "缺少蓝牙权限，无法创建房间", Toast.LENGTH_LONG).show();
-            }
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode,
-                                    int resultCode,
-                                    @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == REQUEST_ENABLE_BLUETOOTH) {
-            if (BluetoothPermissionHelper.isBluetoothEnabled()) {
-                startBluetoothRoomFlow();
-            } else {
-                Toast.makeText(this, "蓝牙未开启，无法创建房间", Toast.LENGTH_LONG).show();
-            }
-            return;
-        }
-
-        if (requestCode == REQUEST_DISCOVERABLE) {
-            waitingDiscoverableResult = false;
-
-            if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(this, "未允许设备被发现，其他玩家可能搜不到房间", Toast.LENGTH_LONG).show();
-                return;
-            }
-
-            createBluetoothRoomAndEnterLobby();
-        }
-    }
-
-    private int getSelectedRounds() {
-        int checkedId = rgRounds.getCheckedRadioButtonId();
-        if (checkedId == R.id.rb_8_rounds) return 8;
-        if (checkedId == R.id.rb_32_rounds) return 32;
-        return 16;
+    private String getSelectedAiStrategy() {
+        int checkedId = rgAiStrategy.getCheckedRadioButtonId();
+        if (checkedId == R.id.rb_ai_aggressive) return "AGGRESSIVE";
+        if (checkedId == R.id.rb_ai_defensive) return "DEFENSIVE";
+        return "NORMAL";
     }
 
     private String getSelectedRule() {
@@ -180,10 +266,18 @@ public class RoomSettingsActivity extends AppCompatActivity {
         return "南方规则";
     }
 
-    private String getSelectedPlayStyle() {
-        int checkedId = rgPlayStyle.getCheckedRadioButtonId();
-        if (checkedId == R.id.rb_soft) return "软锄";
-        if (checkedId == R.id.rb_hard) return "硬锄";
-        return "软锄";
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
+            if (BluetoothPermissionHelper.hasHostBluetoothPermissions(this)) {
+                startBluetoothRoomFlow();
+            } else {
+                Toast.makeText(this, "缺少蓝牙权限，无法创建房间", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }

@@ -10,5 +10,8 @@ public enum MessageType {
     JOIN,
     JOIN_ACK,
     PLAYER_JOINED,
-    PLAYER_LEFT
+    PLAYER_LEFT,
+    ACK,
+    RECONNECT,
+    RECONNECT_ACK
 }

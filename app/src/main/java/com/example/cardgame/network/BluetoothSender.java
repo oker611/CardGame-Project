@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BluetoothSender {
 
@@ -17,6 +18,7 @@ public class BluetoothSender {
     private final BufferedWriter writer;
 
     private volatile boolean active;
+    private final AtomicInteger sequenceCounter = new AtomicInteger(0);
 
     public BluetoothSender(OutputStream outputStream, BluetoothMessageCodec messageCodec) {
         this.outputStream = outputStream;
@@ -30,6 +32,8 @@ public class BluetoothSender {
         if (!active) {
             throw new IOException("BluetoothSender is not active");
         }
+
+        message.setSequenceNumber(sequenceCounter.getAndIncrement());
 
         String rawJson = messageCodec.encode(message);
         sendRaw(rawJson);
@@ -56,7 +60,7 @@ public class BluetoothSender {
         return active;
     }
 
-    public void stop() {
+    public synchronized void stop() {
         active = false;
         try {
             writer.close();

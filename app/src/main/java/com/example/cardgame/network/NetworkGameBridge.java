@@ -3,6 +3,8 @@ package com.example.cardgame.network;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.TurnChangedEvent;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
@@ -100,8 +102,17 @@ public class NetworkGameBridge {
                         new Class[]{GameState.class},
                         syncedState
                 );
-
                 configurePlayerTypes();
+
+                // 完整 GameState 来自 HOST，需要按本机视角重设 PlayerType：
+                // 本机玩家为 HUMAN，其余玩家在客户端都由网络消息驱动。
+
+                // 手动发布 TurnChangedEvent：GameState 已更新但 rebuildGameState 不触发事件，
+                // CLIENT 端 UI 依赖 TurnChangedEvent 来显示/隐藏出牌按钮
+                String currentId = syncedState.getCurrentPlayerId();
+                if (currentId != null) {
+                    EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                }
 
                 HermesLog.log("BRIDGE handleInitGame OK");
                 notifyReceived(MessageType.INIT_GAME, "完整GameState已同步");
@@ -119,6 +130,12 @@ public class NetworkGameBridge {
                 );
 
                 configurePlayerTypes();
+
+                // 手动发布 TurnChangedEvent 通知 UI 当前回合
+                String currentId = payload.getCurrentPlayerId();
+                if (currentId != null) {
+                    EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                }
 
                 notifyReceived(MessageType.INIT_GAME, "多人手牌已同步");
                 return;
@@ -138,6 +155,11 @@ public class NetworkGameBridge {
             );
 
             configurePlayerTypes();
+
+            // 手动发布 TurnChangedEvent 通知 UI 当前回合
+            if (currentPlayerId != null) {
+                EventBus.getInstance().post(new TurnChangedEvent(currentPlayerId, "GAME_START"));
+            }
 
             notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
         } catch (Exception exception) {
@@ -232,8 +254,17 @@ public class NetworkGameBridge {
             Map<String, String> typeMap = new HashMap<>();
             typeMap.put(localPlayerId, PlayerType.HUMAN.name());
 
-            for (String remoteId : remotePlayerIds) {
-                typeMap.put(remoteId, PlayerType.REMOTE.name());
+            GameState state = gameEngine.getGameState();
+            if (state != null && state.getPlayers() != null && !"P1".equals(localPlayerId)) {
+                for (com.example.cardgame.model.Player player : state.getPlayers()) {
+                    if (player != null && !player.getPlayerId().equals(localPlayerId)) {
+                        typeMap.put(player.getPlayerId(), PlayerType.REMOTE.name());
+                    }
+                }
+            } else {
+                for (String remoteId : remotePlayerIds) {
+                    typeMap.put(remoteId, PlayerType.REMOTE.name());
+                }
             }
 
             invokeEngineMethod(

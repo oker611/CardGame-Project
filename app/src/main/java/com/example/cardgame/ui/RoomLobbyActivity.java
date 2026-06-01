@@ -46,8 +46,12 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
     private BluetoothActionHandler bluetoothActionHandler;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean bluetoothSessionClosed = false;
 
     private String localPlayerId = "P1";
+    private String ruleType = "南方规则";
+
+    private TextView tvGlobalStatus;
 
     private final Runnable refreshBluetoothStateRunnable = new Runnable() {
         @Override
@@ -66,6 +70,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
         isHost = getIntent().getBooleanExtra("is_host", false);
         localPlayerId = getIntent().getStringExtra("local_player_id");
+        ruleType = getIntent().getStringExtra("rule_type");
+        if (ruleType == null) ruleType = "南方规则";
         if (localPlayerId == null || localPlayerId.trim().isEmpty()) {
             localPlayerId = isHost ? "P1" : "CLIENT";  // 客户端身份待 HOST 分配
         }
@@ -81,7 +87,10 @@ public class RoomLobbyActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(refreshBluetoothStateRunnable);
+        handler.removeCallbacksAndMessages(null);
+        if (!gameStarted && isFinishing()) {
+            closeBluetoothSessionIfNeeded();
+        }
     }
 
     private void initRoomState() {
@@ -172,14 +181,10 @@ public class RoomLobbyActivity extends AppCompatActivity {
             }
         }
 
-        // ——— 状态文本 ———
+        // ——— 全局状态文本（独立显示） ———
         String statusText = viewData.getStatusText();
-        if (statusText != null && !statusText.isEmpty()) {
-            if (isHost) {
-                tvStatus[0].setText(statusText);
-            } else {
-                tvStatus[1].setText(statusText);
-            }
+        if (statusText != null && !statusText.isEmpty() && tvGlobalStatus != null) {
+            tvGlobalStatus.setText(statusText);
         }
 
         // ——— CLIENT 端：检测 assignedPlayerId ———
@@ -220,6 +225,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
             intent.putExtra("is_bluetooth_game", true);
             intent.putExtra("is_host", false);
             intent.putExtra("local_player_id", localPlayerId);
+            intent.putExtra("rule_type", ruleType);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
             return;
@@ -260,6 +267,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
         btnAddAi = findViewById(R.id.btn_add_ai);
         tvNeedCount = findViewById(R.id.tv_need_count);
         llAiControl = findViewById(R.id.ll_ai_control);
+        tvGlobalStatus = findViewById(R.id.tv_global_status);
 
         playerCards[0] = findViewById(R.id.card_player1);
         playerCards[1] = findViewById(R.id.card_player2);
@@ -288,16 +296,14 @@ public class RoomLobbyActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> leaveRoom());
 
         btnDisconnect.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("断开连接")
                     .setMessage(isHost ? "确定要取消房间吗？" : "确定要断开连接吗？")
                     .setPositiveButton("确定", (dialog, which) -> {
-                        if (bluetoothActionHandler != null) {
-                            bluetoothActionHandler.disconnectBluetooth();
-                        }
+                        closeBluetoothSessionIfNeeded();
 
                         Intent intent = new Intent(RoomLobbyActivity.this, RoomSelectionActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -316,7 +322,6 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
             if (currentPlayerCount == MAX_PLAYERS) {
                 gameStarted = true;
-
                 handler.removeCallbacks(refreshBluetoothStateRunnable);
 
                 boolean hasRealRemotePlayer = hasRealRemotePlayer();
@@ -328,33 +333,26 @@ public class RoomLobbyActivity extends AppCompatActivity {
                     System.out.println("[Hermes][LOBBY] FIX: ViewData.connected=false but gateway has clients, overriding");
                 }
 
-                // 诊断日志
                 System.out.println("[Hermes][LOBBY] startGame clicked | hasRealRemote="
                         + hasRealRemotePlayer
                         + " | connected=" + (bluetoothActionHandler != null
-                            ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")
+                        ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")
                         + " | playerCount=" + currentPlayerCount);
 
                 Intent intent = new Intent(RoomLobbyActivity.this, GameActivity.class);
+                    
+                // 修改点：房主始终使用蓝牙模式（道具设置来自房间配置）
+                intent.putExtra("is_bluetooth_game", true);
+                intent.putExtra("is_host", true);
+                intent.putExtra("local_player_id", "P1");
+                intent.putExtra("rule_type", ruleType);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
                 if (hasRealRemotePlayer) {
-                    // HOST + 客户端(们) + AI：蓝牙对局
-                    intent.putExtra("is_bluetooth_game", true);
-                    intent.putExtra("is_host", true);
-                    intent.putExtra("local_player_id", "P1");
-
                     Toast.makeText(this, "蓝牙对局（4人）开始", Toast.LENGTH_SHORT).show();
                 } else {
-                    // HOST + 3AI：本地 AI 对局
-                    if (bluetoothActionHandler != null) {
-                        bluetoothActionHandler.disconnectBluetooth();
-                    }
-
-                    intent.putExtra("is_bluetooth_game", false);
-                    intent.putExtra("is_host", false);
-                    intent.putExtra("local_player_id", "P1");
-
-                    Toast.makeText(this, "本地 AI 对局开始", Toast.LENGTH_SHORT).show();
+                    // 即使没有真实客户端，也以蓝牙模式启动（AI 补齐，道具设置生效）
+                    Toast.makeText(this, "蓝牙房间（AI 补齐）开始", Toast.LENGTH_SHORT).show();
                 }
 
                 startActivity(intent);
@@ -365,6 +363,26 @@ public class RoomLobbyActivity extends AppCompatActivity {
         });
 
         btnAddAi.setOnClickListener(v -> addAiPlayer());
+    }
+
+    @Override
+    public void onBackPressed() {
+        leaveRoom();
+    }
+
+    private void leaveRoom() {
+        closeBluetoothSessionIfNeeded();
+        finish();
+    }
+
+    private void closeBluetoothSessionIfNeeded() {
+        if (bluetoothSessionClosed) {
+            return;
+        }
+        bluetoothSessionClosed = true;
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.disconnectBluetooth();
+        }
     }
 
     private void addAiPlayer() {
