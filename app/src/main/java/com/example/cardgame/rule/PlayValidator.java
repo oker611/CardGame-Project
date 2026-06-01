@@ -71,15 +71,26 @@ public class PlayValidator {
         if (lastInfo.getType() == PatternType.INVALID) {
             return new ValidationResult(false, "上家牌型无效");
         }
+        
+        // 调试日志
+        System.out.println("[PlayValidator] 牌型比较：当前牌型=" + currentInfo.getType() + 
+                "(优先级=" + getFiveCardPriority(currentInfo.getType()) + "), " +
+                "上家牌型=" + lastInfo.getType() + 
+                "(优先级=" + getFiveCardPriority(lastInfo.getType()) + ")");
+        
         if (currentInfo.getType() != lastInfo.getType()) {
             if (isFiveCardPattern(currentInfo.getType()) && isFiveCardPattern(lastInfo.getType())) {
-                if (getFiveCardPriority(currentInfo.getType()) > getFiveCardPriority(lastInfo.getType())) {
+                int currentPriority = getFiveCardPriority(currentInfo.getType());
+                int lastPriority = getFiveCardPriority(lastInfo.getType());
+                System.out.println("[PlayValidator] 五张牌型比较：当前优先级=" + currentPriority + ", 上家优先级=" + lastPriority);
+                
+                if (currentPriority > lastPriority) {
                     return new ValidationResult(true, "高级牌型压制");
                 } else {
-                    return new ValidationResult(false, "牌型优先级不足以压制上家");
+                    return new ValidationResult(false, "牌型优先级不足以压制上家（当前优先级=" + currentPriority + ", 上家=" + lastPriority + "）");
                 }
             }
-            return new ValidationResult(false, "必须出与上家相同的牌型");
+            return new ValidationResult(false, "必须出与上家相同的牌型（当前=" + currentInfo.getType() + ", 上家=" + lastInfo.getType() + "）");
         }
 
         // 7. 同牌型比较大小

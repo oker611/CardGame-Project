@@ -135,7 +135,19 @@ public class HumanStyleAnalyzer {
                 
             } catch (Exception e) {
                 Log.e(TAG, "[ERROR] Exception during analysis: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
+                
                 if (!Thread.currentThread().isInterrupted()) {
+                    // LLM 失败，使用本地规则 fallback 分析
+                    Log.w(TAG, "[FALLBACK] LLM failed, using local fallback analysis");
+                    HumanStyleProfile fallbackProfile = analyzeLocally(playerId, playHistory, existingProfile);
+                    if (fallbackProfile != null) {
+                        Log.d(TAG, "[FALLBACK] Local analysis result: " + fallbackProfile.getStyleLabel());
+                        notifyComplete(fallbackProfile);
+                        Log.d(TAG, "=== analyzeStyleAsync COMPLETED WITH FALLBACK ===");
+                        return;
+                    }
+                    
+                    // Fallback 也失败，通知错误
                     notifyFailed(e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
                 Log.d(TAG, "=== analyzeStyleAsync FAILED ===");
@@ -242,11 +254,112 @@ public class HumanStyleAnalyzer {
         }
 
         profile.incrementGamesAnalyzed();
-        Log.d(TAG, "parseLLMResponse() - Final profile: style=" + profile.getStyleLabel() + 
+        Log.d(TAG, "parseLLMResponse() - Final profile: style=" + profile.getStyleLabel() +
               ", aggressiveness=" + profile.getAggressivenessScore() +
               ", conservativeness=" + profile.getConservativenessScore() +
               ", gamesAnalyzed=" + profile.getGamesAnalyzed());
-        
+
+        return profile;
+    }
+
+    /**
+     * 本地规则 fallback 分析（当 LLM 不可用时）
+     * 根据人类玩家历史出牌数据简单判断风格
+     *
+     * 规则：
+     * - 出单张频率 > 60% → 保守（谨慎出牌）
+     * - 出组合牌频率 > 40% → 激进（喜欢抢夺牌权）
+     * - 出大牌（J及以上）频率 > 50% → 激进
+     * - 出小牌（9及以下）频率 > 60% → 保守
+     * - 无法判断 → 均衡
+     */
+    private HumanStyleProfile analyzeLocally(String playerId, List<String> playHistory, HumanStyleProfile existing) {
+        Log.d(TAG, "[FALLBACK] analyzeLocally() - analyzing " + (playHistory != null ? playHistory.size() : 0) + " plays");
+
+        if (playHistory == null || playHistory.isEmpty()) {
+            Log.d(TAG, "[FALLBACK] No play history available for local analysis");
+            return null;
+        }
+
+        int totalPlays = playHistory.size();
+        int singleCardPlays = 0;      // 单张出牌次数
+        int combinationPlays = 0;    // 组合牌出牌次数（对子、顺子、三带等）
+        int bigCardPlays = 0;         // 出大牌次数（J及以上）
+        int smallCardPlays = 0;       // 出小牌次数（9及以下）
+
+        for (String play : playHistory) {
+            if (play == null || play.isEmpty()) continue;
+
+            // 检测是否为组合牌（包含多个逗号分隔的牌）
+            if (play.contains(",")) {
+                combinationPlays++;
+            } else {
+                singleCardPlays++;
+            }
+
+            // 检测大牌/小牌（根据牌面值判断）
+            // 格式如：♠A, ♥K, ♦Q, ♣J 或 SPADES|ACE 等
+            String upper = play.toUpperCase();
+            if (upper.contains("A") || upper.contains("K") || upper.contains("Q") || upper.contains("J")) {
+                bigCardPlays++;
+            } else if (upper.contains("6") || upper.contains("7") || upper.contains("8") || upper.contains("9")) {
+                smallCardPlays++;
+            }
+        }
+
+        double singleRatio = (double) singleCardPlays / totalPlays;
+        double comboRatio = (double) combinationPlays / totalPlays;
+        double bigCardRatio = (double) bigCardPlays / totalPlays;
+        double smallCardRatio = (double) smallCardPlays / totalPlays;
+
+        Log.d(TAG, "[FALLBACK] Stats - singleRatio=" + String.format("%.2f", singleRatio) +
+              ", comboRatio=" + String.format("%.2f", comboRatio) +
+              ", bigCardRatio=" + String.format("%.2f", bigCardRatio) +
+              ", smallCardRatio=" + String.format("%.2f", smallCardRatio));
+
+        HumanStyleProfile profile = existing != null ? existing : new HumanStyleProfile(playerId);
+        profile.setPlayerId(playerId);
+
+        // 综合判断风格
+        int aggressiveScore = 0;
+        int conservativeScore = 0;
+
+        if (comboRatio > 0.4) {
+            aggressiveScore += 2;  // 喜欢出组合牌 → 激进
+        } else if (singleRatio > 0.6) {
+            conservativeScore += 2; // 总是出单张 → 保守
+        }
+
+        if (bigCardRatio > 0.5) {
+            aggressiveScore += 1;   // 经常出大牌 → 激进
+        } else if (smallCardRatio > 0.6) {
+            conservativeScore += 1; // 经常出小牌 → 保守
+        }
+
+        // 特殊检测：出单张但总是跟最小牌
+        if (singleRatio > 0.8 && smallCardRatio > 0.7) {
+            conservativeScore += 2; // 几乎只出小单张 → 非常保守
+        }
+
+        Log.d(TAG, "[FALLBACK] Scores - aggressive=" + aggressiveScore + ", conservative=" + conservativeScore);
+
+        if (aggressiveScore > conservativeScore) {
+            profile.setStyleLabel(HumanStyleProfile.STYLE_AGGRESSIVE);
+            profile.setAggressivenessScore(0.7);
+            profile.setConservativenessScore(0.3);
+        } else if (conservativeScore > aggressiveScore) {
+            profile.setStyleLabel(HumanStyleProfile.STYLE_CONSERVATIVE);
+            profile.setAggressivenessScore(0.3);
+            profile.setConservativenessScore(0.7);
+        } else {
+            profile.setStyleLabel(HumanStyleProfile.STYLE_BALANCED);
+            profile.setAggressivenessScore(0.5);
+            profile.setConservativenessScore(0.5);
+        }
+
+        profile.incrementGamesAnalyzed();
+        Log.d(TAG, "[FALLBACK] Local analysis result: " + profile.getStyleLabel());
+
         return profile;
     }
 

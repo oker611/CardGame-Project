@@ -47,17 +47,21 @@ public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
         double defenseFactor = 1.0;
 
         if (humanStyleProfile.isAggressive()) {
-            aggressivenessFactor = 0.6;
-            defenseFactor = 1.5;
-        } else if (humanStyleProfile.isConservative()) {
-            aggressivenessFactor = 1.5;
-            defenseFactor = 0.6;
-        } else if (humanStyleProfile.isBluffer()) {
+            // 激进玩家 → AI主动进攻，大胆出牌
             aggressivenessFactor = 1.2;
-            defenseFactor = 1.2;
+            defenseFactor = 0.8;
+        } else if (humanStyleProfile.isConservative()) {
+            // 保守玩家 → AI疯狂进攻，尽快出完
+            aggressivenessFactor = 1.5;
+            defenseFactor = 0.5;
+        } else if (humanStyleProfile.isBluffer()) {
+            // 诈唬玩家 → AI保持高压态势
+            aggressivenessFactor = 1.3;
+            defenseFactor = 0.7;
         } else {
-            aggressivenessFactor = 1.0;
-            defenseFactor = 1.0;
+            // 均衡玩家 → AI略微倾向进攻
+            aggressivenessFactor = 1.1;
+            defenseFactor = 0.9;
         }
 
         monteCarloStrategy.setAggressivenessFactor(aggressivenessFactor);

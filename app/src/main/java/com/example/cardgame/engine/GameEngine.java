@@ -453,4 +453,13 @@ public class GameEngine {
         if (size == 4 && sameRank(cards)) return CardPattern.QUADRUPLE;
         return CardPattern.INVALID;
     }
+
+    /**
+     * 清空规则引擎缓存（游戏重置时调用）
+     */
+    public void clearRuleCache() {
+        if (ruleEngine != null) {
+            ruleEngine.clearCache();
+        }
+    }
 }

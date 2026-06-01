@@ -35,7 +35,19 @@ public class CandidateGenerator {
     public void setProfile(AIPlayerProfile profile) { this.profile = profile; }
 
     public List<Play> generate(List<Card> hand, Play lastPlay, boolean isFirstRound, boolean isFirstTurn) {
-        List<Play> allLegal = getAllLegalPlays(hand, lastPlay, isFirstRound, isFirstTurn);
+        // ===== 牌型前置过滤 =====
+        // 当上家出牌后，只生成符合牌型要求的候选
+        PatternRecognizer.PatternType requiredType = null;
+        boolean needFilterByPattern = false;
+        
+        if (lastPlay != null && !lastPlay.isEmpty()) {
+            PatternRecognizer.PatternInfo lastInfo = ruleEngine.recognizePattern(lastPlay.getCards());
+            requiredType = lastInfo.getType();
+            needFilterByPattern = true;
+            System.out.println("[CandidateGenerator] 上家牌型: " + requiredType + "，将按此牌型过滤候选");
+        }
+        
+        List<Play> allLegal = getAllLegalPlays(hand, lastPlay, isFirstRound, isFirstTurn, requiredType, needFilterByPattern);
         if (allLegal.isEmpty()) return Collections.emptyList();
 
         // ===== 保牌型过滤 =====
@@ -63,25 +75,63 @@ public class CandidateGenerator {
         return allLegal.size() <= topK ? allLegal : allLegal.subList(0, topK);
     }
 
-    private List<Play> getAllLegalPlays(List<Card> hand, Play lastPlay, boolean isFirstRound, boolean isFirstTurn) {
+    private List<Play> getAllLegalPlays(List<Card> hand, Play lastPlay, boolean isFirstRound, 
+                                         boolean isFirstTurn, PatternRecognizer.PatternType requiredType, 
+                                         boolean needFilterByPattern) {
         List<Play> result = new ArrayList<>();
 
         // 生成所有可能的组合（简化：单张、对子、三张、四张、五张牌型）
         List<List<Card>> allCombinations = new ArrayList<>();
-        // 单张
-        for (Card c : hand) allCombinations.add(Collections.singletonList(c));
-        // 对子、三张、四张（相同点数）
-        Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
-        for (List<Card> sameRank : rankMap.values()) {
-            if (sameRank.size() >= 2) {
-                allCombinations.add(sameRank.subList(0, 2));
-                if (sameRank.size() >= 3) allCombinations.add(sameRank.subList(0, 3));
-                if (sameRank.size() >= 4) allCombinations.add(sameRank.subList(0, 4));
+        
+        // ===== 牌型前置过滤：根据上家牌型决定生成哪些类型 =====
+        if (needFilterByPattern && requiredType != null) {
+            // 根据上家牌型，只生成符合要求的牌型
+            switch (requiredType) {
+                case SINGLE:
+                    // 上家出单张，只能出单张或万能牌型
+                    for (Card c : hand) allCombinations.add(Collections.singletonList(c));
+                    // 万能牌型：四张相同或同花顺
+                    addWildcardPatterns(hand, allCombinations);
+                    break;
+                case PAIR:
+                    // 上家出对子，只能出对子或万能牌型
+                    Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+                    for (List<Card> sameRank : rankMap.values()) {
+                        if (sameRank.size() >= 2) {
+                            allCombinations.add(sameRank.subList(0, 2));
+                        }
+                    }
+                    // 万能牌型：四张相同或同花顺
+                    addWildcardPatterns(hand, allCombinations);
+                    break;
+                case TRIPLE:
+                    // 上家出三张，只能出三张或万能牌型
+                    Map<Rank, List<Card>> rankMapTriple = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+                    for (List<Card> sameRank : rankMapTriple.values()) {
+                        if (sameRank.size() >= 3) {
+                            allCombinations.add(sameRank.subList(0, 3));
+                        }
+                    }
+                    // 万能牌型：四张相同或同花顺
+                    addWildcardPatterns(hand, allCombinations);
+                    break;
+                case STRAIGHT:
+                case FLUSH:
+                case FULL_HOUSE:
+                case IRON_BRANCH:
+                case STRAIGHT_FLUSH:
+                    // 上家出五张牌型，只能出五张牌型
+                    if (hand.size() >= 5) {
+                        generateCombinations(hand, 5, 0, new ArrayList<>(), allCombinations);
+                    }
+                    break;
+                default:
+                    // 未知牌型，生成所有组合
+                    generateAllCombinations(hand, allCombinations);
             }
-        }
-        // 五张牌型（简单组合枚举）
-        if (hand.size() >= 5) {
-            generateCombinations(hand, 5, 0, new ArrayList<>(), allCombinations);
+        } else {
+            // 没有上家出牌或需要过滤，生成所有组合
+            generateAllCombinations(hand, allCombinations);
         }
 
         List<Card> lastPlayCards = (lastPlay == null) ? null : lastPlay.getCards();
@@ -101,6 +151,44 @@ public class CandidateGenerator {
         }
 
         return result;
+    }
+    
+    /**
+     * 生成所有可能的牌型组合（不进行牌型过滤）
+     */
+    private void generateAllCombinations(List<Card> hand, List<List<Card>> allCombinations) {
+        // 单张
+        for (Card c : hand) allCombinations.add(Collections.singletonList(c));
+        // 对子、三张、四张（相同点数）
+        Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+        for (List<Card> sameRank : rankMap.values()) {
+            if (sameRank.size() >= 2) {
+                allCombinations.add(sameRank.subList(0, 2));
+                if (sameRank.size() >= 3) allCombinations.add(sameRank.subList(0, 3));
+                if (sameRank.size() >= 4) allCombinations.add(sameRank.subList(0, 4));
+            }
+        }
+        // 五张牌型（简单组合枚举）
+        if (hand.size() >= 5) {
+            generateCombinations(hand, 5, 0, new ArrayList<>(), allCombinations);
+        }
+    }
+    
+    /**
+     * 添加万能牌型（炸弹/同花顺）
+     */
+    private void addWildcardPatterns(List<Card> hand, List<List<Card>> allCombinations) {
+        // 四张相同（炸弹）
+        Map<Rank, List<Card>> rankMap = hand.stream().collect(Collectors.groupingBy(Card::getRank));
+        for (List<Card> sameRank : rankMap.values()) {
+            if (sameRank.size() >= 4) {
+                allCombinations.add(sameRank.subList(0, 4));
+            }
+        }
+        // 同花顺（五张同花色顺子）
+        if (hand.size() >= 5) {
+            generateCombinations(hand, 5, 0, new ArrayList<>(), allCombinations);
+        }
     }
 
     private double heuristicScore(List<Card> hand, Play play) {

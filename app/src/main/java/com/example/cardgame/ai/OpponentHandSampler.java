@@ -3,6 +3,7 @@ package com.example.cardgame.ai;
 import com.example.cardgame.model.*;
 import com.example.cardgame.util.CardTracker;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class OpponentHandSampler {
 
@@ -36,16 +37,56 @@ public class OpponentHandSampler {
 
         Random rng = new Random();
         for (int s = 0; s < numSamples; s++) {
-            Collections.shuffle(remaining, rng);
+            // 使用概率加权随机采样
+            List<Card> sampled = weightedSampleWithoutReplacement(remaining, 
+                    opponentCounts[0] + opponentCounts[1] + opponentCounts[2], cardTracker, rng);
+            
             int pos = 0;
-            List<Card> opp1 = new ArrayList<>(remaining.subList(pos, pos + opponentCounts[0]));
+            List<Card> opp1 = new ArrayList<>(sampled.subList(pos, pos + opponentCounts[0]));
             pos += opponentCounts[0];
-            List<Card> opp2 = new ArrayList<>(remaining.subList(pos, pos + opponentCounts[1]));
+            List<Card> opp2 = new ArrayList<>(sampled.subList(pos, pos + opponentCounts[1]));
             pos += opponentCounts[1];
-            List<Card> opp3 = new ArrayList<>(remaining.subList(pos, remaining.size()));
+            List<Card> opp3 = new ArrayList<>(sampled.subList(pos, sampled.size()));
             worlds.add(new World(opp1, opp2, opp3));
         }
         return worlds;
+    }
+
+    /**
+     * ========== 概率加权采样（不放回）==========
+     * 根据剩余概率加权，让采样更符合真实分布
+     */
+    private List<Card> weightedSampleWithoutReplacement(List<Card> pool, int count, 
+                                                        CardTracker cardTracker, Random rng) {
+        List<Card> result = new ArrayList<>();
+        List<Card> remaining = new ArrayList<>(pool);
+        
+        for (int i = 0; i < count && !remaining.isEmpty(); i++) {
+            // 计算每个牌的权重（基于剩余概率）
+            double[] weights = new double[remaining.size()];
+            double totalWeight = 0;
+            for (int j = 0; j < remaining.size(); j++) {
+                double prob = cardTracker.getRemainingProbability(remaining.get(j));
+                weights[j] = Math.max(prob, 0.01); // 最低权重避免零概率
+                totalWeight += weights[j];
+            }
+            
+            // 轮盘赌选择
+            double r = rng.nextDouble() * totalWeight;
+            double cumulative = 0;
+            int selectedIdx = 0;
+            for (int j = 0; j < weights.length; j++) {
+                cumulative += weights[j];
+                if (r <= cumulative) {
+                    selectedIdx = j;
+                    break;
+                }
+            }
+            
+            result.add(remaining.remove(selectedIdx));
+        }
+        
+        return result;
     }
 
     private Set<Card> getAllCards() {

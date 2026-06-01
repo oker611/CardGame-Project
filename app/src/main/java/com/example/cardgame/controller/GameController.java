@@ -150,6 +150,10 @@ public class GameController implements GameActionHandler {
     @Override
     public void startNewGame() {
         if (!bluetoothMode) myPlayerId = "P1";
+
+        // 清空规则引擎缓存（避免内存堆积）
+        gameEngine.clearRuleCache();
+        HermesLog.log("GameController: Cleared rule engine cache for new game");
         
         if (currentHumanActions == null) {
             currentHumanActions = new ArrayList<>();
@@ -252,9 +256,17 @@ public class GameController implements GameActionHandler {
 
     private void initAIEventListener() {
         if (aiEventListener != null) aiEventListener.unregister();
-        aiStrategy = new MonteCarloAIDecisionStrategy();
+        
+        // 如果已经有策略实例（比如自适应AI），保留它，不要创建新实例
+        // 这样可以保留之前设置的自适应因子
+        if (aiStrategy == null) {
+            aiStrategy = new MonteCarloAIDecisionStrategy();
+            HermesLog.log("GameController: MonteCarlo AI Strategy initialized");
+        } else {
+            HermesLog.log("GameController: Reusing existing AI Strategy: " + aiStrategy.getClass().getSimpleName());
+        }
+        
         aiEventListener = new AIEventListener(this, gameEngine, aiStrategy);
-        HermesLog.log("GameController: MonteCarlo AI Strategy initialized");
     }
 
     public CardTracker getCardTracker() {
@@ -464,6 +476,13 @@ public class GameController implements GameActionHandler {
         System.out.println("[CardGame][AI] aiPlayCards result: success=" + result.isSuccess() + ", message=" + result.getMessage());
         if (!result.isSuccess()) {
             System.out.println("[CardGame][AI] aiPlayCards FAILED: " + result.getMessage());
+            // 出牌失败，自动过牌
+            gameEngine.passTurn(currentPlayer.getPlayerId());
+            System.out.println("[CardGame][AI] AI " + currentPlayer.getPlayerId() + " passed after failed play");
+            
+            if (!gameEngine.isGameOver()) {
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+            }
         }
         if (result.isSuccess()) {
             recordPlayToTracker(currentPlayer.getPlayerId(), cards);
