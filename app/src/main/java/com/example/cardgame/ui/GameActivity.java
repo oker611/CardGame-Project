@@ -80,6 +80,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private boolean isBluetoothGame = false;
     private boolean isHost = false;
     private String localPlayerId = "P1";
+    private boolean bluetoothSessionClosed = false;
     private final Handler bluetoothRefreshHandler = new Handler(Looper.getMainLooper());
     // 倒计时 UI 控件
     private TextView tvCountdown;
@@ -309,6 +310,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         super.onDestroy();
         EventBus.getInstance().unregister(this);
         bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+        if (isFinishing()) {
+            closeBluetoothSessionIfNeeded();
+        }
     }
 
     @Override
@@ -322,6 +326,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 .setMessage("Current match is still running.")
                 .setPositiveButton("Exit", (dialog, which) -> {
                     bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+                    closeBluetoothSessionIfNeeded();
 
                     Intent intent = new Intent(GameActivity.this, MainActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -800,8 +805,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
     private void sortHandByRule(List<String> hand) {
         // 获取 ruleConfig 中的权重映射
-        Map<Rank, Integer> rankWeights = ruleConfig.rankWeights;
-        Map<Suit, Integer> suitWeights = ruleConfig.suitWeights;
+        RuleConfig activeRuleConfig = ensureRuleConfigReady();
+        Map<Rank, Integer> rankWeights = activeRuleConfig.rankWeights;
+        Map<Suit, Integer> suitWeights = activeRuleConfig.suitWeights;
 
         // 辅助方法：将显示字符串转为 Rank 和 Suit
         hand.sort((card1, card2) -> {
@@ -824,6 +830,13 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             int s2 = suitWeights.get(suit2);
             return Integer.compare(s2, s1);  // 降序
         });
+    }
+
+    private RuleConfig ensureRuleConfigReady() {
+        if (ruleConfig == null) {
+            ruleConfig = RuleConfig.SOUTHERN;
+        }
+        return ruleConfig;
     }
 
     // 辅助转换方法
@@ -1035,7 +1048,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
         if (selectedCards.isEmpty()) return;
 
-        com.example.cardgame.rule.PatternRecognizer recognizer = new com.example.cardgame.rule.PatternRecognizer(ruleConfig);
+        com.example.cardgame.rule.PatternRecognizer recognizer =
+                new com.example.cardgame.rule.PatternRecognizer(ensureRuleConfigReady());
         PatternRecognizer.PatternInfo info = recognizer.recognizePattern(selectedCards);
         if (info.getType() == PatternRecognizer.PatternType.INVALID) return;
 
@@ -1198,6 +1212,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         btnBackHome.setOnClickListener(v -> {
             dialog.dismiss();
             bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+            closeBluetoothSessionIfNeeded();
             Intent intent = new Intent(GameActivity.this, MainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(intent);
@@ -1205,6 +1220,16 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         });
 
         dialog.show();
+    }
+
+    private void closeBluetoothSessionIfNeeded() {
+        if (!isBluetoothGame || bluetoothSessionClosed) {
+            return;
+        }
+        bluetoothSessionClosed = true;
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.disconnectBluetooth();
+        }
     }
 
     private void showStyleAnalysisDialog() {

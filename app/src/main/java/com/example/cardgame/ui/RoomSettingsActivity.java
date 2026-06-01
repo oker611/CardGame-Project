@@ -152,6 +152,10 @@ public class RoomSettingsActivity extends AppCompatActivity {
     private void startPracticeGameInternal(String selectedRule, boolean cardTrackerEnabled,
                                            boolean seeThroughEnabled, boolean patternHintEnabled,
                                            String aiStrategy, boolean enableAIAssistant) {
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.disconnectBluetooth();
+        }
+
         getSharedPreferences("game_prefs", MODE_PRIVATE)
                 .edit()
                 .putString("game_rule", selectedRule)

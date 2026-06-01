@@ -46,6 +46,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
     private BluetoothActionHandler bluetoothActionHandler;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean bluetoothSessionClosed = false;
 
     private String localPlayerId = "P1";
     private String ruleType = "南方规则";
@@ -87,6 +88,9 @@ public class RoomLobbyActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacksAndMessages(null);
+        if (!gameStarted && isFinishing()) {
+            closeBluetoothSessionIfNeeded();
+        }
     }
 
     private void initRoomState() {
@@ -292,16 +296,14 @@ public class RoomLobbyActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> leaveRoom());
 
         btnDisconnect.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("断开连接")
                     .setMessage(isHost ? "确定要取消房间吗？" : "确定要断开连接吗？")
                     .setPositiveButton("确定", (dialog, which) -> {
-                        if (bluetoothActionHandler != null) {
-                            bluetoothActionHandler.disconnectBluetooth();
-                        }
+                        closeBluetoothSessionIfNeeded();
 
                         Intent intent = new Intent(RoomLobbyActivity.this, RoomSelectionActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -361,6 +363,26 @@ public class RoomLobbyActivity extends AppCompatActivity {
         });
 
         btnAddAi.setOnClickListener(v -> addAiPlayer());
+    }
+
+    @Override
+    public void onBackPressed() {
+        leaveRoom();
+    }
+
+    private void leaveRoom() {
+        closeBluetoothSessionIfNeeded();
+        finish();
+    }
+
+    private void closeBluetoothSessionIfNeeded() {
+        if (bluetoothSessionClosed) {
+            return;
+        }
+        bluetoothSessionClosed = true;
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.disconnectBluetooth();
+        }
     }
 
     private void addAiPlayer() {

@@ -49,7 +49,25 @@ public class GameController implements GameActionHandler {
     private PlayValidator playValidator;
     public void setSelectedRuleType(String ruleType) {
         this.selectedRuleType = ruleType != null ? ruleType : "南方规则";
+        this.ruleConfig = resolveRuleConfig();
+        this.playValidator = new PlayValidator(ruleConfig);
     }
+
+    private RuleConfig ensureRuleConfigReady() {
+        if (ruleConfig == null) {
+            ruleConfig = resolveRuleConfig();
+        }
+        if (playValidator == null) {
+            playValidator = new PlayValidator(ruleConfig);
+        }
+        return ruleConfig;
+    }
+
+    private RuleConfig resolveRuleConfig() {
+        return "北方规则".equals(selectedRuleType)
+                ? RuleConfig.NORTHERN : RuleConfig.SOUTHERN;
+    }
+
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
     private static final long NO_PLAY_WAIT_MS = 3000;
     private CountdownUICallback countdownCallback;
@@ -376,6 +394,7 @@ public class GameController implements GameActionHandler {
     public GameViewData getGameViewData() {
         GameState state = gameEngine.getGameState();
         if (state == null) return emptyViewData();
+        RuleConfig activeRuleConfig = ensureRuleConfigReady();
         Player currentPlayer = state.getCurrentPlayer();
         Player me = state.getPlayerById(myPlayerId);
         if (currentPlayer == null || me == null) return emptyViewData();
@@ -394,12 +413,12 @@ public class GameController implements GameActionHandler {
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
         handCardsList.sort((c1, c2) -> {
             // 使用 ruleConfig 中的权重
-            int w1 = ruleConfig.rankWeights.get(c1.getRank());
-            int w2 = ruleConfig.rankWeights.get(c2.getRank());
+            int w1 = activeRuleConfig.rankWeights.get(c1.getRank());
+            int w2 = activeRuleConfig.rankWeights.get(c2.getRank());
             int rankCompare = Integer.compare(w2, w1);  // 降序
             if (rankCompare != 0) return rankCompare;
-            int s1 = ruleConfig.suitWeights.get(c1.getSuit());
-            int s2 = ruleConfig.suitWeights.get(c2.getSuit());
+            int s1 = activeRuleConfig.suitWeights.get(c1.getSuit());
+            int s2 = activeRuleConfig.suitWeights.get(c2.getSuit());
             return Integer.compare(s2, s1);  // 降序
         });
         List<String> myHandCards = handCardsList.stream()

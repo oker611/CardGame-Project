@@ -197,13 +197,14 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 clientChannels.put(deviceAddress, new SenderReceiverPair(sender, receiver));
 
                 // 发送 JOIN_ACK 给新客户端
-                String fallbackName = conn.deviceName != null ? conn.deviceName : "Player";
+                String fallbackName = defaultPlayerName(clientPlayerId);
                 String playerName = waitForJoinPlayerName(fallbackName);
                 playerNamesById.put(clientPlayerId, playerName);
                 JoinPayload ackPayload = new JoinPayload(playerName, clientPlayerId, i + 1);
                 BluetoothMessage ackMessage = messageCodec.buildJoinAckMessage(
                         localPlayerId, clientPlayerId, ackPayload);
                 sender.sendMessage(ackMessage);
+                sendExistingPlayersSnapshot(sender, clientPlayerId);
 
                 // 第一个客户端 JOIN_ACK 发送完毕，启动心跳覆盖大厅等待阶段
                 if (i == 0) {
@@ -276,8 +277,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             connectionManager.connectToDevice(deviceAddress);
             setupCommunicationChannelSingle();
 
-            // 发送 JOIN 请求（使用本机蓝牙名）
-            String playerName = safePlayerName(localPlayerName, connectionManager.getLocalDeviceName());
+            // 发送 JOIN 请求：只使用游戏昵称，不再回退到手机蓝牙名
+            String playerName = safePlayerName(localPlayerName, defaultPlayerName(localPlayerId));
             JoinPayload joinPayload = new JoinPayload(playerName);
             BluetoothMessage joinMessage = messageCodec.buildJoinMessage(
                     localPlayerId, "HOST", joinPayload);
@@ -501,6 +502,61 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 }
             }
         }
+    }
+
+    private void sendExistingPlayersSnapshot(BluetoothSender sender, String joiningPlayerId) {
+        if (sender == null) {
+            return;
+        }
+
+        synchronized (sendLock) {
+            sendExistingPlayerToJoiningClient(sender, joiningPlayerId, localPlayerId);
+            for (String playerId : CLIENT_PLAYER_IDS) {
+                sendExistingPlayerToJoiningClient(sender, joiningPlayerId, playerId);
+            }
+        }
+    }
+
+    private void sendExistingPlayerToJoiningClient(
+            BluetoothSender sender,
+            String joiningPlayerId,
+            String existingPlayerId
+    ) {
+        if (existingPlayerId == null || existingPlayerId.equals(joiningPlayerId)) {
+            return;
+        }
+        if (!playerNamesById.containsKey(existingPlayerId)) {
+            return;
+        }
+
+        int slotIndex = slotIndexForPlayerId(existingPlayerId);
+        if (slotIndex < 0) {
+            return;
+        }
+
+        String playerName = playerNamesById.get(existingPlayerId);
+        JoinPayload payload = new JoinPayload(playerName, existingPlayerId, slotIndex);
+        BluetoothMessage message = messageCodec.buildPlayerJoinedMessage(
+                localPlayerId, joiningPlayerId, payload);
+
+        try {
+            sender.sendMessage(message);
+        } catch (Exception e) {
+            Log.e("CardGame", "[ERROR] [蓝牙] 发送已有玩家快照失败 | playerId="
+                    + existingPlayerId + ", to=" + joiningPlayerId, e);
+        }
+    }
+
+    private int slotIndexForPlayerId(String playerId) {
+        if ("P1".equals(playerId)) {
+            return 0;
+        }
+        for (int i = 0; i < CLIENT_PLAYER_IDS.length; i++) {
+            if (CLIENT_PLAYER_IDS[i].equals(playerId)) {
+                return i + 1;
+            }
+        }
+        return -1;
     }
 
     private void updateNetworkBridgeRemotePlayers() {
@@ -1061,6 +1117,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             return name.trim();
         }
         return fallback != null && !fallback.trim().isEmpty() ? fallback.trim() : "Player";
+    }
+
+    private String defaultPlayerName(String playerId) {
+        if (playerId != null && playerId.matches("P[1-4]")) {
+            return "玩家" + playerId.substring(1);
+        }
+        return "玩家";
     }
 
     private void notifyAllPlayersReady() {
