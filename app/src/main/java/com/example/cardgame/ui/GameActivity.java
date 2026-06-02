@@ -107,6 +107,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private TextView hintSingle, hintPair, hintTriple, hintStraight, hintFlush, hintIron, hintFullHouse, hintStraightFlush;
     private FrameLayout cardTrackerLayout;
     private TextView tvAiHint;
+    private TextView tvHandSuggestion;
+    private boolean hasAnalyzedHand = false;
+    private LLMAnalyzer llmAnalyzer;
 
     private final Runnable bluetoothRefreshRunnable = new Runnable() {
         @Override
@@ -286,13 +289,24 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         // 初始化 AI 提示控件
         tvAiHint = findViewById(R.id.tv_ai_hint);
+        tvHandSuggestion = findViewById(R.id.tv_hand_suggestion);
+        llmAnalyzer = new LLMAnalyzer();
         SharedPreferences prefs = getSharedPreferences("game_prefs", MODE_PRIVATE);
         enableAiAssistant = prefs.getBoolean("enable_ai_assistant", false);
         if (enableAiAssistant) {
             tvAiHint.setVisibility(View.VISIBLE);
             tvAiHint.setText("🤖 AI 分析中...");
+            // 智能模式下准备手牌风格分析（分析完成后才显示）
+            String strategy = prefs.getString("ai_strategy", "NORMAL");
+            if ("DEFENSIVE".equals(strategy)) {
+                tvHandSuggestion.setVisibility(View.GONE);  // 初始隐藏，分析完成后显示
+                // tvHandSuggestion.setText(R.string.ai_analyzing);  // 不显示"分析中"，直接等结果
+            } else {
+                tvHandSuggestion.setVisibility(View.GONE);
+            }
         } else {
             tvAiHint.setVisibility(View.GONE);
+            tvHandSuggestion.setVisibility(View.GONE);
         }
 
         hideSystemUI();
@@ -1160,6 +1174,55 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 .setPositiveButton("知道了", null)
                 .show();
     }
+    
+    /**
+     * 分析当前玩家的手牌风格
+     */
+    private void analyzeCurrentHand() {
+        if (!(gameActionHandler instanceof GameController)) {
+            return;
+        }
+        
+        GameController gameController = (GameController) gameActionHandler;
+        List<com.example.cardgame.model.Card> myHand = gameController.getCurrentPlayerHand();
+        
+        if (myHand == null || myHand.isEmpty()) {
+            tvHandSuggestion.setVisibility(View.GONE);
+            return;
+        }
+        
+        // 在子线程中调用 LLM 分析
+        new Thread(() -> {
+            String style = llmAnalyzer.analyzeHandStyle(myHand);
+            runOnUiThread(() -> {
+                if (style != null && !style.isEmpty()) {
+                    String fullSuggestion;
+                    switch (style) {
+                        case "激进":
+                            fullSuggestion = getString(R.string.ai_suggestion_aggressive);
+                            break;
+                        case "保守":
+                            fullSuggestion = getString(R.string.ai_suggestion_conservative);
+                            break;
+                        default: // "均衡" 或其他
+                            fullSuggestion = getString(R.string.ai_suggestion_balanced);
+                            break;
+                    }
+                    tvHandSuggestion.setText(fullSuggestion);
+                    tvHandSuggestion.setVisibility(View.VISIBLE);  // 分析完成后显示
+                } else {
+                    tvHandSuggestion.setText(R.string.ai_analysis_failed);
+                    tvHandSuggestion.setVisibility(View.VISIBLE);  // 显示失败信息
+                    // 3秒后隐藏失败提示
+                    tvHandSuggestion.postDelayed(() -> {
+                        if (tvHandSuggestion.getText().equals(getString(R.string.ai_analysis_failed))) {
+                            tvHandSuggestion.setVisibility(View.GONE);
+                        }
+                    }, 3000);
+                }
+            });
+        }).start();
+    }
 
     // ========== 实现 GameController.CountdownUICallback 接口 ==========
     @Override
@@ -1216,6 +1279,12 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                     }
                 }
             });
+            
+            // 智能模式下，轮到本地玩家且未分析手牌时触发分析
+            if (enableAiAssistant && !hasAnalyzedHand && localPlayerId.equals(newPlayerId)) {
+                hasAnalyzedHand = true;
+                analyzeCurrentHand();
+            }
         } else if (event instanceof GameOverEvent) {
             GameOverEvent e = (GameOverEvent) event;
             Log.d("EventBus", "收到游戏结束事件: winnerId=" + e.getWinnerId());

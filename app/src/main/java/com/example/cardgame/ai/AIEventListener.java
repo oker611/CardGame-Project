@@ -67,6 +67,10 @@ public class AIEventListener implements GameEventListener {
                             return;
                         }
                         List<Card> cards = strategy.decidePlay(nowPlayer, gameState);
+                        // 生成AI提示
+                        String hint = generateHint(cards, nowPlayer, gameState);
+                        gameController.updateAiHint(hint);
+                        
                         if (cards == null || cards.isEmpty()) {
                             PassResult passResult = gameEngine.passTurn(newPlayerId);
                             System.out.println("[AIEventListener] AI passed, result=" + passResult.isSuccess());
@@ -119,5 +123,56 @@ public class AIEventListener implements GameEventListener {
         EventBus.getInstance().unregister(this);
         handler.removeCallbacksAndMessages(null);
         System.out.println("[AIEventListener] Unregistered");
+    }
+    
+    /**
+     * 生成AI提示文本
+     */
+    private String generateHint(List<Card> cards, Player player, GameState gameState) {
+        if (cards == null || cards.isEmpty()) {
+            return "🤖 AI选择过牌";
+        }
+        
+        StringBuilder hint = new StringBuilder("🤖 建议出");
+        
+        // 格式化牌面
+        for (int i = 0; i < cards.size(); i++) {
+            if (i > 0) {
+                hint.append(" ");
+            }
+            Card card = cards.get(i);
+            hint.append(card.getRank().getDisplayName());
+        }
+        
+        // 添加牌型分析
+        if (cards.size() == 1) {
+            hint.append("（单张）");
+        } else if (cards.size() == 2) {
+            hint.append("（对子）");
+        } else if (cards.size() == 3) {
+            hint.append("（三张）");
+        } else if (cards.size() == 4) {
+            hint.append("（炸弹）");
+        } else if (cards.size() == 5) {
+            hint.append("（五张牌）");
+        }
+        
+        // 添加对手情况提示
+        int minOpponentHandSize = getMinOpponentHandSize(gameState, player);
+        if (minOpponentHandSize <= 2) {
+            hint.append("，对手仅剩").append(minOpponentHandSize).append("张");
+        }
+        
+        return hint.toString();
+    }
+    
+    private int getMinOpponentHandSize(GameState gameState, Player currentPlayer) {
+        int minSize = Integer.MAX_VALUE;
+        for (Player p : gameState.getPlayers()) {
+            if (!p.getPlayerId().equals(currentPlayer.getPlayerId())) {
+                minSize = Math.min(minSize, p.getHandCards().size());
+            }
+        }
+        return minSize == Integer.MAX_VALUE ? 0 : minSize;
     }
 }

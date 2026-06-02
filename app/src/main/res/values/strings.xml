@@ -76,4 +76,12 @@
 4. 加入房间\n
    连接成功后，会自动进入房间大厅，等待房主开始游戏。
 </string>
+
+   <!-- AI 分析相关 -->
+   <string name="ai_analyzing">AI分析中...</string>
+   <string name="ai_suggestion_format">建议风格：%s</string>
+   <string name="ai_suggestion_aggressive">根据目前您的情况，建议激进出牌，尽快减少手牌</string>
+   <string name="ai_suggestion_conservative">根据目前您的情况，有输牌风险，建议保守出牌</string>
+   <string name="ai_suggestion_balanced">根据目前您的情况，建议均衡出牌，保持优势</string>
+   <string name="ai_analysis_failed">分析失败</string>
 </resources>

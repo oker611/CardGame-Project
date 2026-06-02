@@ -23,11 +23,30 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
 
     // 出牌失败计数（用于兜底逻辑）
     private int consecutiveFailCount = 0;
+    
+    // 风格参数
+    private double aggressivenessFactor = 1.0;  // 进攻因子：大于1更激进，小于1更保守
+    private double defenseFactor = 1.0;          // 防守因子：大于1更保守
+    
+    // 风格类型
+    public enum Style {
+        NORMAL,     // 普通
+        AGGRESSIVE, // 激进
+        DEFENSIVE   // 保守
+    }
+    
+    private Style style = Style.NORMAL;
 
     public GreedyAIDecisionStrategy(RuleConfig config) {
         this.config = config;
         this.patternRecognizer = new PatternRecognizer(config);
         this.playValidator = new PlayValidator(config);
+    }
+    
+    public GreedyAIDecisionStrategy(RuleConfig config, Style style) {
+        this(config);
+        this.style = style;
+        setStyle(style);
     }
 
     @Override
@@ -137,5 +156,36 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
     @Override
     public void resetFailCount() {
         consecutiveFailCount = 0;
+    }
+    
+    // ================== 风格控制方法 ==================
+    
+    public void setStyle(Style style) {
+        this.style = style;
+        switch (style) {
+            case AGGRESSIVE:
+                this.aggressivenessFactor = 1.3;
+                this.defenseFactor = 0.7;
+                break;
+            case DEFENSIVE:
+                this.aggressivenessFactor = 0.7;
+                this.defenseFactor = 1.3;
+                break;
+            default:
+                this.aggressivenessFactor = 1.0;
+                this.defenseFactor = 1.0;
+        }
+    }
+    
+    public void setAggressivenessFactor(double factor) {
+        this.aggressivenessFactor = factor;
+    }
+    
+    public void setDefenseFactor(double factor) {
+        this.defenseFactor = factor;
+    }
+    
+    public Style getStyle() {
+        return style;
     }
 }

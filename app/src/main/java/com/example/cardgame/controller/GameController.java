@@ -1,6 +1,7 @@
 package com.example.cardgame.controller;
 import com.example.cardgame.ai.MonteCarloAIDecisionStrategy;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
@@ -58,6 +59,8 @@ public class GameController implements GameActionHandler {
     private AdaptiveAIDecisionStrategy adaptiveAI;
     private List<String> currentHumanActions = new ArrayList<>();
     private Context appContext;
+    private com.example.cardgame.llm.OpponentStyleAnalyzer opponentStyleAnalyzer;
+    private String styleAnalysisSummary;
 
     private PlayValidator playValidator;
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
@@ -109,6 +112,7 @@ public class GameController implements GameActionHandler {
         this.memoryManager = new CrossGameMemoryManager(appContext);
         this.adaptiveAI = new AdaptiveAIDecisionStrategy();
         this.aiStrategy = adaptiveAI;
+        this.opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer();
         
         HumanStyleProfile savedProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
         if (savedProfile != null) {
@@ -139,7 +143,7 @@ public class GameController implements GameActionHandler {
     public void setAIDifficulty(com.example.cardgame.ai.AIDifficulty difficulty) {
         switch (difficulty) {
             case GREEDY:
-                aiStrategy = new GreedyAIDecisionStrategy();
+                aiStrategy = new GreedyAIDecisionStrategy(ensureRuleConfigReady());
                 break;
             case MONTE_CARLO:
                 aiStrategy = new MonteCarloAIDecisionStrategy();
@@ -296,25 +300,136 @@ public class GameController implements GameActionHandler {
     private void initAIEventListener() {
         if (aiEventListener != null) aiEventListener.unregister();
 
-                // 如果已经有策略实例（比如自适应AI），保留它，不要创建新实例
-        // 这样可以保留之前设置的自适应因子
-        if (aiStrategy == null) {
-            aiStrategy = new MonteCarloAIDecisionStrategy();
-            HermesLog.log("GameController: MonteCarlo AI Strategy initialized");
-        } else {
-            HermesLog.log("GameController: Reusing existing AI Strategy: " + aiStrategy.getClass().getSimpleName());
+        // 获取规则配置
+        RuleConfig ruleConfig = ensureRuleConfigReady();
+        
+        // 从SharedPreferences读取难度和策略
+        String difficulty = getAIDifficulty();
+        String strategy = getSelectedAIStrategy();
+        
+        // 调试日志
+        HermesLog.log("GameController: initAIEventListener() - strategy=" + strategy + ", difficulty=" + difficulty);
+
+        // 根据难度选择AI策略
+        switch (difficulty) {
+            case "EASY":
+                // 简单模式：贪心算法 + 风格参数
+                switch (strategy) {
+                    case "AGGRESSIVE":
+                        aiStrategy = new com.example.cardgame.ai.AggressiveAIDecisionStrategy(ruleConfig);
+                        HermesLog.log("GameController: Easy-Aggressive (Greedy) AI Strategy initialized");
+                        break;
+                    case "DEFENSIVE":
+                        aiStrategy = new com.example.cardgame.ai.DefensiveAIDecisionStrategy(ruleConfig);
+                        HermesLog.log("GameController: Easy-Defensive (Greedy) AI Strategy initialized");
+                        break;
+                    default:
+                        aiStrategy = new com.example.cardgame.ai.NormalAIDecisionStrategy(ruleConfig);
+                        HermesLog.log("GameController: Easy-Normal (Greedy) AI Strategy initialized");
+                        break;
+                }
+                break;
+                
+            case "MEDIUM":
+                // 中等模式：标准蒙特卡洛
+                aiStrategy = new MonteCarloAIDecisionStrategy();
+                HermesLog.log("GameController: Medium (MonteCarlo) AI Strategy initialized");
+                break;
+                
+            case "HARD":
+                // 困难模式：蒙特卡洛（固定策略，不学习）
+                aiStrategy = new MonteCarloAIDecisionStrategy();
+                HermesLog.log("GameController: Hard (MonteCarlo) AI Strategy initialized");
+                break;
+                
+            case "ADAPTIVE":
+                // 智能模式：自适应AI（加载保存的风格，越玩越聪明）
+                if (adaptiveAI == null) {
+                    adaptiveAI = new AdaptiveAIDecisionStrategy();
+                }
+                
+                // 始终加载保存的风格（如果有）
+                HumanStyleProfile savedProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
+                if (savedProfile != null) {
+                    adaptiveAI.setHumanStyleProfile(savedProfile);
+                    HermesLog.log("GameController: Loaded saved human style: " + savedProfile.getStyleLabel());
+                }
+                
+                aiStrategy = adaptiveAI;
+                HermesLog.log("GameController: Adaptive AI Strategy initialized");
+                break;
+                
+            default:
+                // 默认使用中等难度
+                aiStrategy = new MonteCarloAIDecisionStrategy();
+                HermesLog.log("GameController: Default (MonteCarlo) AI Strategy initialized");
+                break;
         }
+        
         // 非蓝牙模式或蓝牙 HOST 模式才运行 AI；CLIENT 端 AI 由网络消息驱动
         boolean aiHost = !bluetoothMode || hostMode;
         aiEventListener = new AIEventListener(this, gameEngine, aiStrategy, aiHost);
         HermesLog.log("GameController: AIEventListener created isHost=" + aiHost);
-   }
+    }
+    
+    /**
+     * 从SharedPreferences读取用户选择的AI难度
+     * 根据ai_strategy推断难度等级：NORMAL=EASY, AGGRESSIVE=MEDIUM, DEFENSIVE=HARD
+     */
+    private String getAIDifficulty() {
+        if (appContext == null) {
+            return "MEDIUM";
+        }
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        String strategy = prefs.getString("ai_strategy", "NORMAL");
+        
+        // 根据策略推断难度等级
+        switch (strategy) {
+            case "NORMAL":
+                return "EASY";      // 普通模式 → 简单难度（贪心AI）
+            case "AGGRESSIVE":
+                return "HARD";      // 激进模式 → 困难难度（蒙特卡洛AI）
+            case "DEFENSIVE":
+                return "ADAPTIVE";  // 保守模式 → 智能难度（自适应AI）
+            default:
+                return "MEDIUM";
+        }
+    }
+    
+    /**
+     * 从SharedPreferences读取用户选择的AI策略风格
+     */
+    private String getSelectedAIStrategy() {
+        if (appContext == null) {
+            return "NORMAL";
+        }
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        return prefs.getString("ai_strategy", "NORMAL");
+    }
 
     public CardTracker getCardTracker() {
         if (aiStrategy instanceof MonteCarloAIDecisionStrategy) {
             return ((MonteCarloAIDecisionStrategy) aiStrategy).getCardTracker();
         }
         return null;
+    }
+    
+    /**
+     * 获取当前玩家的手牌
+     */
+    public List<Card> getCurrentPlayerHand() {
+        if (gameEngine == null) {
+            return null;
+        }
+        GameState state = gameEngine.getGameState();
+        if (state == null) {
+            return null;
+        }
+        Player currentPlayer = state.getCurrentPlayer();
+        if (currentPlayer == null) {
+            return null;
+        }
+        return currentPlayer.getHandCards();
     }
 
     private void recordPlayToTracker(String playerId, List<Card> cards) {
@@ -366,7 +481,10 @@ public class GameController implements GameActionHandler {
             }
         }
         
-        analyzeHumanStyleAndAdapt();
+        // 只有智能模式才进行人类风格分析
+        if (aiStrategy instanceof AdaptiveAIDecisionStrategy) {
+            analyzeHumanStyleAndAdapt();
+        }
     }
 
     private void analyzeHumanStyleAndAdapt() {
@@ -775,5 +893,72 @@ public class GameController implements GameActionHandler {
             timer.cancel();
         }
         activeCountdowns.clear();
+    }
+    
+    /**
+     * 更新AI提示文本（供AI策略调用）
+     */
+    public void updateAiHint(String hintText) {
+        if (appContext != null && appContext instanceof com.example.cardgame.ui.GameActivity) {
+            com.example.cardgame.ui.GameActivity activity = (com.example.cardgame.ui.GameActivity) appContext;
+            activity.runOnUiThread(() -> activity.updateAiHint(hintText));
+        }
+    }
+    
+    /**
+     * 获取风格分析结果（供UI调用）
+     */
+    public String getStyleAnalysisSummary() {
+        return styleAnalysisSummary;
+    }
+    
+    /**
+     * 分析对手风格并生成总结
+     */
+    public void analyzeOpponentStyles() {
+        if (opponentStyleAnalyzer == null) {
+            opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer();
+        }
+        
+        GameState gameState = gameEngine.getGameState();
+        if (gameState == null) {
+            styleAnalysisSummary = "游戏状态无效";
+            return;
+        }
+        
+        StringBuilder summary = new StringBuilder();
+        
+        // 分析人类玩家风格
+        if (styleAnalyzer != null && adaptiveAI != null) {
+            HumanStyleProfile humanProfile = adaptiveAI.getHumanStyleProfile();
+            if (humanProfile != null) {
+                summary.append("您的风格：").append(humanProfile.getStyleLabel()).append("\n\n");
+            } else {
+                summary.append("您的风格：均衡\n\n");
+            }
+        } else {
+            summary.append("您的风格：均衡\n\n");
+        }
+        
+        // 分析AI对手风格（根据对手的出牌历史简单判断）
+        for (Player player : gameState.getPlayers()) {
+            if (player.getType() == com.example.cardgame.model.PlayerType.AI && !player.getPlayerId().equals(myPlayerId)) {
+                String style = "均衡";
+                // 根据对手剩余手牌和出牌情况简单判断风格
+                int handSize = player.getHandCards().size();
+                if (handSize <= 3) {
+                    style = "激进";
+                } else if (handSize >= 10) {
+                    style = "保守";
+                }
+                
+                String playerName = player.getPlayerId();
+                // 简化：直接使用playerId作为名字
+                summary.append(player.getPlayerId()).append("（").append(playerName).append("）：").append(style).append("\n");
+            }
+        }
+        
+        styleAnalysisSummary = summary.toString();
+        HermesLog.log("GameController: Style analysis summary generated: " + styleAnalysisSummary);
     }
 }

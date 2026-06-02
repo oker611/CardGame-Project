@@ -25,4 +25,9 @@ public class ConfigurableRuleEngine implements RuleEngine {
                                                        boolean isFirstTurn) {
         return validator.validatePlay(cardsToPlay, lastPlayCards, isFirstRound, isFirstTurn);
     }
+
+    @Override
+    public void clearCache() {
+        // 本实现没有缓存需要清空
+    }
 }
