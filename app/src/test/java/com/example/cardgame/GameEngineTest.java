@@ -97,8 +97,9 @@ public class GameEngineTest {
         winnerCandidate.getHandCards().clear();
         winnerCandidate.getHandCards().add(winningCard);
 
-        // 这一手不是新一轮首出，所以确保 openingTurn 为 false
+        // 强制获胜场景只验证出完最后一张会结算，不依赖上一手大小。
         engine.getGameState().setOpeningTurn(false);
+        engine.getGameState().setLastPlay(null);
 
         PlayResult winResult = engine.playCards(
                 winnerCandidate.getPlayerId(),
