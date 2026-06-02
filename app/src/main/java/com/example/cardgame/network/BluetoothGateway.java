@@ -1,6 +1,7 @@
 package com.example.cardgame.network;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
@@ -38,6 +39,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private final BluetoothConnectionManager connectionManager;
     private final BluetoothMessageCodec messageCodec;
     private final NetworkGameBridge networkGameBridge;
+    private final Context appContext;
 
     private BluetoothEventListener eventListener;
 
@@ -126,9 +128,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private String remotePlayerId;
 
     public BluetoothGateway(Context context, GameEngine gameEngine) {
+        this.appContext = context.getApplicationContext();
         this.connectionManager = new BluetoothConnectionManager(context);
         this.messageCodec = new BluetoothMessageCodec();
-        this.networkGameBridge = new NetworkGameBridge(gameEngine, messageCodec);
+        this.networkGameBridge = new NetworkGameBridge(context, gameEngine, messageCodec);
         this.role = "NONE";
     }
 
@@ -437,6 +440,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     gameState,
                     cardCounts
             );
+            attachRoomPropSettings(payload);
 
             BluetoothMessage message = messageCodec.buildInitGameMessage(
                     localPlayerId, targetPlayerId, payload);
@@ -1456,6 +1460,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     cachedGameState,
                     cardCounts
             );
+            attachRoomPropSettings(syncPayload);
 
             BluetoothMessage ack = messageCodec.buildReconnectAckMessage(
                     localPlayerId, claimedPlayerId, syncPayload);
@@ -1660,6 +1665,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 || type == MessageType.PLAY_ACTION
                 || type == MessageType.PASS_ACTION
                 || type == MessageType.GAME_OVER;
+    }
+
+    private void attachRoomPropSettings(InitGamePayload payload) {
+        if (payload == null) {
+            return;
+        }
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        payload.setCardTrackerEnabled(prefs.getBoolean("prop_card_tracker", false));
+        payload.setSeeThroughEnabled(prefs.getBoolean("prop_see_through", false));
+        payload.setPatternHintEnabled(prefs.getBoolean("prop_pattern_hint", false));
     }
 
     private void sendAckFor(BluetoothMessage original) {

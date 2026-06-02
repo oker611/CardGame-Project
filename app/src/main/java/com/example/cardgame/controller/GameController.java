@@ -779,7 +779,7 @@ public class GameController implements GameActionHandler {
         if (state == null) return;
 
         boolean isFirstRound = gameEngine.isFirstRound();
-        boolean isFirstTurn = state.isOpeningTurn();
+        boolean isFirstTurn = gameEngine.isFirstTurnOfCurrentRound();
         List<Card> lastPlay = gameEngine.getLastPlayCards();
 
         boolean hasAnyValid = playValidator.hasAnyValidPlay(player, lastPlay, isFirstRound, isFirstTurn);
@@ -789,6 +789,9 @@ public class GameController implements GameActionHandler {
                 + ", consecutiveNoPlayCount=" + count);
 
         if (!hasAnyValid) {
+            if (activeCountdowns.containsKey(player.getPlayerId())) {
+                return;
+            }
             if (count == 0) {
                 startNoPlayCountdown(player);
             } else {
@@ -860,12 +863,6 @@ public class GameController implements GameActionHandler {
 
     // 注意：如果 GameActionHandler 接口中没有 triggerNextAction，请删除下面的 @Override
     public void triggerNextAction() {
-        long now = System.currentTimeMillis();
-        if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) {
-            return; // 1秒内重复调用则忽略
-        }
-        lastTriggerTime = now;
-
         if (gameEngine.isGameOver() || gameEngine.getGameState() == null) return;
         Player current = gameEngine.getGameState().getCurrentPlayer();
         if (current == null) return;
@@ -876,6 +873,11 @@ public class GameController implements GameActionHandler {
                 checkAndStartNoPlayCountdown(current);
                 break;
             case AI:
+                long now = System.currentTimeMillis();
+                if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) {
+                    return; // 1秒内重复调用则忽略
+                }
+                lastTriggerTime = now;
                 // AI 由事件总线驱动，无需额外处理
                 break;
             case REMOTE:

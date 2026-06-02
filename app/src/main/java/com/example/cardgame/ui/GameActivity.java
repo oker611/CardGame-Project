@@ -956,6 +956,14 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
     }
 
+    private void reloadPropSettingsFromPrefs() {
+        SharedPreferences prefs = getSharedPreferences("game_prefs", MODE_PRIVATE);
+        isTrackerEnabled = prefs.getBoolean("prop_card_tracker", false);
+        isSeeThroughEnabled = prefs.getBoolean("prop_see_through", false);
+        isPatternHintEnabled = prefs.getBoolean("prop_pattern_hint", false);
+        updatePropUI();
+    }
+
     private Card convertDisplayToCard(String display) {
         if (display == null || display.length() < 2) return null;
         String suitSymbol = display.substring(0, 1);
@@ -1267,6 +1275,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             String newPlayerId = e.getNewCurrentPlayerId();
             Log.d("EventBus", "收到回合切换事件: newPlayerId=" + newPlayerId);
             runOnUiThread(() -> {
+                if (isBluetoothGame) {
+                    reloadPropSettingsFromPrefs();
+                }
                 fullRefresh();
                 if (actionButtonsContainer != null && playCardsContainer != null) {
                     boolean isMyTurn = localPlayerId.equals(newPlayerId);
