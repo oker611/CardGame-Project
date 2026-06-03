@@ -44,8 +44,8 @@ public class GameEngine {
     }
 
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
-        this.ruleConfig = ruleConfig;
-        this.ruleEngine = new ConfigurableRuleEngine(ruleConfig);
+        this.ruleConfig = ruleConfig != null ? ruleConfig : RuleConfig.SOUTHERN;
+        this.ruleEngine = new ConfigurableRuleEngine(this.ruleConfig);
         this.gameState = new GameState();
         this.gameState.setPlayers(players);
         this.gameState.setGameOver(false);

@@ -25,6 +25,10 @@ public class InitGamePayload {
     private List<String> playerOrder;
     /** playerId → 剩余牌数（UI 显示用，不暴露具体牌面） */
     private Map<String, Integer> playerCardCounts;
+    /** HOST 房间道具配置，同步给所有客户端 */
+    private boolean cardTrackerEnabled;
+    private boolean seeThroughEnabled;
+    private boolean patternHintEnabled;
 
     public InitGamePayload() {
     }
@@ -148,5 +152,29 @@ public class InitGamePayload {
 
     public void setPlayerCardCounts(Map<String, Integer> playerCardCounts) {
         this.playerCardCounts = playerCardCounts;
+    }
+
+    public boolean isCardTrackerEnabled() {
+        return cardTrackerEnabled;
+    }
+
+    public void setCardTrackerEnabled(boolean cardTrackerEnabled) {
+        this.cardTrackerEnabled = cardTrackerEnabled;
+    }
+
+    public boolean isSeeThroughEnabled() {
+        return seeThroughEnabled;
+    }
+
+    public void setSeeThroughEnabled(boolean seeThroughEnabled) {
+        this.seeThroughEnabled = seeThroughEnabled;
+    }
+
+    public boolean isPatternHintEnabled() {
+        return patternHintEnabled;
+    }
+
+    public void setPatternHintEnabled(boolean patternHintEnabled) {
+        this.patternHintEnabled = patternHintEnabled;
     }
 }

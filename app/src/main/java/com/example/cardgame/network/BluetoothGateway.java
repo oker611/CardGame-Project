@@ -1,6 +1,7 @@
 package com.example.cardgame.network;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
@@ -38,10 +39,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private final BluetoothConnectionManager connectionManager;
     private final BluetoothMessageCodec messageCodec;
     private final NetworkGameBridge networkGameBridge;
+    private final Context appContext;
 
     private BluetoothEventListener eventListener;
 
-    private String localPlayerId;
+    private volatile String localPlayerId;
 
     // ——— 多路连接状态 ———
     /** deviceAddress → playerId (如 "P2", "P3", "P4") */
@@ -53,7 +55,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private final Map<String, String> playerNamesById = new ConcurrentHashMap<>();
     private final Map<String, String> pendingJoinNamesBySender = new ConcurrentHashMap<>();
 
-    private String role;
+    private volatile String role;
     private volatile boolean communicationReady = false;
     private volatile boolean acceptingClients = false;
 
@@ -126,9 +128,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private String remotePlayerId;
 
     public BluetoothGateway(Context context, GameEngine gameEngine) {
+        this.appContext = context.getApplicationContext();
         this.connectionManager = new BluetoothConnectionManager(context);
         this.messageCodec = new BluetoothMessageCodec();
-        this.networkGameBridge = new NetworkGameBridge(gameEngine, messageCodec);
+        this.networkGameBridge = new NetworkGameBridge(context, gameEngine, messageCodec);
         this.role = "NONE";
     }
 
@@ -437,6 +440,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     gameState,
                     cardCounts
             );
+            attachRoomPropSettings(payload);
 
             BluetoothMessage message = messageCodec.buildInitGameMessage(
                     localPlayerId, targetPlayerId, payload);
@@ -456,6 +460,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             }
             try {
                 pair.sender.sendMessage(message);
+                if (needsAck(message.getMessageType())) {
+                    pendingByChannel.put(deviceAddress, new PendingMessage(message));
+                }
                 Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 单播 | 到:" + deviceAddress
                         + " 类型:" + message.getMessageType() + " " + summary);
             } catch (Exception e) {
@@ -624,10 +631,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     Log.e("CardGame", "[ERROR] [蓝牙] [发送] 广播失败 | " + summary, exception);
                 }
             }
+        }
 
-            if (eventListener != null) {
-                eventListener.onMessageSent(message.getMessageType(), summary);
-            }
+        if (eventListener != null) {
+            eventListener.onMessageSent(message.getMessageType(), summary);
         }
     }
 
@@ -635,6 +642,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
      * CLIENT 模式：仅发送到 HOST（不走广播循环）。
      */
     private void sendBluetoothMessageRaw(BluetoothMessage message, String summary) {
+        Exception sendException = null;
+
         synchronized (sendLock) {
             if (clientChannels.isEmpty()) {
                 Log.w("CardGame", "[WARN] [蓝牙] [发送] 无可用通道 | " + summary);
@@ -653,13 +662,18 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息已发送 | 类型:"
                         + message.getMessageType()
                         + " 内容:" + summary);
-
-                if (eventListener != null) {
-                    eventListener.onMessageSent(message.getMessageType(), summary);
-                }
             } catch (Exception exception) {
-                handleConnectionError("发送蓝牙消息失败: " + summary, exception);
+                sendException = exception;
             }
+        }
+
+        if (sendException != null) {
+            handleConnectionError("发送蓝牙消息失败: " + summary, sendException);
+            return;
+        }
+
+        if (eventListener != null) {
+            eventListener.onMessageSent(message.getMessageType(), summary);
         }
     }
 
@@ -1329,6 +1343,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             }
             pendingByChannel.remove(deviceAddress);
             lastHeartbeatByAddress.remove(deviceAddress);
+            connectionManager.closeConnection(deviceAddress);
         }
 
         if (playerId != null && eventListener != null) {
@@ -1445,6 +1460,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     cachedGameState,
                     cardCounts
             );
+            attachRoomPropSettings(syncPayload);
 
             BluetoothMessage ack = messageCodec.buildReconnectAckMessage(
                     localPlayerId, claimedPlayerId, syncPayload);
@@ -1581,11 +1597,17 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
     private void closeClientChannel() {
         synchronized (sendLock) {
+            List<String> deviceAddresses = new ArrayList<>(clientChannels.keySet());
             for (SenderReceiverPair pair : clientChannels.values()) {
                 if (pair.receiver != null) pair.receiver.stopListening();
                 if (pair.sender != null) pair.sender.stop();
             }
             clientChannels.clear();
+            pendingByChannel.clear();
+            lastHeartbeatByAddress.clear();
+            for (String deviceAddress : deviceAddresses) {
+                connectionManager.closeConnection(deviceAddress);
+            }
         }
     }
 
@@ -1643,6 +1665,16 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 || type == MessageType.PLAY_ACTION
                 || type == MessageType.PASS_ACTION
                 || type == MessageType.GAME_OVER;
+    }
+
+    private void attachRoomPropSettings(InitGamePayload payload) {
+        if (payload == null) {
+            return;
+        }
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        payload.setCardTrackerEnabled(prefs.getBoolean("prop_card_tracker", false));
+        payload.setSeeThroughEnabled(prefs.getBoolean("prop_see_through", false));
+        payload.setPatternHintEnabled(prefs.getBoolean("prop_pattern_hint", false));
     }
 
     private void sendAckFor(BluetoothMessage original) {

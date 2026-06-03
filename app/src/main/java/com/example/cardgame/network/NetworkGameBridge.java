@@ -1,5 +1,7 @@
 package com.example.cardgame.network;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.example.cardgame.engine.GameEngine;
@@ -29,13 +31,19 @@ public class NetworkGameBridge {
 
     private final GameEngine gameEngine;
     private final BluetoothMessageCodec messageCodec;
+    private final Context appContext;
     private BluetoothEventListener eventListener;
     private String localPlayerId;
     private List<String> remotePlayerIds = new ArrayList<>();
 
     public NetworkGameBridge(GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
+        this(null, gameEngine, messageCodec);
+    }
+
+    public NetworkGameBridge(Context context, GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
         this.gameEngine = gameEngine;
         this.messageCodec = messageCodec;
+        this.appContext = context != null ? context.getApplicationContext() : null;
     }
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
@@ -92,6 +100,7 @@ public class NetworkGameBridge {
             HermesLog.log("BRIDGE handleInitGame START");
             InitGamePayload payload =
                     messageCodec.decodeInitGamePayload(message.getPayloadJson());
+            applyRoomPropSettings(payload);
 
             if (payload.getGameState() != null) {
                 HermesLog.log("BRIDGE handleInitGame hasGameState=true");
@@ -233,6 +242,18 @@ public class NetworkGameBridge {
         } catch (Exception exception) {
             notifyError("Failed to handle GAME_OVER", exception);
         }
+    }
+
+    private void applyRoomPropSettings(InitGamePayload payload) {
+        if (payload == null || appContext == null) {
+            return;
+        }
+        SharedPreferences prefs = appContext.getSharedPreferences("game_prefs", Context.MODE_PRIVATE);
+        prefs.edit()
+                .putBoolean("prop_card_tracker", payload.isCardTrackerEnabled())
+                .putBoolean("prop_see_through", payload.isSeeThroughEnabled())
+                .putBoolean("prop_pattern_hint", payload.isPatternHintEnabled())
+                .apply();
     }
 
     private void handleErrorMessage(BluetoothMessage message) {
