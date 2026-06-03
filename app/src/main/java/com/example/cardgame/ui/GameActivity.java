@@ -48,7 +48,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 import com.example.cardgame.event.GameEventListener;
 import com.example.cardgame.event.GameEvent;
@@ -1050,8 +1052,12 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         Map<Rank, Integer> played = new HashMap<>();
         for (Rank r : rankEnums) played.put(r, 0);
         List<Card> allPlayed = data.getAllPlayedCards();
+        Set<Card> uniquePlayedCards = new HashSet<>();
         if (allPlayed != null) {
             for (Card card : allPlayed) {
+                if (card == null || !uniquePlayedCards.add(card)) {
+                    continue;
+                }
                 Rank r = card.getRank();
                 if (played.containsKey(r)) {
                     played.put(r, played.get(r) + 1);
@@ -1077,7 +1083,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         // 剩余数量行
         TableRow dataRow = new TableRow(this);
         for (int i = 0; i < rankOrder.length; i++) {
-            int remain = 4 - played.get(rankEnums[i]);
+            int remain = Math.max(0, 4 - played.get(rankEnums[i]));
             TextView tv = new TextView(this);
             tv.setText(String.valueOf(remain));
             tv.setGravity(Gravity.CENTER);
@@ -1172,15 +1178,54 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     }
 
     private void showStyleAnalysisDialog() {
-        String analysisText = "您的风格：激进\n\n"
-                + "P2（Bob）：激进\n"
-                + "P3（Cindy）：保守\n"
-                + "P4（David）：均衡";
+        showDynamicStyleAnalysisDialog();
+    }
+
+    private void showDynamicStyleAnalysisDialog() {
+        String analysisText = buildStyleAnalysisText();
         new AlertDialog.Builder(this)
-                .setTitle("AI 风格分析")
+                .setTitle("AI \u98ce\u683c\u5206\u6790")
                 .setMessage(analysisText)
-                .setPositiveButton("知道了", null)
+                .setPositiveButton("\u77e5\u9053\u4e86", null)
                 .show();
+    }
+
+    private String buildStyleAnalysisText() {
+        if (gameActionHandler == null) {
+            return "";
+        }
+
+        GameViewData data = gameActionHandler.getGameViewData();
+        List<PlayerViewData> players = data != null ? data.getPlayers() : null;
+        if (players == null || players.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder analysis = new StringBuilder();
+        for (PlayerViewData player : players) {
+            String style = estimateStyle(player);
+            if (player.getPlayerId().equals(localPlayerId)) {
+                analysis.append("\u60a8\u7684\u98ce\u683c\uff1a").append(style).append("\n\n");
+            } else {
+                analysis.append(player.getPlayerId())
+                        .append("(")
+                        .append(player.getPlayerName())
+                        .append("): ")
+                        .append(style)
+                        .append("\n");
+            }
+        }
+        return analysis.toString().trim();
+    }
+
+    private String estimateStyle(PlayerViewData player) {
+        if (player.getRemainingCardCount() <= 3) {
+            return "\u6fc0\u8fdb";
+        }
+        if (player.getRemainingCardCount() >= 10) {
+            return "\u4fdd\u5b88";
+        }
+        return "\u5747\u8861";
     }
     
     /**
@@ -1279,6 +1324,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                     reloadPropSettingsFromPrefs();
                 }
                 fullRefresh();
+                if (gameActionHandler != null) {
+                    gameActionHandler.triggerNextAction();
+                }
                 if (actionButtonsContainer != null && playCardsContainer != null) {
                     boolean isMyTurn = localPlayerId.equals(newPlayerId);
                     if (isMyTurn) {

@@ -18,6 +18,9 @@ public class CardTracker {
     private Map<Suit, Integer> suitPlayedCount = new HashMap<>();
 
     public void onCardPlayed(Card card, String playerId) {
+        if (card == null || playedCards.contains(card)) {
+            return;
+        }
         playedCards.add(card);
         playedBy.put(card, playerId);
 
@@ -84,7 +87,7 @@ public class CardTracker {
      */
     public int getRemainingCountByRank(Rank rank) {
         int played = rankPlayedCount.getOrDefault(rank, 0);
-        return 4 - played;
+        return Math.max(0, 4 - played);
     }
 
     /**
@@ -92,7 +95,7 @@ public class CardTracker {
      */
     public int getRemainingCountBySuit(Suit suit) {
         int played = suitPlayedCount.getOrDefault(suit, 0);
-        return 13 - played;
+        return Math.max(0, 13 - played);
     }
 
     /**

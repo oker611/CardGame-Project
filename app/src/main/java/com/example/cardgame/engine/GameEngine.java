@@ -95,7 +95,11 @@ public class GameEngine {
         Play currentPlay = new Play(playerId, selectedCards, finalPattern);
 
         player.getHandCards().removeIf(card -> selectedCardIds.contains(card.getCardId()));
-        allPlayedCards.addAll(selectedCards);
+        for (Card card : selectedCards) {
+            if (!allPlayedCards.contains(card)) {
+                allPlayedCards.add(card);
+            }
+        }
 
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
