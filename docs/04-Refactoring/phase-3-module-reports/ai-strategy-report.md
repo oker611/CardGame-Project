@@ -1,107 +1,376 @@
-# UI模块设计模式应用报告
+# AI 策略模块设计模式应用报告
 
-**负责人**：张瀚月  
-**模块**：UI（界面层）
+## 1. 概述
+
+本项目的 AI 策略模块采用了多种经典设计模式，实现了灵活的难度分层和策略切换机制。核心设计目标包括：
+
+- **可扩展性**：支持新增策略类型而不修改现有代码
+- **可替换性**：运行时动态切换不同难度的 AI 策略
+- **可维护性**：职责清晰，易于理解和维护
+- **性能优化**：不同难度使用不同复杂度的算法
 
 ---
 
-## 一、观察者模式
+## 2. 核心设计模式分析
 
-### 1.1 为什么需要观察者模式？
+### 2.1 策略模式 (Strategy Pattern)
 
-在旧架构中，UI刷新是这样工作的：
+**模式定义**：定义一系列算法，把它们封装起来，并且使它们可以相互替换。
 
-玩家出牌 → GameEngine → GameController → GameActivity.refreshUI()
-`GameController`必须知道UI的存在，通过`uiRefreshCallback`主动调用UI。
+**应用位置**：AI 决策策略的核心架构
 
-这导致：
+**类图结构**：
 
-- **紧耦合**：UI和控制器绑在一起，一方改变可能影响另一方
-- **扩展困难**：如果以后要加日志、加音效、加统计，都得改`GameController`
-- **职责混乱**：控制器本应只管游戏逻辑，却要关心UI什么时候刷新
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AIDecisionStrategy (接口)                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  + decidePlay(Player, GameState): List<Card>           │   │
+│  │  + recordPlayFailure(): void                           │   │
+│  │  + resetFailCount(): void                             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                              △
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────────┐    ┌───────────────────────┐
+│ GreedyAIDS    │    │ MonteCarloAIDS   │    │ AdaptiveAIDS          │
+│ (贪心策略)     │    │ (蒙特卡洛策略)    │    │ (自适应策略)          │
+└───────────────┘    └───────────────────┘    └───────────────────────┘
+        △
+        │
+   ┌────┴────┐
+   │         │
+   ▼         ▼
+┌─────────┐ ┌───────────┐
+│NormalAI │ │Aggressive │
+│(普通)   │ │AI(激进)   │
+└─────────┘ └───────────┘
+   │         │
+   └────┬────┘
+        ▼
+┌───────────┐
+│DefensiveAI│
+│(保守)     │
+└───────────┘
+```
 
-观察者模式解决的核心问题是：**让UI自己决定什么时候刷新，而不是被通知刷新**。
+**策略层次结构**：
 
-### 1.2 怎么做的？
+| 策略类 | 继承关系 | 算法复杂度 | 适用难度 |
+|--------|----------|------------|----------|
+| `GreedyAIDecisionStrategy` | 实现 `AIDecisionStrategy` | O(n) 贪心枚举 | 简单 |
+| `NormalAIDecisionStrategy` | 继承 `GreedyAIDecisionStrategy` | O(n) | 简单-普通 |
+| `AggressiveAIDecisionStrategy` | 继承 `GreedyAIDecisionStrategy` | O(n) | 简单-激进 |
+| `DefensiveAIDecisionStrategy` | 继承 `GreedyAIDecisionStrategy` | O(n) | 简单-保守 |
+| `MonteCarloAIDecisionStrategy` | 实现 `AIDecisionStrategy` | O(n * k * m) | 中等 |
+| `AdaptiveAIDecisionStrategy` | 实现 `AIDecisionStrategy` | O(n * k * m) | 困难/智能 |
 
-引入了事件总线（EventBus）作为观察者模式的具体实现：
+**关键代码示例**：
 
-- **被观察者**：`GameEngine`（游戏状态的变化源头）
-- **观察者**：`GameActivity`（UI界面）
-- **事件**：出牌、过牌、回合切换、游戏结束
+```java
+// 策略接口定义
+public interface AIDecisionStrategy {
+    List<Card> decidePlay(Player aiPlayer, GameState gameState);
+    void recordPlayFailure();
+    void resetFailCount();
+}
 
-当游戏状态变化时，`GameEngine`发布事件到`EventBus`，`EventBus`转发给所有订阅的观察者。`GameActivity`收到事件后自己决定是否刷新。
+// 贪心策略实现
+public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
+    @Override
+    public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
+        // 贪心算法：枚举所有可能，选择最小能压牌的组合
+        List<List<Card>> allPlays = generateAllValidPlays(hand);
+        // ... 筛选、排序、选择最优
+    }
+}
 
-### 1.3 具体干了什么事？
+// 蒙特卡洛策略实现
+public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
+    @Override
+    public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
+        // 蒙特卡洛模拟：生成候选动作，模拟多次游戏，选择胜率最高的
+        List<Play> candidates = candidateGenerator.generate(hand, lastPlay, ...);
+        // ... 模拟评估、评分选择
+    }
+}
+```
 
-| 步骤 | 做了什么 |
+**设计优势**：
+
+1. **开闭原则**：新增策略只需实现接口，无需修改现有代码
+2. **单一职责**：每个策略专注于一种决策算法
+3. **可测试性**：策略独立，易于单元测试
+4. **运行时切换**：支持动态切换策略（如根据难度设置）
+
+---
+
+### 2.2 代理模式 / 装饰器模式 (Proxy / Decorator Pattern)
+
+**模式定义**：为其他对象提供一种代理以控制对这个对象的访问，或在不改变接口的前提下增强功能。
+
+**应用位置**：`AdaptiveAIDecisionStrategy`
+
+**设计意图**：在保持 `AIDecisionStrategy` 接口一致性的同时，包装 `MonteCarloAIDecisionStrategy` 并添加自适应学习功能。
+
+**核心实现**：
+
+```java
+public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
+    // 代理的目标策略
+    private final MonteCarloAIDecisionStrategy monteCarloStrategy;
+    private HumanStyleProfile humanStyleProfile;
+
+    @Override
+    public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
+        // 委托给蒙特卡洛策略执行实际决策
+        return monteCarloStrategy.decidePlay(aiPlayer, gameState);
+    }
+
+    // 增强功能：根据玩家风格调整策略因子
+    private void applyStyleToFactors() {
+        if (humanStyleProfile.isAggressive()) {
+            monteCarloStrategy.setAggressivenessFactor(1.2);
+            monteCarloStrategy.setDefenseFactor(0.8);
+        }
+        // ... 其他风格适配
+    }
+}
+```
+
+**代理模式特征**：
+
+| 特征 | 实现方式 |
 |------|----------|
-| 1 | 让`GameActivity`实现`GameEventListener`接口，成为观察者 |
-| 2 | 在`onCreate()`中向`EventBus`注册 |
-| 3 | 在`onDestroy()`中取消注册，避免内存泄漏 |
-| 4 | 实现`onEvent()`方法，收到事件后刷新UI或打日志 |
-| 5 | 删除旧的`uiRefreshCallback`相关代码，完全迁移到事件驱动 |
-
-### 1.4 带来了什么好处？
-
-| 维度 | 之前 | 之后 |
-|------|------|------|
-| 耦合度 | UI被Controller主动调用 | UI订阅事件，自己决定刷新 |
-| 扩展性 | 新增功能要改Controller | 新增监听器即可，Controller不用动 |
-| 代码清晰度 | Controller里混着UI相关代码 | 各管各的，职责分明 |
-
-**总结**：UI从“被动刷新”变成了“主动订阅事件、自主刷新”。
+| **接口一致性** | 实现相同的 `AIDecisionStrategy` 接口 |
+| **委托执行** | 内部持有 `MonteCarloAIDecisionStrategy` 实例 |
+| **增强功能** | 通过 `applyStyleToFactors()` 动态调整策略参数 |
+| **透明访问** | 调用者无需知道代理存在 |
 
 ---
 
-## 二、适配器模式
+### 2.3 简单工厂模式 (Simple Factory Pattern)
 
-### 2.1 为什么需要适配器模式？
+**模式定义**：定义一个创建对象的接口，让子类决定实例化哪个类。
 
-`RecyclerView`只关心如何展示列表项，不关心数据格式。适配器模式负责把数据“适配”成它能显示的`View`。
+**应用位置**：`GameController` 中的策略初始化
 
-### 2.2 怎么做的？
+**工厂逻辑**：
 
-**手牌适配器（CardAdapter）**：
-- 输入：手牌字符串列表（如`"♠3"`、`"♥A"`）
-- 输出：带圆角、阴影、牌面图片的卡片视图
-- 额外工作：处理卡片选中状态、上移效果、重叠边距、点击事件
+```java
+private void initAIEventListener() {
+    String difficulty = prefs.getString("ai_difficulty", "MEDIUM");
+    
+    switch (difficulty) {
+        case "EASY":
+            aiStrategy = new GreedyAIDecisionStrategy(ruleConfig);
+            break;
+        case "MEDIUM":
+            aiStrategy = new MonteCarloAIDecisionStrategy();
+            break;
+        case "HARD":
+            if (adaptiveAI == null) {
+                adaptiveAI = new AdaptiveAIDecisionStrategy();
+            }
+            aiStrategy = adaptiveAI;
+            break;
+        default:
+            aiStrategy = new MonteCarloAIDecisionStrategy();
+    }
+    
+    aiEventListener = new AIEventListener(this, gameEngine, aiStrategy, aiHost);
+}
+```
 
-**设备适配器（DeviceAdapter）**：
-- 输入：蓝牙设备信息（名称、信号强度、是否配对）
-- 输出：带图标、状态标签、连接按钮的列表项
+**难度映射关系**：
 
-### 2.3 为什么这么设计？
-
-- 数据和视图分离：`RecyclerView`只负责布局，不关心数据来源
-- 单一职责：`Adapter`只管“如何把数据变成视图”
-- 易扩展：新增牌型只需改资源映射，不改整体结构
+| 用户选择 | AI 策略实现 | 算法类型 |
+|----------|-------------|----------|
+| 简单 (EASY) | `GreedyAIDecisionStrategy` | 贪心枚举 |
+| 中等 (MEDIUM) | `MonteCarloAIDecisionStrategy` | 蒙特卡洛模拟 |
+| 困难/智能 (HARD) | `AdaptiveAIDecisionStrategy` | 自适应蒙特卡洛 |
 
 ---
 
-## 三、外观模式（未采用）
+### 2.4 模板方法模式 (Template Method Pattern)
 
-### 3.1 为什么不采用？
+**模式定义**：定义一个算法骨架，将某些步骤延迟到子类实现。
 
-外观模式是**可选**的，经过评估选择不引入。
+**应用位置**：`GreedyAIDecisionStrategy` 的风格配置
 
-| 考量 | 结论 |
-|------|------|
-| 当前UI刷新逻辑 | 只有3-4行方法调用，已经很简洁 |
-| 引入成本 | 需要新建类，增加间接层和理解负担 |
-| 收益 | 几乎为零——封装4行代码没有实质性的简化 |
-| 设计原则 | 设计模式不是越多越好，适用才用 |
+**模板方法结构**：
 
-**总结**：为了封装4行代码而新建一个类，收益小于成本，故不采用。
+```java
+public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
+    // 模板方法：统一的决策流程
+    @Override
+    public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
+        // 步骤1: 生成所有合法出牌组合
+        List<List<Card>> allPlays = generateAllValidPlays(hand);
+        
+        // 步骤2: 首轮首出检查
+        if (isFirstRound && isFirstTurn) {
+            allPlays = filterMustIncludeRequiredOpeningCard(allPlays);
+        }
+        
+        // 步骤3: 压牌过滤
+        if (lastPlayCards != null) {
+            allPlays = filterBeatablePlays(allPlays, lastPlayCards);
+        }
+        
+        // 步骤4: 根据风格选择（可变部分）
+        return selectBestPlay(allPlays);
+    }
+    
+    // 可覆盖的钩子方法：根据风格调整选择逻辑
+    private List<Card> selectBestPlay(List<List<Card>> plays) {
+        // 默认：按比较值从小到大排序，选最小的
+        plays.sort(Comparator.comparingInt(this::getPlayCompareValue));
+        return plays.get(0);
+    }
+}
+
+// 子类通过构造函数参数调整风格
+public class AggressiveAIDecisionStrategy extends GreedyAIDecisionStrategy {
+    public AggressiveAIDecisionStrategy(RuleConfig ruleConfig) {
+        super(ruleConfig, Style.AGGRESSIVE); // 设置激进风格
+    }
+}
+```
+
+**风格参数配置**：
+
+```java
+public void setStyle(Style style) {
+    this.style = style;
+    switch (style) {
+        case AGGRESSIVE:
+            this.aggressivenessFactor = 1.3;
+            this.defenseFactor = 0.7;
+            break;
+        case DEFENSIVE:
+            this.aggressivenessFactor = 0.7;
+            this.defenseFactor = 1.3;
+            break;
+        default:
+            this.aggressivenessFactor = 1.0;
+            this.defenseFactor = 1.0;
+    }
+}
+```
 
 ---
 
-## 四、总结
+## 3. 设计模式协作关系
 
-| 设计模式 | 是否采用 | 核心原因 |
-|----------|----------|----------|
-| 观察者模式 | ✅ 是 | 让UI自主刷新，解耦控制器 |
-| 适配器模式 | ✅ 是 | 让RecyclerView能展示手牌和设备列表 |
-| 外观模式 | ❌ 否 | 收益小、成本高，合理取舍 |
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        GameController (工厂)                           │
+│                              │                                        │
+│                              ▼                                        │
+│              ┌───────────────────────────────────┐                    │
+│              │     AIDecisionStrategy (接口)     │                    │
+│              └─────────────────┬─────────────────┘                    │
+│                                │                                      │
+│     ┌──────────────────────────┼──────────────────────────┐            │
+│     │                          │                          │            │
+│     ▼                          ▼                          ▼            │
+│ ┌───────────┐          ┌───────────────┐        ┌─────────────────┐   │
+│ │  Greedy   │          │ MonteCarlo    │        │   Adaptive      │   │
+│ │ Strategy  │          │   Strategy    │        │   Strategy      │   │
+│ └─────┬─────┘          └───────┬───────┘        └────────┬────────┘   │
+│       │                        │                         │            │
+│       ▼                        │                         ▼            │
+│ ┌─────────────────┐            │              ┌─────────────────┐    │
+│ │ Normal/Aggressive/Defensive │            │  MonteCarlo      │    │
+│ │ (风格变体)       │            │              │  (被代理)       │    │
+│ └─────────────────┘            │              └─────────────────┘    │
+│                                │                                      │
+│                                ▼                                      │
+│                   ┌─────────────────────┐                            │
+│                   │   CandidateGenerator│ (策略内部组件)             │
+│                   │   MonteCarloSimulator│                          │
+│                   │   OpponentHandSampler│                          │
+│                   └─────────────────────┘                            │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-本次重构的核心是把**UI从“被通知刷新”变成“订阅事件、自主刷新”**，通过观察者模式解耦了UI和控制器。适配器模式已在手牌和设备列表中稳定工作。外观模式经评估后认为不必要，符合“效益大于成本”的原则。
+---
+
+## 4. 设计模式应用总结
+
+| 设计模式 | 应用位置 | 解决的问题 | 带来的价值 |
+|----------|----------|------------|------------|
+| **策略模式** | 整体架构 | 不同难度需要不同决策算法 | 开闭原则、可扩展性、可测试性 |
+| **代理模式** | `AdaptiveAIDS` | 在不修改蒙特卡洛策略的前提下添加自适应能力 | 代码复用、功能增强、透明访问 |
+| **简单工厂** | `GameController` | 根据配置动态创建策略实例 | 解耦创建逻辑、统一入口 |
+| **模板方法** | `GreedyAIDS` | 统一决策流程，允许风格定制 | 代码复用、流程标准化 |
+
+---
+
+## 5. 架构优势
+
+### 5.1 难度分层设计
+
+```
+用户选择难度
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│ 简单模式 ──▶ GreedyAIDS (O(n) 贪心)    │
+│ 中等模式 ──▶ MonteCarloAIDS (O(n*k*m)) │
+│ 困难模式 ──▶ AdaptiveAIDS              │
+│             (MonteCarlo + 风格学习)     │
+└─────────────────────────────────────────┘
+```
+
+### 5.2 智能模式增强
+
+**自适应策略工作流程**：
+
+1. **风格识别**：通过 `HumanStyleAnalyzer` 分析玩家出牌风格
+2. **策略调整**：根据识别结果动态调整进攻/防守因子
+3. **决策执行**：委托蒙特卡洛策略执行决策
+4. **持续学习**：游戏结束后更新风格档案，支持跨局记忆
+
+---
+
+## 6. 扩展建议
+
+### 6.1 策略模式扩展
+
+如需新增策略类型，只需：
+
+1. 实现 `AIDecisionStrategy` 接口
+2. 在工厂方法中添加新分支
+
+```java
+// 新增示例：强化学习策略
+public class ReinforcementLearningStrategy implements AIDecisionStrategy {
+    @Override
+    public List<Card> decidePlay(Player aiPlayer, GameState gameState) {
+        // RL 决策逻辑
+    }
+}
+```
+
+### 6.2 工厂模式优化
+
+当前使用简单工厂，可进一步升级为 **抽象工厂模式** 或 **策略工厂模式**，支持更复杂的策略组合。
+
+---
+
+## 7. 结论
+
+本项目的 AI 策略模块通过多种设计模式的组合应用，实现了：
+
+1. **高内聚低耦合**：策略独立，职责清晰
+2. **可扩展性**：新增策略无需修改现有代码
+3. **性能分级**：不同难度使用不同复杂度算法
+4. **智能自适应**：通过代理模式实现风格学习
+5. **易于测试**：策略独立，支持单元测试
+
+设计模式的合理应用使得 AI 策略模块具备良好的架构弹性，能够适应未来的功能扩展和性能优化需求。
