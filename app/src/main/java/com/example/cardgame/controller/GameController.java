@@ -47,10 +47,11 @@ public class GameController implements GameActionHandler {
     private final GameEngine gameEngine;
     private RuleConfig ruleConfig;
     private final List<String> selectedCardIds = new ArrayList<>();
+    private final Object selectedCardLock = new Object();
 
-    private String myPlayerId = "P1";
-    private boolean bluetoothMode = false;
-    private boolean hostMode = false;
+    private volatile String myPlayerId = "P1";
+    private volatile boolean bluetoothMode = false;
+    private volatile boolean hostMode = false;
     private String selectedRuleType = "南方规则";
     private BluetoothActionHandler bluetoothActionHandler;
 
@@ -185,7 +186,9 @@ public class GameController implements GameActionHandler {
     @Override
     public void startNewGame() {
         cleanup();
-        selectedCardIds.clear();
+        synchronized (selectedCardLock) {
+            selectedCardIds.clear();
+        }
         lastTriggerTime = 0;
         if (!bluetoothMode) myPlayerId = "P1";
 
@@ -608,7 +611,9 @@ public class GameController implements GameActionHandler {
             } else {
                 HermesLog.log("GameController: WARNING - action description is empty, skipping record");
             }
-            selectedCardIds.clear();
+            synchronized (selectedCardLock) {
+                selectedCardIds.clear();
+            }
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);
 
@@ -687,10 +692,12 @@ public class GameController implements GameActionHandler {
 
     @Override
     public void toggleCardSelection(String cardId) {
-        if (selectedCardIds.contains(cardId)) {
-            selectedCardIds.remove(cardId);
-        } else {
-            selectedCardIds.add(cardId);
+        synchronized (selectedCardLock) {
+            if (selectedCardIds.contains(cardId)) {
+                selectedCardIds.remove(cardId);
+            } else {
+                selectedCardIds.add(cardId);
+            }
         }
     }
 
@@ -746,8 +753,12 @@ public class GameController implements GameActionHandler {
         }
 
         String currentPlayerName = currentPlayer.getPlayerName();
+        List<String> selectedCopy;
+        synchronized (selectedCardLock) {
+            selectedCopy = new ArrayList<>(selectedCardIds);
+        }
         return new GameViewData(currentPlayer.getPlayerId(), currentPlayerName, players,
-                new ArrayList<>(selectedCardIds), myHandCards,
+                selectedCopy, myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",

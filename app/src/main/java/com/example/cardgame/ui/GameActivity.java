@@ -64,6 +64,11 @@ import com.example.cardgame.llm.LLMAnalyzer;
 public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback, GameEventListener {
 
     private static final String TAG = "CardGame";
+    private static final String[] RANK_DISPLAY_ORDER =
+            {"2", "A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3"};
+    private static final Rank[] RANK_ENUM_ORDER =
+            {Rank.TWO, Rank.ACE, Rank.KING, Rank.QUEEN, Rank.JACK, Rank.TEN,
+             Rank.NINE, Rank.EIGHT, Rank.SEVEN, Rank.SIX, Rank.FIVE, Rank.FOUR, Rank.THREE};
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
@@ -650,23 +655,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
     private int getCardRankWeight(String cardId) {
         if (cardId == null || cardId.length() < 2) return 0;
-        String rank = cardId.substring(1);
-        switch (rank) {
-            case "2": return 13;
-            case "A": return 12;
-            case "K": return 11;
-            case "Q": return 10;
-            case "J": return 9;
-            case "10": return 8;
-            case "9": return 7;
-            case "8": return 6;
-            case "7": return 5;
-            case "6": return 4;
-            case "5": return 3;
-            case "4": return 2;
-            case "3": return 1;
-            default: return 0;
-        }
+        String rankStr = cardId.substring(1);
+        Rank rank = rankFromString(rankStr);
+        return rank != null ? ensureRuleConfigReady().rankWeights.get(rank) : 0;
     }
 
     @SuppressLint("DiscouragedApi")
@@ -1047,12 +1038,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 TableLayout.LayoutParams.WRAP_CONTENT,
                 TableLayout.LayoutParams.WRAP_CONTENT));
 
-        String[] rankOrder = {"2", "A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3"};
-        Rank[] rankEnums = {Rank.TWO, Rank.ACE, Rank.KING, Rank.QUEEN, Rank.JACK, Rank.TEN,
-                Rank.NINE, Rank.EIGHT, Rank.SEVEN, Rank.SIX, Rank.FIVE, Rank.FOUR, Rank.THREE};
-
         Map<Rank, Integer> played = new HashMap<>();
-        for (Rank r : rankEnums) played.put(r, 0);
+        for (Rank r : RANK_ENUM_ORDER) played.put(r, 0);
         List<Card> allPlayed = data.getAllPlayedCards();
         Set<Card> uniquePlayedCards = new HashSet<>();
         if (allPlayed != null) {
@@ -1069,9 +1056,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         // 点数行
         TableRow headerRow = new TableRow(this);
-        for (int i = 0; i < rankOrder.length; i++) {
+        for (int i = 0; i < RANK_DISPLAY_ORDER.length; i++) {
             TextView tv = new TextView(this);
-            tv.setText(rankOrder[i]);
+            tv.setText(RANK_DISPLAY_ORDER[i]);
             tv.setGravity(Gravity.CENTER);
             tv.setTextColor(Color.BLACK);
             tv.setTextSize(11);
@@ -1084,8 +1071,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         // 剩余数量行
         TableRow dataRow = new TableRow(this);
-        for (int i = 0; i < rankOrder.length; i++) {
-            int remain = Math.max(0, 4 - played.get(rankEnums[i]));
+        for (int i = 0; i < RANK_DISPLAY_ORDER.length; i++) {
+            int remain = Math.max(0, 4 - played.get(RANK_ENUM_ORDER[i]));
             TextView tv = new TextView(this);
             tv.setText(String.valueOf(remain));
             tv.setGravity(Gravity.CENTER);
