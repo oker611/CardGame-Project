@@ -100,6 +100,7 @@ public class GameEngine {
                 allPlayedCards.add(card);
             }
         }
+        gameState.setAllPlayedCards(this.allPlayedCards);
 
         gameState.setLastPlay(currentPlay);
         player.setPassed(false);
@@ -248,6 +249,9 @@ public class GameEngine {
             return;
         }
         this.gameState = syncedState;
+        if (syncedState.getAllPlayedCards() != null) {
+            this.allPlayedCards = new ArrayList<>(syncedState.getAllPlayedCards());
+        }
         ensureRuleEngineReady();
         System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from remote sync, currentPlayerId="
                 + gameState.getCurrentPlayerId());

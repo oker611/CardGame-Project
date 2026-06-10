@@ -357,6 +357,13 @@ public class NetworkGameBridge {
                 cardTracker.initFromMyHand(me.getHandCards());
             }
         }
+        // 重放历史出牌，使断线重连后记牌器恢复之前的出牌状态
+        List<Card> allPlayed = state.getAllPlayedCards();
+        if (allPlayed != null) {
+            for (Card c : allPlayed) {
+                cardTracker.onCardPlayed(c, "HISTORY");
+            }
+        }
     }
 
     private void initCardTrackerFromHandMap(Map<String, List<Card>> playerHandCards) {
