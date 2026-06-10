@@ -713,16 +713,7 @@ public class GameController implements GameActionHandler {
         Player winner = state.getWinnerId() != null ? state.getPlayerById(state.getWinnerId()) : null;
 
         List<Card> handCardsList = new ArrayList<>(me.getHandCards());
-        handCardsList.sort((c1, c2) -> {
-            // 使用 ruleConfig 中的权重
-            int w1 = activeRuleConfig.rankWeights.get(c1.getRank());
-            int w2 = activeRuleConfig.rankWeights.get(c2.getRank());
-            int rankCompare = Integer.compare(w2, w1);  // 降序
-            if (rankCompare != 0) return rankCompare;
-            int s1 = activeRuleConfig.suitWeights.get(c1.getSuit());
-            int s2 = activeRuleConfig.suitWeights.get(c2.getSuit());
-            return Integer.compare(s2, s1);  // 降序
-        });
+        handCardsList.sort(activeRuleConfig.cardComparator());
         List<String> myHandCards = handCardsList.stream()
                 .map(c -> c.getSuit().getSymbol() + c.getRank().getDisplayName())
                 .collect(Collectors.toList());

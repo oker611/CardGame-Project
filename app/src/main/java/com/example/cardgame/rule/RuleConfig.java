@@ -1,5 +1,6 @@
 package com.example.cardgame.rule;
 
+import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
 import com.example.cardgame.rule.PatternRecognizer.PatternType;
@@ -21,6 +22,19 @@ public class RuleConfig {
     public final Set<PatternType> allowedPatterns;
     public final Map<PatternType, Integer> fiveCardPriority;
     public final int passResetThreshold;
+
+    /**
+     * 返回按牌点降序、花色降序的比较器，用于手牌/出牌排序。
+     */
+    public java.util.Comparator<Card> cardComparator() {
+        return (c1, c2) -> {
+            int rankCmp = Integer.compare(
+                    rankWeights.get(c2.getRank()), rankWeights.get(c1.getRank()));
+            if (rankCmp != 0) return rankCmp;
+            return Integer.compare(
+                    suitWeights.get(c2.getSuit()), suitWeights.get(c1.getSuit()));
+        };
+    }
 
     private RuleConfig(Builder builder) {
         this.rankWeights = Collections.unmodifiableMap(new EnumMap<>(builder.rankWeights));

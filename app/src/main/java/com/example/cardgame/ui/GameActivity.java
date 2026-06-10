@@ -189,7 +189,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
 
         gameActionHandler = CardGameApplication.getGameActionHandler();
-        Log.d("GameActivity", "gameActionHandler = " + gameActionHandler);
+        Log.d(TAG, "gameActionHandler = " + gameActionHandler);
 
         // 设置倒计时回调，并初始化自适应 AI（如果启用）
         if (gameActionHandler instanceof GameController) {
@@ -198,7 +198,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             // 初始化自适应 AI
             gameController.initAdaptiveAI(getApplicationContext());
             gameController.setAIDifficulty(com.example.cardgame.ai.AIDifficulty.ADAPTIVE);
-            Log.d("GameActivity", "Adaptive AI initialized with ADAPTIVE difficulty");
+            Log.d(TAG, "Adaptive AI initialized with ADAPTIVE difficulty");
         }
 
         isBluetoothGame = getIntent().getBooleanExtra("is_bluetooth_game", false);
@@ -418,9 +418,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         // 恢复同步选中牌列表
         selectedCardIds = new ArrayList<>(data.getSelectedCardIds());
 
-        Log.d("GameCheck", "当前手牌: " + data.getMyHandCards());
-        Log.d("GameCheck", "最后出牌: " + data.getLastPlayCards());
-        Log.d("GameCheck", "selectedCardIds: " + selectedCardIds);
+        Log.d(TAG, "当前手牌: " + data.getMyHandCards());
+        Log.d(TAG, "最后出牌: " + data.getLastPlayCards());
+        Log.d(TAG, "selectedCardIds: " + selectedCardIds);
 
         updateOpponentsFromViewData(data);
         updatePlayAreas(data);
@@ -462,10 +462,10 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         List<PlayerViewData> players = data.getPlayers();
         Map<String, List<String>> playerLastPlayCards = data.getPlayerLastPlayCards();
 
-        Log.d("CardGame", "updatePlayAreas: players=" + (players != null ? players.size() : "null"));
+        Log.d(TAG, "updatePlayAreas: players=" + (players != null ? players.size() : "null"));
 
         if (players == null || players.size() < 4 || playerLastPlayCards == null) {
-            Log.d("CardGame", "updatePlayAreas: fallback to renderCardsToContainer");
+            Log.d(TAG, "updatePlayAreas: fallback to renderCardsToContainer");
             renderCardsToContainer(playCardsContainer, data.getLastPlayCards());
             return;
         }
@@ -484,7 +484,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         String currentPlayerId = data.getCurrentPlayerId();
         boolean isMyTurn = localPlayerId.equals(currentPlayerId);
 
-        Log.d("CardGame", "updateActionButtons: localPlayerId=" + localPlayerId
+        Log.d(TAG, "updateActionButtons: localPlayerId=" + localPlayerId
                 + ", currentPlayerId=" + currentPlayerId
                 + ", isMyTurn=" + isMyTurn);
 
@@ -500,7 +500,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         boolean shouldShowButtons = !data.isGameOver() && isMyTurn && isCurrentPlayerHuman;
 
-        Log.d("CardGame", "shouldShowButtons=" + shouldShowButtons);
+        Log.d(TAG, "shouldShowButtons=" + shouldShowButtons);
         if (actionButtonsContainer != null && playCardsContainer != null) {
             if (shouldShowButtons) {
                 // 轮到我了，显示按钮，隐藏出牌展示区
@@ -544,14 +544,14 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private void renderSelfPlayArea(PlayerViewData player, Map<String, List<String>> lastPlayCards) {
         if (playCardsContainer == null) return;
 
-        Log.d("CardGame", "renderSelfPlayArea called for player=" + player.getPlayerId()
+        Log.d(TAG, "renderSelfPlayArea called for player=" + player.getPlayerId()
                 + ", isPassed=" + player.isPassed());
 
         playCardsContainer.removeAllViews();
         playCardsContainer.setGravity(Gravity.CENTER);
 
         List<String> cards = lastPlayCards.get(player.getPlayerId());
-        Log.d("CardGame", "renderSelfPlayArea: cards=" + cards);
+        Log.d(TAG, "renderSelfPlayArea: cards=" + cards);
 
         if ((cards == null || cards.isEmpty()) && player.isPassed()) {
             TextView textView = new TextView(this);
@@ -560,12 +560,12 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             textView.setTextSize(18f);
             textView.setGravity(Gravity.CENTER);
             playCardsContainer.addView(textView);
-            Log.d("CardGame", "renderSelfPlayArea: showing '不出'");
+            Log.d(TAG, "renderSelfPlayArea: showing '不出'");
         } else if (cards != null && !cards.isEmpty()) {
             renderCardsToContainer(playCardsContainer, cards);
-            Log.d("CardGame", "renderSelfPlayArea: showing " + cards.size() + " cards");
+            Log.d(TAG, "renderSelfPlayArea: showing " + cards.size() + " cards");
         } else {
-            Log.d("CardGame", "renderSelfPlayArea: no cards and not passed, showing nothing");
+            Log.d(TAG, "renderSelfPlayArea: no cards and not passed, showing nothing");
         }
     }
 
@@ -757,7 +757,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         int expectedLeftMargin = (screenWidth - totalWidth) / 2;
         if (expectedLeftMargin < 0) expectedLeftMargin = 0;
 
-        Log.d("CenterDebug", "牌数=" + handCards.size() + ", 期望左边距=" + expectedLeftMargin);
+        Log.d(TAG, "牌数=" + handCards.size() + ", 期望左边距=" + expectedLeftMargin);
 
         rvHandCards.setX(expectedLeftMargin);
     }
@@ -884,10 +884,10 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             isPatternHintEnabled = true;
         }
 
-        Log.d("PropDebug", "isBluetoothGame=" + isBluetoothGame);
-        Log.d("PropDebug", "tracker=" + isTrackerEnabled);
-        Log.d("PropDebug", "seeThrough=" + isSeeThroughEnabled);
-        Log.d("PropDebug", "patternHint=" + isPatternHintEnabled);
+        Log.d(TAG, "isBluetoothGame=" + isBluetoothGame);
+        Log.d(TAG, "tracker=" + isTrackerEnabled);
+        Log.d(TAG, "seeThrough=" + isSeeThroughEnabled);
+        Log.d(TAG, "patternHint=" + isPatternHintEnabled);
 
         updatePropUI();
 
@@ -1309,16 +1309,16 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     public void onEvent(GameEvent event) {
         if (event instanceof CardPlayedEvent) {
             CardPlayedEvent e = (CardPlayedEvent) event;
-            Log.d("EventBus", "收到出牌事件: playerId=" + e.getPlayerId());
+            Log.d(TAG, "收到出牌事件: playerId=" + e.getPlayerId());
             runOnUiThread(this::fullRefresh);
         } else if (event instanceof PlayerPassedEvent) {
             PlayerPassedEvent e = (PlayerPassedEvent) event;
-            Log.d("EventBus", "收到过牌事件: playerId=" + e.getPlayerId());
+            Log.d(TAG, "收到过牌事件: playerId=" + e.getPlayerId());
             runOnUiThread(this::fullRefresh);
         } else if (event instanceof TurnChangedEvent) {
             TurnChangedEvent e = (TurnChangedEvent) event;
             String newPlayerId = e.getNewCurrentPlayerId();
-            Log.d("EventBus", "收到回合切换事件: newPlayerId=" + newPlayerId);
+            Log.d(TAG, "收到回合切换事件: newPlayerId=" + newPlayerId);
             runOnUiThread(() -> {
                 if (isBluetoothGame) {
                     reloadPropSettingsFromPrefs();
@@ -1346,7 +1346,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             }
         } else if (event instanceof GameOverEvent) {
             GameOverEvent e = (GameOverEvent) event;
-            Log.d("EventBus", "收到游戏结束事件: winnerId=" + e.getWinnerId());
+            Log.d(TAG, "收到游戏结束事件: winnerId=" + e.getWinnerId());
             runOnUiThread(() -> {
                 if (!gameOverDialogShown) {
                     fullRefresh();

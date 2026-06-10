@@ -117,7 +117,7 @@ public class GameEngine {
         settlementManager.checkAndSettle(gameState);
         if (gameState.isGameOver() && gameState.getWinnerId() != null) {
             EventBus.getInstance().post(new GameOverEvent(gameState.getWinnerId()));
-            Log.d("EventBus", "posted GameOverEvent for " + gameState.getWinnerId());
+            Log.d(TAG, "posted GameOverEvent for " + gameState.getWinnerId());
         }
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
@@ -125,7 +125,7 @@ public class GameEngine {
             Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
         }
         EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
-        Log.d("EventBus", "posted CardPlayedEvent for " + playerId);
+        Log.d(TAG, "posted CardPlayedEvent for " + playerId);
         return createPlayResult(true, "PLAY_OK", gameState);
     }
 
@@ -173,7 +173,7 @@ public class GameEngine {
 
         Log.d(TAG, "[CardGame][PASS] success playerId=" + playerId);
         EventBus.getInstance().post(new PlayerPassedEvent(playerId));
-        Log.d("EventBus", "posted PlayerPassedEvent for " + playerId);
+        Log.d(TAG, "posted PlayerPassedEvent for " + playerId);
         return createPassResult(true, "PASS_OK", gameState);
     }
 

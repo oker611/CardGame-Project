@@ -60,7 +60,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
         eventRelay.register();
 
-        new Thread(() -> bluetoothGateway.startAsHost(localPlayerId, getLocalGamePlayerName())).start();
+        new Thread(() -> bluetoothGateway.startAsHost(localPlayerId, getLocalGamePlayerName()), "CardGame-HostServer").start();
     }
 
     @Override

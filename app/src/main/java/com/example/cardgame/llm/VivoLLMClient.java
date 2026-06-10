@@ -20,6 +20,8 @@ import okhttp3.Response;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class VivoLLMClient {
+
+    private static final String TAG = "CardGame";
     private static final String API_URL = "https://api-ai.vivo.com.cn/v1/chat/completions";
     private static final String APP_KEY = BuildConfig.VIVO_APP_KEY;
 
@@ -32,7 +34,7 @@ public class VivoLLMClient {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
         this.gson = new Gson();
-        Log.d("VivoLLMClient", "APP_KEY length: " + (APP_KEY == null ? 0 : APP_KEY.length()));
+        Log.d(TAG, "APP_KEY length: " + (APP_KEY == null ? 0 : APP_KEY.length()));
     }
 
     @SuppressWarnings("SpellCheckingInspection")
