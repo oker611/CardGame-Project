@@ -182,6 +182,10 @@ public class GameController implements GameActionHandler {
         if (gameEngine.getGameState() != null) {
             gameEngine.configureBluetoothPlayerTypes(this.myPlayerId, "P1".equals(this.myPlayerId) ? "P2" : "P1");
         }
+        // HOST 和 CLIENT 均需将本地记牌器实例传递给 NetworkGameBridge
+        if (bluetoothActionHandler != null) {
+            bluetoothActionHandler.setCardTracker(gameCardTracker);
+        }
     }
 
     @Override
@@ -283,11 +287,6 @@ public class GameController implements GameActionHandler {
         }
 
         initAIEventListener();
-
-        // 将本地记牌器实例传递给 NetworkGameBridge，使客户端收到远程出牌消息时能更新
-        if (bluetoothMode && bluetoothActionHandler != null) {
-            bluetoothActionHandler.setCardTracker(gameCardTracker);
-        }
 
         if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
             HermesLog.log("GAME startNewGame calling readyForGame+syncGameState");
