@@ -3,6 +3,7 @@ package com.example.cardgame.controller;
 import com.example.cardgame.dto.BluetoothViewData;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
+import com.example.cardgame.util.CardTracker;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,5 +69,12 @@ public interface BluetoothActionHandler {
      * HOST 端：通知已连接客户端有 AI 玩家加入。
      */
     default void notifyAiPlayerAdded(String playerId, int slotIndex) {
+    }
+
+    /**
+     * 设置本地记牌器实例，供 NetworkGameBridge 在处理远程出牌消息时更新。
+     * HOST 和 CLIENT 均需调用，使记牌器在各节点本地计算。
+     */
+    default void setCardTracker(CardTracker cardTracker) {
     }
 }

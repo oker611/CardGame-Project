@@ -19,6 +19,7 @@ import com.example.cardgame.network.payload.PassActionPayload;
 import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
 
+import com.example.cardgame.util.CardTracker;
 import com.example.cardgame.util.HermesLog;
 
 import java.lang.reflect.Method;
@@ -35,6 +36,7 @@ public class NetworkGameBridge {
     private BluetoothEventListener eventListener;
     private String localPlayerId;
     private List<String> remotePlayerIds = new ArrayList<>();
+    private CardTracker cardTracker;
 
     public NetworkGameBridge(GameEngine gameEngine, BluetoothMessageCodec messageCodec) {
         this(null, gameEngine, messageCodec);
@@ -48,6 +50,10 @@ public class NetworkGameBridge {
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
         this.eventListener = eventListener;
+    }
+
+    public void setCardTracker(CardTracker cardTracker) {
+        this.cardTracker = cardTracker;
     }
 
     /**
@@ -113,8 +119,8 @@ public class NetworkGameBridge {
                 );
                 configurePlayerTypes();
 
-                // 完整 GameState 来自 HOST，需要按本机视角重设 PlayerType：
-                // 本机玩家为 HUMAN，其余玩家在客户端都由网络消息驱动。
+                // 初始化本地记牌器：扣除自己手牌
+                initCardTrackerFromGameState(syncedState);
 
                 // 手动发布 TurnChangedEvent：GameState 已更新但 rebuildGameState 不触发事件，
                 // CLIENT 端 UI 依赖 TurnChangedEvent 来显示/隐藏出牌按钮
@@ -139,6 +145,9 @@ public class NetworkGameBridge {
                 );
 
                 configurePlayerTypes();
+
+                // 初始化本地记牌器：从手牌映射中获取自己的手牌
+                initCardTrackerFromHandMap(playerHandCards);
 
                 // 手动发布 TurnChangedEvent 通知 UI 当前回合
                 String currentId = payload.getCurrentPlayerId();
@@ -165,6 +174,9 @@ public class NetworkGameBridge {
 
             configurePlayerTypes();
 
+            // 初始化本地记牌器：旧格式中 remoteHandCards 是接收端自己的手牌
+            initCardTrackerFromMyHand(myHand);
+
             // 手动发布 TurnChangedEvent 通知 UI 当前回合
             if (currentPlayerId != null) {
                 EventBus.getInstance().post(new TurnChangedEvent(currentPlayerId, "GAME_START"));
@@ -182,6 +194,11 @@ public class NetworkGameBridge {
                     messageCodec.decodePlayActionPayload(message.getPayloadJson());
 
             Play play = payload.getPlay();
+
+            // 记录到本地记牌器
+            if (cardTracker != null && play != null && play.getCards() != null) {
+                cardTracker.onCardsPlayed(play.getCards(), play.getPlayerId());
+            }
 
             if (play != null) {
                 invokeEngineMethod(
@@ -329,5 +346,33 @@ public class NetworkGameBridge {
         if (eventListener != null) {
             eventListener.onError(message, exception);
         }
+    }
+
+    private void initCardTrackerFromGameState(GameState state) {
+        if (cardTracker == null || state == null) return;
+        cardTracker.reset();
+        if (localPlayerId != null) {
+            com.example.cardgame.model.Player me = state.getPlayerById(localPlayerId);
+            if (me != null && me.getHandCards() != null) {
+                cardTracker.initFromMyHand(me.getHandCards());
+            }
+        }
+    }
+
+    private void initCardTrackerFromHandMap(Map<String, List<Card>> playerHandCards) {
+        if (cardTracker == null || playerHandCards == null) return;
+        cardTracker.reset();
+        if (localPlayerId != null) {
+            List<Card> myHand = playerHandCards.get(localPlayerId);
+            if (myHand != null) {
+                cardTracker.initFromMyHand(myHand);
+            }
+        }
+    }
+
+    private void initCardTrackerFromMyHand(List<Card> myHand) {
+        if (cardTracker == null) return;
+        cardTracker.reset();
+        cardTracker.initFromMyHand(myHand);
     }
 }

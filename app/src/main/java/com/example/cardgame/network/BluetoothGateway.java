@@ -140,6 +140,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.networkGameBridge.setBluetoothEventListener(eventListener);
     }
 
+    public void setCardTracker(com.example.cardgame.util.CardTracker cardTracker) {
+        this.networkGameBridge.setCardTracker(cardTracker);
+    }
+
     // ========================================================================
     //  HOST 模式：创建房间 + 接受多个客户端
     // ========================================================================

@@ -64,6 +64,8 @@ public class GameController implements GameActionHandler {
 
     private PlayValidator playValidator;
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
+    // 记牌器（UI通用，非AI专用）：每个节点本地维护，开局扣除手牌，对局中根据出牌消息更新
+    private final CardTracker gameCardTracker = new CardTracker();
 
     public void setSelectedRuleType(String ruleType) {
         this.selectedRuleType = ruleType != null ? ruleType : "南方规则";
@@ -100,6 +102,10 @@ public class GameController implements GameActionHandler {
 
     public void setCountdownCallback(CountdownUICallback callback) {
         this.countdownCallback = callback;
+    }
+
+    public CardTracker getGameCardTracker() {
+        return gameCardTracker;
     }
 
     public GameController(GameEngine gameEngine) {
@@ -228,6 +234,15 @@ public class GameController implements GameActionHandler {
         this.playValidator = new PlayValidator(ruleConfig);
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
+
+        // 初始化记牌器：重置后扣除自己手牌
+        gameCardTracker.reset();
+        Player myPlayer = gameEngine.getGameState() != null
+                ? gameEngine.getGameState().getPlayerById(myPlayerId) : null;
+        if (myPlayer != null && myPlayer.getHandCards() != null) {
+            gameCardTracker.initFromMyHand(myPlayer.getHandCards());
+        }
+
         // 在 gameEngine.dealCards(); 之后添加
         if (!bluetoothMode) {
             for (Player p : gameEngine.getGameState().getPlayers()) {
@@ -268,6 +283,11 @@ public class GameController implements GameActionHandler {
         }
 
         initAIEventListener();
+
+        // 将本地记牌器实例传递给 NetworkGameBridge，使客户端收到远程出牌消息时能更新
+        if (bluetoothMode && bluetoothActionHandler != null) {
+            bluetoothActionHandler.setCardTracker(gameCardTracker);
+        }
 
         if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
             HermesLog.log("GAME startNewGame calling readyForGame+syncGameState");
@@ -573,6 +593,7 @@ public class GameController implements GameActionHandler {
 
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardsToPlay);
         if (result.isSuccess()) {
+            gameCardTracker.onCardsPlayed(playedCards, currentPlayer.getPlayerId());
             recordPlayToTracker(currentPlayer.getPlayerId(), playedCards);
             
             // 【直接记录人类动作】使用出牌前提取的 Card 对象
@@ -649,6 +670,7 @@ public class GameController implements GameActionHandler {
             }
         }
         if (result.isSuccess()) {
+            gameCardTracker.onCardsPlayed(cards, currentPlayer.getPlayerId());
             recordPlayToTracker(currentPlayer.getPlayerId(), cards);
             currentPlayer.resetConsecutiveNoPlayCount();
             cancelCountdown(currentPlayer);
@@ -742,13 +764,15 @@ public class GameController implements GameActionHandler {
         }
 
         String currentPlayerName = currentPlayer.getPlayerName();
-        return new GameViewData(currentPlayer.getPlayerId(), currentPlayerName, players,
+        GameViewData viewData = new GameViewData(currentPlayer.getPlayerId(), currentPlayerName, players,
                 new ArrayList<>(selectedCardIds), myHandCards,
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",
                 playerLastPlayCards,
                 gameEngine.getAllPlayedCards());
+        viewData.setRemainingCountByRank(gameCardTracker.getAllUnknownRemainingByRank());
+        return viewData;
     }
 
     private GameViewData emptyViewData() {

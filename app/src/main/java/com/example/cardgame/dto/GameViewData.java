@@ -3,6 +3,7 @@ package com.example.cardgame.dto;
 import java.util.List;
 import java.util.Map;
 import com.example.cardgame.model.Card;
+import com.example.cardgame.model.Rank;
 
 public class GameViewData {
 
@@ -16,14 +17,11 @@ public class GameViewData {
     private boolean gameOver;
     private String winnerName;
 
-    // ✅ 新增：每个玩家最后一次出的牌（key=playerId, value=牌字符串列表）
     private Map<String, List<String>> playerLastPlayCards;
     private List<Card> allPlayedCards;
+    // 记牌器：每种点数的未知剩余张数（总量减去自己手牌和已打出牌）
+    private Map<Rank, Integer> remainingCountByRank;
 
-    // 原构造函数保留，但为了兼容性，新增一个重载（或者直接修改原构造函数）
-    // 由于其他地方可能调用旧构造函数，我们提供一个新构造函数并保留旧的（但旧的赋默认空map）
-    // 为了安全，直接修改原构造函数，并增加参数（需要同步修改所有调用处）
-    // 在 GameController 中调用的是新参数，所以我们直接改这个构造函数
     public GameViewData(String currentPlayerId, String currentPlayerName,
                         List<PlayerViewData> players,
                         List<String> selectedCardIds,
@@ -46,8 +44,6 @@ public class GameViewData {
         this.allPlayedCards = allPlayedCards;
     }
 
-    // 为了兼容旧代码（如果有其他地方调用），保留一个无 playerLastPlayCards 的构造函数（不建议使用）
-    // 但为了避免编译错误，我们再保留一个旧版（可标记 @Deprecated）
     @Deprecated
     public GameViewData(String currentPlayerId, String currentPlayerName,
                         List<PlayerViewData> players,
@@ -102,5 +98,13 @@ public class GameViewData {
 
     public List<Card> getAllPlayedCards() {
         return allPlayedCards;
+    }
+
+    public Map<Rank, Integer> getRemainingCountByRank() {
+        return remainingCountByRank;
+    }
+
+    public void setRemainingCountByRank(Map<Rank, Integer> remainingCountByRank) {
+        this.remainingCountByRank = remainingCountByRank;
     }
 }

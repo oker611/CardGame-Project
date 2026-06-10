@@ -208,6 +208,11 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
         return bluetoothGateway.hasRealClients();
     }
 
+    @Override
+    public void setCardTracker(com.example.cardgame.util.CardTracker cardTracker) {
+        bluetoothGateway.setCardTracker(cardTracker);
+    }
+
 
     // ========================================================================
     //  BluetoothEventListener 回调

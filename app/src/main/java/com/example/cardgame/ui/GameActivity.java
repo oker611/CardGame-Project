@@ -47,10 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Locale;
-import java.util.Set;
 
 import com.example.cardgame.event.GameEventListener;
 import com.example.cardgame.event.GameEvent;
@@ -1049,21 +1046,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         Rank[] rankEnums = {Rank.TWO, Rank.ACE, Rank.KING, Rank.QUEEN, Rank.JACK, Rank.TEN,
                 Rank.NINE, Rank.EIGHT, Rank.SEVEN, Rank.SIX, Rank.FIVE, Rank.FOUR, Rank.THREE};
 
-        Map<Rank, Integer> played = new HashMap<>();
-        for (Rank r : rankEnums) played.put(r, 0);
-        List<Card> allPlayed = data.getAllPlayedCards();
-        Set<Card> uniquePlayedCards = new HashSet<>();
-        if (allPlayed != null) {
-            for (Card card : allPlayed) {
-                if (card == null || !uniquePlayedCards.add(card)) {
-                    continue;
-                }
-                Rank r = card.getRank();
-                if (played.containsKey(r)) {
-                    played.put(r, played.get(r) + 1);
-                }
-            }
-        }
+        // 直接从 GameViewData 读取预计算的剩余张数（本地 CardTracker 已扣除手牌和已出牌）
+        Map<Rank, Integer> remainingCountByRank = data.getRemainingCountByRank();
 
         // 点数行
         TableRow headerRow = new TableRow(this);
@@ -1083,7 +1067,10 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         // 剩余数量行
         TableRow dataRow = new TableRow(this);
         for (int i = 0; i < rankOrder.length; i++) {
-            int remain = Math.max(0, 4 - played.get(rankEnums[i]));
+            Rank rank = rankEnums[i];
+            int remain = remainingCountByRank != null
+                    ? (remainingCountByRank.getOrDefault(rank, 0))
+                    : 4;
             TextView tv = new TextView(this);
             tv.setText(String.valueOf(remain));
             tv.setGravity(Gravity.CENTER);

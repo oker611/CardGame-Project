@@ -12,10 +12,14 @@ public class CardTracker {
     private Map<String, List<String>> opponentHistory = new HashMap<>();
 
     // ========== 牌的分布统计（用于概率建模）==========
-    // 每种点数已出的张数（每种点数有4张牌）
+    // 每种点数已出的张数（每种点数最多4张）
     private Map<Rank, Integer> rankPlayedCount = new HashMap<>();
-    // 每种花色已出的张数（每个花色有13张牌）
+    // 每种花色已出的张数（每个花色最多13张）
     private Map<Suit, Integer> suitPlayedCount = new HashMap<>();
+    // 自己手牌中每种点数的数量（初始时扣除，用于记牌器显示真正的未知剩余）
+    private Map<Rank, Integer> myHandRankCount = new HashMap<>();
+    // 自己手牌中每种花色的数量
+    private Map<Suit, Integer> myHandSuitCount = new HashMap<>();
 
     public void onCardPlayed(Card card, String playerId) {
         if (card == null || playedCards.contains(card)) {
@@ -32,6 +36,22 @@ public class CardTracker {
     public void onCardsPlayed(List<Card> cards, String playerId) {
         for (Card card : cards) {
             onCardPlayed(card, playerId);
+        }
+    }
+
+    /**
+     * 初始化自己的手牌信息。记牌器在显示每种点数的剩余张数时，
+     * 会从总量中扣除自己手牌已有部分和已打出部分，只显示处于未知状态的剩余牌。
+     */
+    public void initFromMyHand(List<Card> myHand) {
+        myHandRankCount.clear();
+        myHandSuitCount.clear();
+        if (myHand == null) return;
+        for (Card c : myHand) {
+            if (c != null) {
+                myHandRankCount.merge(c.getRank(), 1, Integer::sum);
+                myHandSuitCount.merge(c.getSuit(), 1, Integer::sum);
+            }
         }
     }
 
@@ -72,6 +92,8 @@ public class CardTracker {
         opponentHistory.clear();
         rankPlayedCount.clear();
         suitPlayedCount.clear();
+        myHandRankCount.clear();
+        myHandSuitCount.clear();
     }
 
     public int getPlayedCount() {
@@ -83,11 +105,32 @@ public class CardTracker {
      */
 
     /**
-     * 获取某点数剩余牌的张数（每种点数最多4张）
+     * 获取某点数剩余牌的张数（总量减去已出牌，不考虑自己手牌；供AI概率计算使用）。
      */
     public int getRemainingCountByRank(Rank rank) {
         int played = rankPlayedCount.getOrDefault(rank, 0);
         return Math.max(0, 4 - played);
+    }
+
+    /**
+     * 获取某点数真正处于未知状态的剩余张数（总量减去自己手牌中该点数数量，再减去已打出数量）。
+     * 供记牌器 UI 使用：牌局开始时扣除自己手牌，只显示未知状态的剩余。
+     */
+    public int getUnknownRemainingCountByRank(Rank rank) {
+        int myCount = myHandRankCount.getOrDefault(rank, 0);
+        int played = rankPlayedCount.getOrDefault(rank, 0);
+        return Math.max(0, 4 - myCount - played);
+    }
+
+    /**
+     * 获取所有点数的未知剩余张数映射。
+     */
+    public Map<Rank, Integer> getAllUnknownRemainingByRank() {
+        Map<Rank, Integer> result = new HashMap<>();
+        for (Rank rank : Rank.values()) {
+            result.put(rank, getUnknownRemainingCountByRank(rank));
+        }
+        return result;
     }
 
     /**
