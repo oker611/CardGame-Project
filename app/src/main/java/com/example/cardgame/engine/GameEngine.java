@@ -26,8 +26,8 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class GameEngine {
-private static final String TAG = "CardGame";
 
+    private static final String TAG = "CardGame";
     private static final boolean DEBUG_AUTO_PLAY = false;
 
     private GameState gameState;

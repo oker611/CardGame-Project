@@ -62,7 +62,8 @@ import com.example.cardgame.event.GameOverEvent;
 import com.example.cardgame.llm.LLMAnalyzer;
 
 public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback, GameEventListener {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;

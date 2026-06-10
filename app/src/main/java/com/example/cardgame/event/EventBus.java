@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class EventBus {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private final List<GameEventListener> listeners = new CopyOnWriteArrayList<>();
 

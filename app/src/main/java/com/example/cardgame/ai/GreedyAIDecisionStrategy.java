@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
  * 完全不使用牌型分支，通过通用组合生成 + 过滤器实现。
  */
 public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private final RuleConfig config;
     private final PatternRecognizer patternRecognizer;

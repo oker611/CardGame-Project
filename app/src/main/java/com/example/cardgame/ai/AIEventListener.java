@@ -19,8 +19,8 @@ import java.util.Comparator;
 import java.util.List;
 
 public class AIEventListener implements GameEventListener {
-private static final String TAG = "CardGame";
 
+    private static final String TAG = "CardGame";
     private final GameController gameController;
     private final GameEngine gameEngine;
     private final AIDecisionStrategy strategy;

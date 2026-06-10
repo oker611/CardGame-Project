@@ -13,7 +13,8 @@ import java.util.stream.Collectors;
  * 候选动作生成器 + 启发式排序（已优化）
  */
 public class CandidateGenerator {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private final RuleEngine ruleEngine;
     private final int topK;

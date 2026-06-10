@@ -41,7 +41,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private final GameEngine gameEngine;
     private RuleConfig ruleConfig;

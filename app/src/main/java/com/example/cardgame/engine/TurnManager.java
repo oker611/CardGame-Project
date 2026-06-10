@@ -13,7 +13,8 @@ import java.util.List;
  * Manager responsible for turn rotation.
  */
 public class TurnManager {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     /**
      * Switches the turn to the next player in the list

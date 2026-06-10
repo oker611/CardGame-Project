@@ -27,7 +27,6 @@ public class CardGameApplication extends Application {
         gameActionHandler = new GameController(gameEngine);
 
         Log.d(TAG, "onCreate() - Application initialized, GameActionHandler ready.");
-        Log.d(TAG, "[CardGame][APP] Application initialized, GameActionHandler ready.");
     }
 
     @Override

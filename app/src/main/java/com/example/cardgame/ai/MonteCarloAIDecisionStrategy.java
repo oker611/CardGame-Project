@@ -13,8 +13,8 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
-private static final String TAG = "CardGame";
 
+    private static final String TAG = "CardGame";
     // 调试开关：跟随 BuildConfig.DEBUG，release 构建自动关闭
     private static final boolean DEBUG_AI = com.example.cardgame.BuildConfig.DEBUG;
 

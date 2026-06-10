@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
  * 支持首轮方块3、压过上家、Pass逻辑
  */
 public class PlayValidator {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private final PatternRecognizer recognizer;
     private final RuleConfig config;

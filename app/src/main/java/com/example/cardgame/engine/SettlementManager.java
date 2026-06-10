@@ -9,7 +9,8 @@ import com.example.cardgame.model.Player;
  * Manager responsible for determining game over conditions and settlement.
  */
 public class SettlementManager {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     /**
      * Check if any player's hand card count has reached zero.

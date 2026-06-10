@@ -17,7 +17,8 @@ import java.util.Collections;
  * Manager responsible for the deck lifecycle: generating, shuffling, and dealing.
  */
 public class DealManager {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     /**
      * Executes the complete dealing process and identifies the first player.

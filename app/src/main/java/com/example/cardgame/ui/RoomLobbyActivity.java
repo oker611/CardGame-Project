@@ -26,7 +26,8 @@ import com.example.cardgame.dto.BluetoothViewData;
 import java.util.List;
 
 public class RoomLobbyActivity extends AppCompatActivity {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
 
     private TextView tvTitle;
     private ImageButton btnBack;

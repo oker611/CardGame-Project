@@ -9,7 +9,8 @@ import com.example.cardgame.model.Player;
 import java.util.List;
 
 public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
-private static final String TAG = "CardGame";
+
+    private static final String TAG = "CardGame";
     private final MonteCarloAIDecisionStrategy monteCarloStrategy;
     private HumanStyleProfile humanStyleProfile;
     private String humanPlayerId;
