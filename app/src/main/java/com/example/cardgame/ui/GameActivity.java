@@ -62,6 +62,7 @@ import com.example.cardgame.event.GameOverEvent;
 import com.example.cardgame.llm.LLMAnalyzer;
 
 public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback, GameEventListener {
+private static final String TAG = "CardGame";
 
     private RecyclerView rvHandCards;
     private CardAdapter cardAdapter;
@@ -245,7 +246,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             }
 
             if (isBluetoothGame) {
-                System.out.println("[CardGame][UI] Bluetooth game mode, host="
+                Log.d(TAG, "[CardGame][UI] Bluetooth game mode, host="
                         + isHost + ", localPlayerId=" + localPlayerId);
 
                 if (isHost) {
@@ -259,14 +260,14 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 fullRefresh();
                 bluetoothRefreshHandler.post(bluetoothRefreshRunnable);
             } else {
-                System.out.println("[CardGame][UI] gameActionHandler ready, start real game flow");
+                Log.d(TAG, "[CardGame][UI] gameActionHandler ready, start real game flow");
                 gameActionHandler.setSelectedRuleType(ruleType);
                 gameActionHandler.startNewGame();
                 fullRefresh();
                 Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();
             }
         } else {
-            System.out.println("[CardGame][UI] gameActionHandler is null, fallback to mock mode");
+            Log.d(TAG, "[CardGame][UI] gameActionHandler is null, fallback to mock mode");
             useMockDataForDemo();
             Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
         }

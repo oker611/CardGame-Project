@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BluetoothSender {
 
+    private static final String TAG = "CardGame";
     private final OutputStream outputStream;
     private final BluetoothMessageCodec messageCodec;
     private final BufferedWriter writer;
@@ -65,6 +66,7 @@ public class BluetoothSender {
         try {
             writer.close();
         } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
         }
     }
 }

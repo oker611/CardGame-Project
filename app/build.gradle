@@ -24,8 +24,8 @@ android {
 
         def apiKey = project.properties.get('DEEPSEEK_API_KEY') ?: ''
         buildConfigField "String", "DEEPSEEK_API_KEY", "\"$apiKey\""
-        // 临时测试：使用硬编码值
-        buildConfigField "String", "VIVO_APP_KEY", "\"sk-xuanji-2026006675-cnl6U3V3QlVsTVBCZUlBeA==\""
+        def vivoKey = project.properties.get('VIVO_APP_KEY') ?: ''
+        buildConfigField "String", "VIVO_APP_KEY", "\"$vivoKey\""
     }
 
     buildTypes {
@@ -54,5 +54,4 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }

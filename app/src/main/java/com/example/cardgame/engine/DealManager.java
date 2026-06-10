@@ -1,5 +1,7 @@
 package com.example.cardgame.engine;
 
+import android.util.Log;
+
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
@@ -15,6 +17,7 @@ import java.util.Collections;
  * Manager responsible for the deck lifecycle: generating, shuffling, and dealing.
  */
 public class DealManager {
+private static final String TAG = "CardGame";
 
     /**
      * Executes the complete dealing process and identifies the first player.
@@ -84,7 +87,7 @@ public class DealManager {
     }
 
     private void printDealLogs(GameState gameState) {
-        System.out.println("[CardGame][DEAL] Dealing completed.");
+        Log.d(TAG, "[CardGame][DEAL] Dealing completed.");
 
         for (Player player : gameState.getPlayers()) {
             StringBuilder sb = new StringBuilder();
@@ -98,7 +101,7 @@ public class DealManager {
             }
             sb.append("]");
 
-            System.out.println("[CardGame][DEAL] Player "
+            Log.d(TAG, "[CardGame][DEAL] Player "
                     + player.getPlayerId()
                     + " (" + player.getPlayerName() + ") -> "
                     + sb);
@@ -106,7 +109,7 @@ public class DealManager {
 
         Player openingPlayer = gameState.getCurrentPlayer();
         if (openingPlayer != null) {
-            System.out.println("[CardGame][TURN] Opening player: "
+            Log.d(TAG, "[CardGame][TURN] Opening player: "
                     + openingPlayer.getPlayerId()
                     + " (" + openingPlayer.getPlayerName() + ")");
         }

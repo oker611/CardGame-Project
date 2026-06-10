@@ -1,5 +1,7 @@
 package com.example.cardgame.ai;
 
+import android.util.Log;
+
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.HumanStyleProfile;
@@ -7,6 +9,7 @@ import com.example.cardgame.model.Player;
 import java.util.List;
 
 public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
+private static final String TAG = "CardGame";
     private final MonteCarloAIDecisionStrategy monteCarloStrategy;
     private HumanStyleProfile humanStyleProfile;
     private String humanPlayerId;
@@ -67,7 +70,7 @@ public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
         monteCarloStrategy.setAggressivenessFactor(aggressivenessFactor);
         monteCarloStrategy.setDefenseFactor(defenseFactor);
 
-        System.out.println("[AdaptiveAI] Applied style: " + humanStyleProfile.getStyleLabel() +
+        Log.d(TAG, "[AdaptiveAI] Applied style: " + humanStyleProfile.getStyleLabel() +
                 ", aggressivenessFactor=" + aggressivenessFactor +
                 ", defenseFactor=" + defenseFactor);
     }

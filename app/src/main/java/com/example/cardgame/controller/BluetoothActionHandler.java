@@ -49,9 +49,6 @@ public interface BluetoothActionHandler {
     }
 
     /**
-    }
-
-    /**
      * 快速加载已配对设备（不启动蓝牙搜索，毫秒级返回）。
      */
     default void loadBondedDevices() {

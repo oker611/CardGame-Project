@@ -42,7 +42,7 @@ public class LLMAnalyzer {
             List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", prompt));
             return vivoClient.chat(messages);
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "LLM quick analysis failed", e);
             return "分析失败：" + e.getMessage();
         }
     }
@@ -89,8 +89,7 @@ public class LLMAnalyzer {
                 return style;
             }
         } catch (IOException e) {
-            e.printStackTrace();
-            Log.e(TAG, "LLM 请求失败，使用本地分析: " + e.getMessage());
+            Log.e(TAG, "LLM 请求失败，使用本地分析", e);
         }
 
         // LLM 失败时使用本地降级分析

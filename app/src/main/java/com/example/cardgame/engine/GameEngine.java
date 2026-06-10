@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class GameEngine {
+private static final String TAG = "CardGame";
 
     private static final boolean DEBUG_AUTO_PLAY = false;
 
@@ -62,18 +63,18 @@ public class GameEngine {
     }
 
     public PlayResult playCards(String playerId, List<String> selectedCardIds) {
-        System.out.println("[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
+        Log.d(TAG, "[CardGame][PLAY] request playerId=" + playerId + ", selectedCardIds=" + selectedCardIds);
 
         ensureRuleEngineReady();
 
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
-            System.out.println("[CardGame][PLAY] rejected: not current player, currentPlayerId="
+            Log.d(TAG, "[CardGame][PLAY] rejected: not current player, currentPlayerId="
                     + (gameState != null ? gameState.getCurrentPlayerId() : "null"));
             return createPlayResult(false, "Not your turn", gameState);
         }
         if (selectedCardIds == null || selectedCardIds.isEmpty()) {
-            System.out.println("[CardGame][PLAY] rejected: selectedCardIds is empty");
+            Log.d(TAG, "[CardGame][PLAY] rejected: selectedCardIds is empty");
             return createPlayResult(false, "Please select cards first", gameState);
         }
         List<Card> selectedCards = player.findCardsByIds(selectedCardIds);
@@ -85,7 +86,7 @@ public class GameEngine {
                 ruleEngine.validatePlay(selectedCards, lastPlayCards, isFirstRound, isFirstTurn);
 
         if (!validationResult.valid) {
-            System.out.println("[CardGame][PLAY] rejected: " + validationResult.reason);
+            Log.d(TAG, "[CardGame][PLAY] rejected: " + validationResult.reason);
             return createPlayResult(false, validationResult.reason, gameState);
         }
 
@@ -109,7 +110,7 @@ public class GameEngine {
         if (gameState.isOpeningTurn()) gameState.setOpeningTurn(false);
         gameState.updateLastPlayByPlayer(playerId, selectedCards);
 
-        System.out.println("[CardGame][PLAY] success playerId=" + playerId
+        Log.d(TAG, "[CardGame][PLAY] success playerId=" + playerId
                 + ", cards=" + selectedCardIds
                 + ", pattern=" + currentPlay.getPattern());
 
@@ -129,21 +130,21 @@ public class GameEngine {
     }
 
     public PassResult passTurn(String playerId) {
-        System.out.println("[CardGame][PASS] request playerId=" + playerId);
+        Log.d(TAG, "[CardGame][PASS] request playerId=" + playerId);
 
         if (gameState == null || gameState.isGameOver()) {
-            System.out.println("[CardGame][PASS] rejected: game is over");
+            Log.d(TAG, "[CardGame][PASS] rejected: game is over");
             return createPassResult(false, "Game is over", gameState);
         }
 
         Player player = gameState.getPlayerById(playerId);
         if (player == null || !playerId.equals(gameState.getCurrentPlayerId())) {
-            System.out.println("[CardGame][PASS] rejected: not current player, currentPlayerId="
+            Log.d(TAG, "[CardGame][PASS] rejected: not current player, currentPlayerId="
                     + gameState.getCurrentPlayerId());
             return createPassResult(false, "Not your turn", gameState);
         }
         if (gameState.isOpeningTurn() || gameState.getLastPlay() == null || gameState.getLastPlay().isEmpty()) {
-            System.out.println("[CardGame][PASS] rejected: new round starter must play cards");
+            Log.d(TAG, "[CardGame][PASS] rejected: new round starter must play cards");
             return createPassResult(false, "New round starter cannot pass", gameState);
         }
 
@@ -160,17 +161,17 @@ public class GameEngine {
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
                 EventBus.getInstance().post(new TurnChangedEvent(winnerId, "NEW_ROUND"));
-                System.out.println("[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
+                Log.d(TAG, "[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
                 turnManager.switchPlayer(gameState);
-                System.out.println("[CardGame][PASS] 降级：按顺序切换玩家");
+                Log.d(TAG, "[CardGame][PASS] 降级：按顺序切换玩家");
             }
-            System.out.println("[CardGame][PASS] 桌面已完全清空，新回合开始");
+            Log.d(TAG, "[CardGame][PASS] 桌面已完全清空，新回合开始");
         } else {
             turnManager.switchPlayer(gameState);
         }
 
-        System.out.println("[CardGame][PASS] success playerId=" + playerId);
+        Log.d(TAG, "[CardGame][PASS] success playerId=" + playerId);
         EventBus.getInstance().post(new PlayerPassedEvent(playerId));
         Log.d("EventBus", "posted PlayerPassedEvent for " + playerId);
         return createPassResult(true, "PASS_OK", gameState);
@@ -244,12 +245,12 @@ public class GameEngine {
 
     public void rebuildGameState(GameState syncedState) {
         if (syncedState == null) {
-            System.out.println("[CardGame][BLUETOOTH] rebuildGameState failed: syncedState is null");
+            Log.d(TAG, "[CardGame][BLUETOOTH] rebuildGameState failed: syncedState is null");
             return;
         }
         this.gameState = syncedState;
         ensureRuleEngineReady();
-        System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from remote sync, currentPlayerId="
+        Log.d(TAG, "[CardGame][BLUETOOTH] GameState rebuilt from remote sync, currentPlayerId="
                 + gameState.getCurrentPlayerId());
     }
 
@@ -270,17 +271,17 @@ public class GameEngine {
         rebuiltState.setGameOver(false);
         this.gameState = rebuiltState;
         ensureRuleEngineReady();
-        System.out.println("[CardGame][BLUETOOTH] GameState rebuilt from hand cards, currentPlayerId="
+        Log.d(TAG, "[CardGame][BLUETOOTH] GameState rebuilt from hand cards, currentPlayerId="
                 + rebuiltState.getCurrentPlayerId());
     }
 
     public PlayResult executeRemotePlay(Play play) {
         if (play == null) {
-            System.out.println("[CardGame][BLUETOOTH] executeRemotePlay failed: play is null");
+            Log.d(TAG, "[CardGame][BLUETOOTH] executeRemotePlay failed: play is null");
             return createPlayResult(false, "Remote play is null", gameState);
         }
         if (play.getCards() == null || play.getCards().isEmpty()) {
-            System.out.println("[CardGame][BLUETOOTH] executeRemotePlay failed: cards are empty");
+            Log.d(TAG, "[CardGame][BLUETOOTH] executeRemotePlay failed: cards are empty");
             return createPlayResult(false, "Remote play cards are empty", gameState);
         }
         List<String> cardIds = new ArrayList<>();
@@ -289,13 +290,13 @@ public class GameEngine {
                 cardIds.add(card.getCardId());
             }
         }
-        System.out.println("[CardGame][BLUETOOTH] executeRemotePlay playerId="
+        Log.d(TAG, "[CardGame][BLUETOOTH] executeRemotePlay playerId="
                 + play.getPlayerId() + ", cardIds=" + cardIds);
         return playCards(play.getPlayerId(), cardIds);
     }
 
     public PassResult executeRemotePass(String playerId) {
-        System.out.println("[CardGame][BLUETOOTH] executeRemotePass playerId=" + playerId);
+        Log.d(TAG, "[CardGame][BLUETOOTH] executeRemotePass playerId=" + playerId);
         return passTurn(playerId);
     }
 
@@ -311,7 +312,7 @@ public class GameEngine {
                 player.setType(PlayerType.AI);
             }
         }
-        System.out.println("[CardGame][BLUETOOTH] Player types configured | local="
+        Log.d(TAG, "[CardGame][BLUETOOTH] Player types configured | local="
                 + localPlayerId + ", remote=" + remotePlayerId);
     }
 
@@ -332,7 +333,7 @@ public class GameEngine {
         rebuiltState.setGameOver(false);
         this.gameState = rebuiltState;
         ensureRuleEngineReady();
-        System.out.println("[CardGame][BLUETOOTH] GameState rebuilt (multi), playerCount="
+        Log.d(TAG, "[CardGame][BLUETOOTH] GameState rebuilt (multi), playerCount="
                 + players.size() + ", currentPlayerId=" + rebuiltState.getCurrentPlayerId());
     }
 
@@ -360,7 +361,7 @@ public class GameEngine {
                 player.setType(PlayerType.AI);
             }
         }
-        System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | typeMap=" + typeMap);
+        Log.d(TAG, "[CardGame][BLUETOOTH] Player types configured (multi) | typeMap=" + typeMap);
     }
 
     private CardPattern mapPatternType(PatternRecognizer.PatternType type) {

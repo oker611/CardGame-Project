@@ -369,7 +369,7 @@ public class HumanStyleAnalyzer {
     public void cancel() {
         if (currentTask != null && !currentTask.isDone()) {
             Log.d(TAG, "cancel() - Cancelling running task");
-            System.out.println("[HumanStyleAnalyzer] cancel() - Cancelling running task");
+            Log.d(TAG, "[HumanStyleAnalyzer] cancel() - Cancelling running task");
             currentTask.cancel(true);
         }
     }
@@ -380,12 +380,12 @@ public class HumanStyleAnalyzer {
      */
     public void shutdown() {
         Log.d(TAG, "shutdown() called");
-        System.out.println("[HumanStyleAnalyzer] shutdown() called");
+        Log.d(TAG, "[HumanStyleAnalyzer] shutdown() called");
         isShutdown.set(true);
         cancel();
         callbackRef = null;
         Log.d(TAG, "shutdown() complete, isShutdown=" + isShutdown.get());
-        System.out.println("[HumanStyleAnalyzer] shutdown() complete, isShutdown=" + isShutdown.get());
+        Log.d(TAG, "[HumanStyleAnalyzer] shutdown() complete, isShutdown=" + isShutdown.get());
     }
 
     /**
@@ -396,44 +396,44 @@ public class HumanStyleAnalyzer {
     public static void shutdownExecutor() {
         synchronized (LOCK) {
             Log.d(TAG, "shutdownExecutor() called");
-            System.out.println("[HumanStyleAnalyzer] shutdownExecutor() called");
+            Log.d(TAG, "[HumanStyleAnalyzer] shutdownExecutor() called");
             
             if (executor == null) {
                 Log.d(TAG, "Executor is already null");
-                System.out.println("[HumanStyleAnalyzer] Executor is already null");
+                Log.d(TAG, "[HumanStyleAnalyzer] Executor is already null");
                 return;
             }
             
             if (executor.isShutdown()) {
                 Log.d(TAG, "Executor is already shutdown");
-                System.out.println("[HumanStyleAnalyzer] Executor is already shutdown");
+                Log.d(TAG, "[HumanStyleAnalyzer] Executor is already shutdown");
                 return;
             }
             
             Log.d(TAG, "Calling shutdownNow() on executor...");
-            System.out.println("[HumanStyleAnalyzer] Calling shutdownNow() on executor...");
+            Log.d(TAG, "[HumanStyleAnalyzer] Calling shutdownNow() on executor...");
             executor.shutdownNow();
             
             try {
                 Log.d(TAG, "Waiting for termination (max 5 seconds)...");
-                System.out.println("[HumanStyleAnalyzer] Waiting for termination (max 5 seconds)...");
+                Log.d(TAG, "[HumanStyleAnalyzer] Waiting for termination (max 5 seconds)...");
                 boolean terminated = executor.awaitTermination(5, TimeUnit.SECONDS);
                 if (!terminated) {
                     Log.w(TAG, "Thread pool did not terminate in time");
-                    System.err.println("[HumanStyleAnalyzer] Thread pool did not terminate in time");
+                    Log.e(TAG, "[HumanStyleAnalyzer] Thread pool did not terminate in time");
                 } else {
                     Log.d(TAG, "Thread pool terminated successfully");
-                    System.out.println("[HumanStyleAnalyzer] Thread pool terminated successfully");
+                    Log.d(TAG, "[HumanStyleAnalyzer] Thread pool terminated successfully");
                 }
             } catch (InterruptedException e) {
                 Log.w(TAG, "awaitTermination interrupted");
-                System.out.println("[HumanStyleAnalyzer] awaitTermination interrupted");
+                Log.d(TAG, "[HumanStyleAnalyzer] awaitTermination interrupted");
                 Thread.currentThread().interrupt();
             }
             
             executor = null;
             Log.d(TAG, "shutdownExecutor() complete, executor set to null");
-            System.out.println("[HumanStyleAnalyzer] shutdownExecutor() complete, executor set to null");
+            Log.d(TAG, "[HumanStyleAnalyzer] shutdownExecutor() complete, executor set to null");
         }
     }
 
@@ -444,7 +444,7 @@ public class HumanStyleAnalyzer {
         synchronized (LOCK) {
             boolean result = executor == null || executor.isShutdown();
             Log.d(TAG, "isExecutorShutdown() = " + result);
-            System.out.println("[HumanStyleAnalyzer] isExecutorShutdown() = " + result);
+            Log.d(TAG, "[HumanStyleAnalyzer] isExecutorShutdown() = " + result);
             return result;
         }
     }

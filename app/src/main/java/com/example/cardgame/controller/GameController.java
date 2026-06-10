@@ -1,4 +1,6 @@
 package com.example.cardgame.controller;
+
+import android.util.Log;
 import com.example.cardgame.ai.MonteCarloAIDecisionStrategy;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GameController implements GameActionHandler {
+private static final String TAG = "CardGame";
 
     private final GameEngine gameEngine;
     private RuleConfig ruleConfig;
@@ -236,7 +239,7 @@ public class GameController implements GameActionHandler {
                 } else {
                     p.setType(PlayerType.AI);
                 }
-                System.out.println("[GameController] Player " + p.getPlayerId() + " type = " + p.getType());
+                Log.d(TAG, "[GameController] Player " + p.getPlayerId() + " type = " + p.getType());
             }
         }
 
@@ -251,7 +254,7 @@ public class GameController implements GameActionHandler {
                     typeMap.put(remoteId, "REMOTE");
                 }
                 gameEngine.configureBluetoothPlayerTypesMulti(typeMap);
-                System.out.println("[CardGame][BLUETOOTH] Player types configured (multi) | "
+                Log.d(TAG, "[CardGame][BLUETOOTH] Player types configured (multi) | "
                         + "local=" + myPlayerId + ", remote=" + remoteIds);
             } else {
                 // 没有真实远程玩家（纯 AI 局），P1=HUMAN，其余=AI
@@ -262,7 +265,7 @@ public class GameController implements GameActionHandler {
                         p.setType(PlayerType.AI);
                     }
                 }
-                System.out.println("[CardGame][BLUETOOTH] Player types configured (legacy) | "
+                Log.d(TAG, "[CardGame][BLUETOOTH] Player types configured (legacy) | "
                         + "local=" + myPlayerId);
             }
         }
@@ -285,7 +288,7 @@ public class GameController implements GameActionHandler {
                 if (opener != null) {
                     currentId = opener.getPlayerId();
                     state.setCurrentPlayerId(currentId);
-                    System.out.println("[CardGame][FIX] Set current player to opener: " + currentId);
+                    Log.d(TAG, "[CardGame][FIX] Set current player to opener: " + currentId);
                 }
             }
             if (currentId != null) {
@@ -618,31 +621,31 @@ public class GameController implements GameActionHandler {
     // ==================== AI 专用方法（直接传入 Card 对象） ====================
     public PlayResult aiPlayCards(List<Card> cards) {
         if (cards == null || cards.isEmpty()) {
-            System.out.println("[CardGame][AI] aiPlayCards: no cards");
+            Log.d(TAG, "[CardGame][AI] aiPlayCards: no cards");
             return new PlayResult(false, "No cards to play", gameEngine.getGameState());
         }
         GameState state = gameEngine.getGameState();
         if (state == null || state.getCurrentPlayer() == null) {
-            System.out.println("[CardGame][AI] aiPlayCards: game state not ready");
+            Log.d(TAG, "[CardGame][AI] aiPlayCards: game state not ready");
             return new PlayResult(false, "Game state not ready.", state);
         }
         Player currentPlayer = state.getCurrentPlayer();
         // 移除 myPlayerId 检查，因为 AI 调用时已经是当前玩家
         // 可选：添加类型检查确保是 AI（但非必须）
         if (currentPlayer.getType() != PlayerType.AI) {
-            System.out.println("[CardGame][AI] aiPlayCards: current player is not AI");
+            Log.d(TAG, "[CardGame][AI] aiPlayCards: current player is not AI");
             return new PlayResult(false, "Current player is not AI", state);
         }
 
         List<String> cardIds = cards.stream().map(Card::getCardId).collect(Collectors.toList());
-        System.out.println("[CardGame][AI] aiPlayCards calling engine.playCards for " + currentPlayer.getPlayerId() + " with " + cardIds);
+        Log.d(TAG, "[CardGame][AI] aiPlayCards calling engine.playCards for " + currentPlayer.getPlayerId() + " with " + cardIds);
         PlayResult result = gameEngine.playCards(currentPlayer.getPlayerId(), cardIds);
-        System.out.println("[CardGame][AI] aiPlayCards result: success=" + result.isSuccess() + ", message=" + result.getMessage());
+        Log.d(TAG, "[CardGame][AI] aiPlayCards result: success=" + result.isSuccess() + ", message=" + result.getMessage());
         if (!result.isSuccess()) {
-            System.out.println("[CardGame][AI] aiPlayCards FAILED: " + result.getMessage());
+            Log.d(TAG, "[CardGame][AI] aiPlayCards FAILED: " + result.getMessage());
             // 出牌失败，自动过牌
             gameEngine.passTurn(currentPlayer.getPlayerId());
-            System.out.println("[CardGame][AI] AI " + currentPlayer.getPlayerId() + " passed after failed play");
+            Log.d(TAG, "[CardGame][AI] AI " + currentPlayer.getPlayerId() + " passed after failed play");
             
             if (!gameEngine.isGameOver()) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
@@ -784,7 +787,7 @@ public class GameController implements GameActionHandler {
 
         boolean hasAnyValid = playValidator.hasAnyValidPlay(player, lastPlay, isFirstRound, isFirstTurn);
         int count = player.getConsecutiveNoPlayCount();
-        System.out.println("[CardGame][COUNTDOWN] player=" + player.getPlayerId()
+        Log.d(TAG, "[CardGame][COUNTDOWN] player=" + player.getPlayerId()
                 + ", hasAnyValid=" + hasAnyValid
                 + ", consecutiveNoPlayCount=" + count);
 
@@ -826,12 +829,12 @@ public class GameController implements GameActionHandler {
         if (countdownCallback != null) {
             countdownCallback.showCountdown();
         }
-        System.out.println("[CardGame][COUNTDOWN] Started for player " + player.getPlayerId());
+        Log.d(TAG, "[CardGame][COUNTDOWN] Started for player " + player.getPlayerId());
     }
 
     private void forcePass(Player player) {
         player.incrementConsecutiveNoPlayCount();
-        System.out.println("[CardGame][COUNTDOWN] Force pass for " + player.getPlayerId()
+        Log.d(TAG, "[CardGame][COUNTDOWN] Force pass for " + player.getPlayerId()
                 + ", consecutiveNoPlayCount now = " + player.getConsecutiveNoPlayCount());
 
         PassResult result = gameEngine.passTurn(player.getPlayerId());
@@ -840,7 +843,7 @@ public class GameController implements GameActionHandler {
                 new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
             }
         } else {
-            System.out.println("[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());
+            Log.d(TAG, "[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());
             player.setConsecutiveNoPlayCount(player.getConsecutiveNoPlayCount() - 1);
         }
 
@@ -857,7 +860,7 @@ public class GameController implements GameActionHandler {
             if (countdownCallback != null) {
                 countdownCallback.hideCountdown();
             }
-            System.out.println("[CardGame][COUNTDOWN] Cancelled for player " + player.getPlayerId());
+            Log.d(TAG, "[CardGame][COUNTDOWN] Cancelled for player " + player.getPlayerId());
         }
     }
 
@@ -881,7 +884,7 @@ public class GameController implements GameActionHandler {
                 // AI 由事件总线驱动，无需额外处理
                 break;
             case REMOTE:
-                System.out.println("[CardGame][BLUETOOTH] 等待远程玩家出牌...");
+                Log.d(TAG, "[CardGame][BLUETOOTH] 等待远程玩家出牌...");
                 break;
         }
     }

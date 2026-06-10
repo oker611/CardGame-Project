@@ -1,5 +1,7 @@
 package com.example.cardgame.ui;
 
+import android.util.Log;
+
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -24,6 +26,7 @@ import com.example.cardgame.dto.BluetoothViewData;
 import java.util.List;
 
 public class RoomLobbyActivity extends AppCompatActivity {
+private static final String TAG = "CardGame";
 
     private TextView tvTitle;
     private ImageButton btnBack;
@@ -208,7 +211,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
 
         // ——— 错误 ———
         if (viewData.getErrorMessage() != null && !viewData.getErrorMessage().trim().isEmpty()) {
-            System.out.println("[CardGame][UI][BLUETOOTH] error=" + viewData.getErrorMessage());
+            Log.d(TAG, "[CardGame][UI][BLUETOOTH] error=" + viewData.getErrorMessage());
         }
 
         // ——— CLIENT 端自动进入游戏 ———
@@ -330,10 +333,10 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 if (!hasRealRemotePlayer && bluetoothActionHandler != null
                         && bluetoothActionHandler.hasRealClients()) {
                     hasRealRemotePlayer = true;
-                    System.out.println("[Hermes][LOBBY] FIX: ViewData.connected=false but gateway has clients, overriding");
+                    Log.d(TAG, "[Hermes][LOBBY] FIX: ViewData.connected=false but gateway has clients, overriding");
                 }
 
-                System.out.println("[Hermes][LOBBY] startGame clicked | hasRealRemote="
+                Log.d(TAG, "[Hermes][LOBBY] startGame clicked | hasRealRemote="
                         + hasRealRemotePlayer
                         + " | connected=" + (bluetoothActionHandler != null
                         ? bluetoothActionHandler.getBluetoothViewData().isConnected() : "null")

@@ -27,13 +27,13 @@ public class CardGameApplication extends Application {
         gameActionHandler = new GameController(gameEngine);
 
         Log.d(TAG, "onCreate() - Application initialized, GameActionHandler ready.");
-        System.out.println("[CardGame][APP] Application initialized, GameActionHandler ready.");
+        Log.d(TAG, "[CardGame][APP] Application initialized, GameActionHandler ready.");
     }
 
     @Override
     public void onTerminate() {
         Log.d(TAG, "onTerminate() called, shutting down HumanStyleAnalyzer executor...");
-        System.out.println("[CardGame][APP] onTerminate() called, shutting down HumanStyleAnalyzer executor...");
+        Log.d(TAG, "[CardGame][APP] onTerminate() called, shutting down HumanStyleAnalyzer executor...");
         
         boolean wasShutdown = HumanStyleAnalyzer.isExecutorShutdown();
         Log.d(TAG, "Executor shutdown status before: " + wasShutdown);
@@ -43,7 +43,7 @@ public class CardGameApplication extends Application {
         boolean isShutdown = HumanStyleAnalyzer.isExecutorShutdown();
         Log.d(TAG, "Executor shutdown status after: " + isShutdown);
         Log.d(TAG, "onTerminate() finished");
-        System.out.println("[CardGame][APP] onTerminate() finished, executor shutdown: " + isShutdown);
+        Log.d(TAG, "[CardGame][APP] onTerminate() finished, executor shutdown: " + isShutdown);
         
         super.onTerminate();
     }

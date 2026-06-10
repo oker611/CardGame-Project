@@ -16,6 +16,7 @@ import java.util.Locale;
  * 文件路径：/sdcard/Download/hermes_debug_<role>.txt
  */
 public class HermesLog {
+private static final String TAG = "CardGame";
 
     private static final SimpleDateFormat SDF = new SimpleDateFormat("HH:mm:ss.SSS", Locale.US);
     private static File logFile;
@@ -31,7 +32,7 @@ public class HermesLog {
     public static synchronized void log(String msg) {
         String line = SDF.format(new Date()) + " " + msg;
         Log.i("HermesLog", line);
-        System.out.println(line);
+        Log.d(TAG, line);
 
         if (logFile == null) return;
         try (PrintWriter pw = new PrintWriter(new FileWriter(logFile, true))) {

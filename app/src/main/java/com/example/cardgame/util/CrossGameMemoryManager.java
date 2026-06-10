@@ -2,10 +2,12 @@ package com.example.cardgame.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 import com.example.cardgame.model.HumanStyleProfile;
 import com.google.gson.Gson;
 
 public class CrossGameMemoryManager {
+    private static final String TAG = "CardGame";
     private static final String PREFS_NAME = "cardgame_adaptive_ai";
     private static final String KEY_HUMAN_STYLE = "human_style_";
     private static final String KEY_RECOMMENDED_TACTIC = "recommended_tactic";
@@ -34,7 +36,7 @@ public class CrossGameMemoryManager {
         try {
             return gson.fromJson(json, HumanStyleProfile.class);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to load human style profile", e);
             return new HumanStyleProfile(playerId);
         }
     }

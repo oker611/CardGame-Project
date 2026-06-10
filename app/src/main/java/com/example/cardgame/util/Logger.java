@@ -1,5 +1,7 @@
 package com.example.cardgame.util;
 
+import android.util.Log;
+
 public final class Logger {
 
     private static final String TAG = "CardGame";
@@ -9,7 +11,7 @@ public final class Logger {
     }
 
     public static void log(String category, String message) {
-        System.out.println("[" + TAG + "][" + category + "] " + message);
+        Log.d(TAG, "[" + category + "] " + message);
     }
 
     public static void start(String message) {

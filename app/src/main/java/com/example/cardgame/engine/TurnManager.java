@@ -13,6 +13,7 @@ import java.util.List;
  * Manager responsible for turn rotation.
  */
 public class TurnManager {
+private static final String TAG = "CardGame";
 
     /**
      * Switches the turn to the next player in the list
@@ -40,7 +41,7 @@ public class TurnManager {
 
         gameState.setOpeningTurn(false);
 
-        System.out.println("[CardGame][TURN] Next player: "
+        Log.d(TAG, "[CardGame][TURN] Next player: "
                 + nextPlayer.getPlayerId()
                 + " (" + nextPlayer.getPlayerName() + ")");
     }

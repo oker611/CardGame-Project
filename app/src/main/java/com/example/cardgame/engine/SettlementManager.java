@@ -1,5 +1,7 @@
 package com.example.cardgame.engine;
 
+import android.util.Log;
+
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
 
@@ -7,6 +9,7 @@ import com.example.cardgame.model.Player;
  * Manager responsible for determining game over conditions and settlement.
  */
 public class SettlementManager {
+private static final String TAG = "CardGame";
 
     /**
      * Check if any player's hand card count has reached zero.
@@ -29,7 +32,7 @@ public class SettlementManager {
                 gameState.setGameOver(true);
                 gameState.setWinnerId(player.getPlayerId());
 
-                System.out.println("[CardGame][WIN] Winner: "
+                Log.d(TAG, "[CardGame][WIN] Winner: "
                         + player.getPlayerId()
                         + " (" + player.getPlayerName() + ")");
                 break;
@@ -50,7 +53,7 @@ public class SettlementManager {
                 gameState.setGameOver(true);
                 gameState.setWinnerId(player.getPlayerId());
 
-                System.out.println("[CardGame][WIN] Winner: "
+                Log.d(TAG, "[CardGame][WIN] Winner: "
                         + player.getPlayerId()
                         + " (" + player.getPlayerName() + ")");
                 return;

@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 public class BluetoothConnectionManager {
 
+    private static final String TAG = "CardGame";
     private static final String SERVICE_NAME = "CardGameBluetoothService";
     public static final UUID SERVICE_UUID =
             UUID.fromString("a5c93a6e-6c0f-4a21-8e6d-9dd3b8a3d7c1");
@@ -152,11 +153,13 @@ public class BluetoothConnectionManager {
                     bluetoothAdapter.cancelDiscovery();
                 }
             } catch (Exception ignored) {
+                Log.w(TAG, "Operation failed", ignored);
             }
 
             try {
                 context.unregisterReceiver(discoveryReceiver);
             } catch (Exception ignored) {
+                Log.w(TAG, "Operation failed", ignored);
             }
         }
 
@@ -613,6 +616,7 @@ public class BluetoothConnectionManager {
             try {
                 socket.close();
             } catch (Exception ignored) {
+                Log.w(TAG, "Operation failed", ignored);
             }
         }
     }
@@ -718,6 +722,7 @@ public class BluetoothConnectionManager {
                 serverSocket.close();
             }
         } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
         }
         serverSocket = null;
 
@@ -788,6 +793,7 @@ public class BluetoothConnectionManager {
                 serverSocket.close();
             }
         } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
         }
         serverSocket = null;
     }
@@ -833,6 +839,7 @@ public class BluetoothConnectionManager {
                 serverSocket.close();
             }
         } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
         }
 
         bluetoothSocket = null;
@@ -904,6 +911,7 @@ public class BluetoothConnectionManager {
                     inputStream.close();
                 }
             } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
             }
 
             try {
@@ -911,6 +919,7 @@ public class BluetoothConnectionManager {
                     outputStream.close();
                 }
             } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
             }
 
             try {
@@ -918,6 +927,7 @@ public class BluetoothConnectionManager {
                     socket.close();
                 }
             } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
             }
         }
     }

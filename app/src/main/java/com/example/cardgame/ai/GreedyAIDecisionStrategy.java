@@ -1,5 +1,7 @@
 package com.example.cardgame.ai;
 
+import android.util.Log;
+
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
  * 完全不使用牌型分支，通过通用组合生成 + 过滤器实现。
  */
 public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
+private static final String TAG = "CardGame";
 
     private final RuleConfig config;
     private final PatternRecognizer patternRecognizer;
@@ -150,7 +153,7 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
     @Override
     public void recordPlayFailure() {
         consecutiveFailCount++;
-        System.out.println("[GreedyAI] 出牌失败，连续失败次数: " + consecutiveFailCount);
+        Log.d(TAG, "[GreedyAI] 出牌失败，连续失败次数: " + consecutiveFailCount);
     }
 
     @Override

@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class BluetoothReceiver {
 
+    private static final String TAG = "CardGame";
     private static final int READ_BUFFER_SIZE = 1024;
     private static final int MAX_LINE_BYTES = 256 * 1024;
 
@@ -120,6 +121,7 @@ public class BluetoothReceiver {
             try {
                 lineBuffer.close();
             } catch (IOException ignored) {
+                Log.w(TAG, "Socket cleanup failed", ignored);
             }
         }
     }

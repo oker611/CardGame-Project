@@ -1,5 +1,7 @@
 package com.example.cardgame.ai;
 
+import android.util.Log;
+
 import com.example.cardgame.model.*;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.rule.RuleEngine;
@@ -11,6 +13,7 @@ import java.util.stream.Collectors;
  * 候选动作生成器 + 启发式排序（已优化）
  */
 public class CandidateGenerator {
+private static final String TAG = "CardGame";
 
     private final RuleEngine ruleEngine;
     private final int topK;
@@ -44,7 +47,7 @@ public class CandidateGenerator {
             PatternRecognizer.PatternInfo lastInfo = ruleEngine.recognizePattern(lastPlay.getCards());
             requiredType = lastInfo.getType();
             needFilterByPattern = true;
-            System.out.println("[CandidateGenerator] 上家牌型: " + requiredType + "，将按此牌型过滤候选");
+            Log.d(TAG, "[CandidateGenerator] 上家牌型: " + requiredType + "，将按此牌型过滤候选");
         }
         
         List<Play> allLegal = getAllLegalPlays(hand, lastPlay, isFirstRound, isFirstTurn, requiredType, needFilterByPattern);

@@ -1,5 +1,7 @@
 package com.example.cardgame.ai;
 
+import android.util.Log;
+
 import com.example.cardgame.model.*;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.rule.ConfigurableRuleEngine;
@@ -11,9 +13,10 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
+private static final String TAG = "CardGame";
 
-    // 调试开关（正式版改为 false）
-    private static final boolean DEBUG_AI = true;
+    // 调试开关：跟随 BuildConfig.DEBUG，release 构建自动关闭
+    private static final boolean DEBUG_AI = com.example.cardgame.BuildConfig.DEBUG;
 
     // 可调参数（遗传算法优化结果 + 手动调优）
     private static final int NUM_SAMPLES = 10;           // 蒙特卡洛模拟世界数量（降低到10避免ANR）
@@ -87,7 +90,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (hasAIMoreThan5) {
                 List<Card> sortedHand = new ArrayList<>(hand);
                 sortedHand.sort((a, b) -> b.getRank().getWeight() - a.getRank().getWeight());
-                System.out.println("[MonteCarloAI] 消极游戏检测：连续清空桌面，强制出最大单张 " + sortedHand.get(0));
+                Log.d(TAG, "[MonteCarloAI] 消极游戏检测：连续清空桌面，强制出最大单张 " + sortedHand.get(0));
                 consecutivePassRounds = 0;
                 return Collections.singletonList(sortedHand.get(0));
             }
@@ -99,7 +102,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (minOpponentHandSize <= 2) {
                 Play forcedPlay = findAnyValidBeatPlay(hand, lastPlay, isFirstRound, isFirstTurn);
                 if (forcedPlay != null) {
-                    System.out.println("[MonteCarloAI] 残局强制压牌，对手剩 " + minOpponentHandSize + " 张，出 " + forcedPlay.getCards());
+                    Log.d(TAG, "[MonteCarloAI] 残局强制压牌，对手剩 " + minOpponentHandSize + " 张，出 " + forcedPlay.getCards());
                     return forcedPlay.getCards();
                 }
             }
@@ -112,7 +115,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (minOpponentHandSize <= 3 && hand.size() >= 2) {
                 List<Card> probingPlay = findMultiRoundProbingPlay(hand, lastPlay, isFirstRound, isFirstTurn);
                 if (probingPlay != null) {
-                    System.out.println("[MonteCarloAI] 残局多轮试探：" + lastProbingType + " 尝试，对手剩" + minOpponentHandSize + "张，出 " + probingPlay);
+                    Log.d(TAG, "[MonteCarloAI] 残局多轮试探：" + lastProbingType + " 尝试，对手剩" + minOpponentHandSize + "张，出 " + probingPlay);
                     return probingPlay;
                 }
 
@@ -121,13 +124,13 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 if (minOpponentHandSize <= 2 && hand.size() >= 2) {
                     List<Card> maxPlay = findMaxCombinationPlay(hand, lastPlay, isFirstRound, isFirstTurn);
                     if (maxPlay != null) {
-                        System.out.println("[MonteCarloAI] 残局压制：试探失败，对手剩" + minOpponentHandSize + "张，强制出最大组合 " + maxPlay);
+                        Log.d(TAG, "[MonteCarloAI] 残局压制：试探失败，对手剩" + minOpponentHandSize + "张，强制出最大组合 " + maxPlay);
                         return maxPlay;
                     } else {
                         // 没有组合牌，出最大单张
                         List<Card> sortedHand = new ArrayList<>(hand);
                         sortedHand.sort((a, b) -> b.getRank().getWeight() - a.getRank().getWeight());
-                        System.out.println("[MonteCarloAI] 残局压制：试探失败，对手剩" + minOpponentHandSize + "张，强制出最大单张 " + sortedHand.get(0));
+                        Log.d(TAG, "[MonteCarloAI] 残局压制：试探失败，对手剩" + minOpponentHandSize + "张，强制出最大单张 " + sortedHand.get(0));
                         return Collections.singletonList(sortedHand.get(0));
                     }
                 }
@@ -142,7 +145,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
         
         // ========== 兜底逻辑：连续失败后强制过牌 ==========
         if (consecutiveFailCount >= 2) {
-            System.out.println("[MonteCarloAI] 连续失败2次，强制过牌一次");
+            Log.d(TAG, "[MonteCarloAI] 连续失败2次，强制过牌一次");
             consecutiveFailCount = 0; // 重置计数
             return null; // 过牌
         }
@@ -171,7 +174,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                         return Integer.compare(sum2, sum1);
                     });
                     Play best = allPlays.get(0);
-                    System.out.println("[MonteCarloAI] 主动压制：对手剩" + humanPlayer.getHandCards().size() + "张，出" + best.getCards());
+                    Log.d(TAG, "[MonteCarloAI] 主动压制：对手剩" + humanPlayer.getHandCards().size() + "张，出" + best.getCards());
                     return best.getCards();
                 }
             }
@@ -186,7 +189,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 // 剩2张：积极阻断（尽可能压牌，优先用中等牌）
                 // 剩3张：开始警惕（如果出牌较大则压，否则保留实力）
                 if (opponentCards <= 3) {
-                    System.out.println("[MonteCarloAI] 残局防守: 对手 " + lastPlayer.getPlayerId() + " 剩 " + opponentCards + " 张牌");
+                    Log.d(TAG, "[MonteCarloAI] 残局防守: 对手 " + lastPlayer.getPlayerId() + " 剩 " + opponentCards + " 张牌");
                     
                     List<Play> candidates = candidateGenerator.generate(hand, lastPlay, isFirstRound, isFirstTurn);
                     List<Play> canBeat = new ArrayList<>();
@@ -206,7 +209,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                             canBeat.sort(Comparator.comparingInt(p ->
                                 p.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
                             Play best = canBeat.get(0);
-                            System.out.println("[MonteCarloAI] 1张牌，紧急压牌: " + best.getCards());
+                            Log.d(TAG, "[MonteCarloAI] 1张牌，紧急压牌: " + best.getCards());
                             return best.getCards();
                         } else if (opponentCards == 2) {
                             // 积极压：选最大的能压牌（确保压住）
@@ -214,7 +217,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                                 Integer.compare(p2.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum(),
                                                 p1.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
                             Play best = canBeat.get(0);
-                            System.out.println("[MonteCarloAI] 2张牌，主动阻断: " + best.getCards());
+                            Log.d(TAG, "[MonteCarloAI] 2张牌，主动阻断: " + best.getCards());
                             return best.getCards();
                         } else { // opponentCards == 3
                             // 警惕：如果上家出牌较大（比如点数 > 10）则压，否则保留
@@ -225,14 +228,14 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                                 canBeat.sort(Comparator.comparingInt(p ->
                                     p.getCards().stream().mapToInt(c -> c.getRank().getWeight()).sum()));
                                 Play best = canBeat.get(0);
-                                System.out.println("[MonteCarloAI] 3张牌，警惕性压牌: " + best.getCards());
+                                Log.d(TAG, "[MonteCarloAI] 3张牌，警惕性压牌: " + best.getCards());
                                 return best.getCards();
                             } else {
-                                System.out.println("[MonteCarloAI] 3张牌，上家出小牌(值=" + lastValue + ")，暂不压");
+                                Log.d(TAG, "[MonteCarloAI] 3张牌，上家出小牌(值=" + lastValue + ")，暂不压");
                             }
                         }
                     } else {
-                        System.out.println("[MonteCarloAI] 残局防守失败: 无牌能压");
+                        Log.d(TAG, "[MonteCarloAI] 残局防守失败: 无牌能压");
                     }
                 }
             }
@@ -248,7 +251,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 candidates.sort((a, b) -> b.getCards().size() - a.getCards().size());
                 Play bestMulti = candidates.get(0);
                 if (bestMulti.getCards().size() >= 2) {
-                    System.out.println("[MonteCarloAI] 首轮出多张: " + bestMulti.getCards());
+                    Log.d(TAG, "[MonteCarloAI] 首轮出多张: " + bestMulti.getCards());
                     return bestMulti.getCards();
                 }
             }
@@ -261,7 +264,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (!isUrgent) {
                 List<Card> smallPlay = getSmallestValidPlay(hand, lastPlay);
                 if (smallPlay != null) {
-                    System.out.println("[MonteCarloAI] 开局保守出小牌: " + smallPlay);
+                    Log.d(TAG, "[MonteCarloAI] 开局保守出小牌: " + smallPlay);
                     return smallPlay;
                 }
             }
@@ -274,7 +277,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (!isUrgent) {
                 List<Card> smallPlay = getSmallestValidPlay(hand, lastPlay);
                 if (smallPlay != null) {
-                    System.out.println("[MonteCarloAI] 中盘谨慎出小牌: " + smallPlay);
+                    Log.d(TAG, "[MonteCarloAI] 中盘谨慎出小牌: " + smallPlay);
                     return smallPlay;
                 }
             }
@@ -285,7 +288,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (areOpponentBigCardsDepleted()) {
                 List<Card> bestPattern = getBestBigPattern(hand);
                 if (bestPattern != null) {
-                    System.out.println("[MonteCarloAI] 一锤定音: " + bestPattern);
+                    Log.d(TAG, "[MonteCarloAI] 一锤定音: " + bestPattern);
                     return bestPattern;
                 }
             }
@@ -304,7 +307,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 // 选择最小的对子/三带（避免浪费大牌）
                 validMultiCard.sort(Comparator.comparingInt(p -> p.getCards().get(0).getRank().getWeight()));
                 Play chosen = validMultiCard.get(0);
-                System.out.println("[MonteCarloAI] 拆牌逼迫策略: 出 " + chosen.getCards());
+                Log.d(TAG, "[MonteCarloAI] 拆牌逼迫策略: 出 " + chosen.getCards());
                 return chosen.getCards();
             }
         }
@@ -316,7 +319,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (bigPattern != null && shouldPlayBigPatternNow(gameState, aiPlayer)) {
                 // 检查合法性：能压住上家或上家没出牌
                 if (lastPlay == null || lastPlay.isEmpty() || canBeatBigPattern(bigPattern, lastPlay.getCards())) {
-                    System.out.println("[MonteCarloAI] 时机成熟，出大牌型终结: " + bigPattern);
+                    Log.d(TAG, "[MonteCarloAI] 时机成熟，出大牌型终结: " + bigPattern);
                     return bigPattern;
                 }
             }
@@ -329,7 +332,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             Card bombCard = findBestBomb(hand);
             if (bombCard != null) {
                 List<Card> bombPlay = getBombCards(hand, bombCard.getRank());
-                System.out.println("[MonteCarloAI] 炸弹优先: " + bombPlay);
+                Log.d(TAG, "[MonteCarloAI] 炸弹优先: " + bombPlay);
                 return bombPlay;
             }
         }
@@ -341,7 +344,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             if (beatPattern != null && !beatPattern.isEmpty()) {
                 // 使用 canBeatBigPattern 检查合法性
                 if (canBeatBigPattern(beatPattern, lastPlay.getCards())) {
-                    System.out.println("[MonteCarloAI] 强制压制五张牌型: " + beatPattern);
+                    Log.d(TAG, "[MonteCarloAI] 强制压制五张牌型: " + beatPattern);
                     return beatPattern;
                 }
             }
@@ -356,14 +359,14 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                     // 出2后优先出大牌型
                     List<Card> bigPattern = getBestBigPattern(hand);
                     if (bigPattern != null) {
-                        System.out.println("[MonteCarloAI] 出2后立即出大牌型: " + bigPattern);
+                        Log.d(TAG, "[MonteCarloAI] 出2后立即出大牌型: " + bigPattern);
                         return bigPattern;
                     }
                     // 否则出对子
                     List<Play> candidates = candidateGenerator.generate(hand, null, false, true);
                     for (Play p : candidates) {
                         if (p.getCards().size() == 2) {
-                            System.out.println("[MonteCarloAI] 出2后出对子: " + p.getCards());
+                            Log.d(TAG, "[MonteCarloAI] 出2后出对子: " + p.getCards());
                             return p.getCards();
                         }
                     }
@@ -387,7 +390,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
         // 手牌多时快速决策，手牌少时精细决策
         int dynamicSamples = calculateDynamicSamples(hand.size());
         if (DEBUG_AI) {
-            System.out.println("[MonteCarloAI] 动态模拟次数: " + dynamicSamples + " (手牌:" + hand.size() + "张)");
+            Log.d(TAG, "[MonteCarloAI] 动态模拟次数: " + dynamicSamples + " (手牌:" + hand.size() + "张)");
         }
 
         PhaseManager.GamePhase phase = phaseManager.getCurrentPhase(aiPlayer, gameState);
@@ -419,13 +422,13 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 if (cardCount > 1) {
                     double countBonus = (cardCount - 1) * 50;
                     adjusted += countBonus;
-                    System.out.println("[MonteCarloAI] 张数奖励: " + cardCount + "张 +" + countBonus);
+                    Log.d(TAG, "[MonteCarloAI] 张数奖励: " + cardCount + "张 +" + countBonus);
                 }
                 
                 // 2. 组合牌额外奖励
                 if (pattern != null && pattern != CardPattern.SINGLE) {
                     adjusted += 20;
-                    System.out.println("[MonteCarloAI] 组合牌奖励 +20");
+                    Log.d(TAG, "[MonteCarloAI] 组合牌奖励 +20");
                 }
                 
                 // 3. 压牌奖励
@@ -444,7 +447,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                                     bonus = 30;
                                 }
                                 adjusted += bonus;
-                                System.out.println("[MonteCarloAI] 对子压对子奖励 +" + bonus);
+                                Log.d(TAG, "[MonteCarloAI] 对子压对子奖励 +" + bonus);
                             }
                         }
                     }
@@ -463,7 +466,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                                 bonus = 80;
                             }
                             adjusted += bonus;
-                            System.out.println("[MonteCarloAI] 组合牌压单张奖励 +" + bonus);
+                            Log.d(TAG, "[MonteCarloAI] 组合牌压单张奖励 +" + bonus);
                         }
                     }
                 }
@@ -472,10 +475,10 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 if (isUrgent && isInitiative) {
                     if (cardCount == 1) {
                         adjusted -= 40;
-                        System.out.println("[MonteCarloAI] 紧急模式单张惩罚 -40");
+                        Log.d(TAG, "[MonteCarloAI] 紧急模式单张惩罚 -40");
                     } else {
                         adjusted += 30;
-                        System.out.println("[MonteCarloAI] 紧急模式组合奖励 +30");
+                        Log.d(TAG, "[MonteCarloAI] 紧急模式组合奖励 +30");
                     }
                 }
                 
@@ -483,7 +486,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 adjusted = applyAdaptiveFactors(adjusted, candidate, lastPlay, gameState, aiPlayer);
                 
                 // 打印分数组成（调试用）
-                System.out.println("[MonteCarloAI] 候选出牌: " + candidate.getCards() + 
+                Log.d(TAG, "[MonteCarloAI] 候选出牌: " + candidate.getCards() + 
                     " 牌型: " + pattern + " 最终分数: " + adjusted);
                 
                 scores.put(candidate, adjusted);
@@ -519,7 +522,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                     isFirstTurn);
             
             if (!validation.valid) {
-                System.out.println("[MonteCarloAI] 最终检查发现非法出牌，改为过牌: " + finalCards + " - " + validation.reason);
+                Log.d(TAG, "[MonteCarloAI] 最终检查发现非法出牌，改为过牌: " + finalCards + " - " + validation.reason);
                 return null; // 改为过牌
             }
         }
@@ -541,7 +544,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
     public void resetPassCounter() {
         consecutivePassRounds = 0;
         if (DEBUG_AI) {
-            System.out.println("[MonteCarloAI] 重置连续过牌计数器");
+            Log.d(TAG, "[MonteCarloAI] 重置连续过牌计数器");
         }
     }
 
@@ -609,7 +612,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      */
     private double applyAdaptiveFactors(double score, Play candidate, Play lastPlay, 
                                         GameState gameState, Player aiPlayer) {
-        System.out.println("[MonteCarloAI] applyAdaptiveFactors called - score=" + score + 
+        Log.d(TAG, "[MonteCarloAI] applyAdaptiveFactors called - score=" + score + 
                 ", aggressiveness=" + aggressivenessFactor + ", defense=" + defenseFactor);
         
         double adjustedScore = score;
@@ -634,7 +637,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double openingBonus = handSize * 2.0;  // 手牌越多，奖励越高
                 adjustedScore += openingBonus;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 开局组合牌奖励 +" + openingBonus + " (手牌:" + handSize + "张, 牌型:" + pattern + ")");
+                    Log.d(TAG, "[MonteCarloAI] 开局组合牌奖励 +" + openingBonus + " (手牌:" + handSize + "张, 牌型:" + pattern + ")");
                 }
             }
         }
@@ -653,7 +656,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double penalty = bigCardsInPlay * 15.0 * (defenseFactor - 1.0);
                 adjustedScore -= penalty;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 防守模式大牌惩罚：出" + bigCardsInPlay + "张大牌 -" + penalty);
+                    Log.d(TAG, "[MonteCarloAI] 防守模式大牌惩罚：出" + bigCardsInPlay + "张大牌 -" + penalty);
                 }
             }
             // 防守模式下，出小牌会获得奖励
@@ -668,7 +671,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double bonus = 10.0 * (defenseFactor - 1.0) * cards.size();
                 adjustedScore += bonus;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 防守模式小牌奖励：+" + bonus);
+                    Log.d(TAG, "[MonteCarloAI] 防守模式小牌奖励：+" + bonus);
                 }
             }
         }
@@ -691,7 +694,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double bonus = 15.0 * (aggressivenessFactor - 1.0) * cards.size();
                 adjustedScore += bonus;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 进攻模式出最小牌奖励：+" + bonus);
+                    Log.d(TAG, "[MonteCarloAI] 进攻模式出最小牌奖励：+" + bonus);
                 }
             }
             
@@ -700,7 +703,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double comboBonus = 8.0 * (aggressivenessFactor - 1.0) * cards.size();
                 adjustedScore += comboBonus;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 进攻模式组合牌奖励：+" + comboBonus);
+                    Log.d(TAG, "[MonteCarloAI] 进攻模式组合牌奖励：+" + comboBonus);
                 }
             }
         }
@@ -711,7 +714,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             // 如果不是主动出牌，过牌的吸引力增加
             adjustedScore *= defenseFactor;
             if (DEBUG_AI) {
-                System.out.println("[MonteCarloAI] 防守模式压牌惩罚：分数 * " + defenseFactor);
+                Log.d(TAG, "[MonteCarloAI] 防守模式压牌惩罚：分数 * " + defenseFactor);
             }
         }
         
@@ -726,7 +729,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             double bonus = 10.0 * (aggressivenessFactor - 1.0) * beatStrength;
             adjustedScore += bonus;
             if (DEBUG_AI) {
-                System.out.println("[MonteCarloAI] 进攻模式压牌奖励：+" + bonus + " (强度=" + beatStrength + ")");
+                Log.d(TAG, "[MonteCarloAI] 进攻模式压牌奖励：+" + bonus + " (强度=" + beatStrength + ")");
             }
         }
         
@@ -751,13 +754,13 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 if (totalCards == 1) {
                     adjustedScore -= 12.0 * aggressivenessFactor;
                     if (DEBUG_AI) {
-                        System.out.println("[MonteCarloAI] 紧急模式：单张 -" + (12.0 * aggressivenessFactor));
+                        Log.d(TAG, "[MonteCarloAI] 紧急模式：单张 -" + (12.0 * aggressivenessFactor));
                     }
                 } else {
                     double comboBonus = 15.0 * totalCards * aggressivenessFactor;
                     adjustedScore += comboBonus;
                     if (DEBUG_AI) {
-                        System.out.println("[MonteCarloAI] 紧急模式：组合牌 +" + comboBonus);
+                        Log.d(TAG, "[MonteCarloAI] 紧急模式：组合牌 +" + comboBonus);
                     }
                 }
             }
@@ -772,10 +775,10 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 int handAfterPlay = myHandSize - cards.size();
                 if (handAfterPlay <= 1) {
                     urgencyBonus += 30.0;
-                    System.out.println("[MonteCarloAI] 压牌后即将获胜！额外+30分");
+                    Log.d(TAG, "[MonteCarloAI] 压牌后即将获胜！额外+30分");
                 }
                 adjustedScore += urgencyBonus;
-                System.out.println("[MonteCarloAI] 紧急压牌奖励 +" + urgencyBonus);
+                Log.d(TAG, "[MonteCarloAI] 紧急压牌奖励 +" + urgencyBonus);
             }
             
             // ========== 残局强制压牌逻辑 ==========
@@ -801,7 +804,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                     adjustedScore += 30.0;
                 }
                 
-                System.out.println("[MonteCarloAI] 残局强制压牌奖励 +" + endgameBonus + " (对手剩" + minOpponentHandSize + "张)");
+                Log.d(TAG, "[MonteCarloAI] 残局强制压牌奖励 +" + endgameBonus + " (对手剩" + minOpponentHandSize + "张)");
             }
         }
 
@@ -822,7 +825,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 if (myMinRank > lastMaxRank && myMinRank - lastMaxRank <= 5) {
                     double smallCardBonus = 15.0 + (6 - lastMaxRank) * 3; // 越小的牌奖励越高
                     adjustedScore += smallCardBonus;
-                    System.out.println("[MonteCarloAI] 小牌跟牌奖励 +" + smallCardBonus + " (上家出" + lastMaxRank + ", AI出" + myMinRank + ")");
+                    Log.d(TAG, "[MonteCarloAI] 小牌跟牌奖励 +" + smallCardBonus + " (上家出" + lastMaxRank + ", AI出" + myMinRank + ")");
                 }
             }
         }
@@ -843,7 +846,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
             
             adjustedScore += comboBonus;
             if (DEBUG_AI) {
-                System.out.println("[MonteCarloAI] 组合牌主动奖励 +" + comboBonus + " (牌型: " + pattern + ")");
+                Log.d(TAG, "[MonteCarloAI] 组合牌主动奖励 +" + comboBonus + " (牌型: " + pattern + ")");
             }
         }
         
@@ -854,7 +857,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
                 double countBonus = (cardCount - 1) * 10;
                 adjustedScore += countBonus;
                 if (DEBUG_AI) {
-                    System.out.println("[MonteCarloAI] 张数奖励：" + cardCount + "张 +" + countBonus);
+                    Log.d(TAG, "[MonteCarloAI] 张数奖励：" + cardCount + "张 +" + countBonus);
                 }
             }
         }
@@ -1447,7 +1450,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      */
     public void recordPlayFailure() {
         consecutiveFailCount++;
-        System.out.println("[MonteCarloAI] 出牌失败，连续失败次数: " + consecutiveFailCount);
+        Log.d(TAG, "[MonteCarloAI] 出牌失败，连续失败次数: " + consecutiveFailCount);
     }
 
     /**

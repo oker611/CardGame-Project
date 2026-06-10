@@ -1,5 +1,7 @@
 package com.example.cardgame.rule;
 
+import android.util.Log;
+
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.rule.PatternRecognizer.PatternInfo;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
  * 支持首轮方块3、压过上家、Pass逻辑
  */
 public class PlayValidator {
+private static final String TAG = "CardGame";
 
     private final PatternRecognizer recognizer;
     private final RuleConfig config;
@@ -80,7 +83,7 @@ public class PlayValidator {
         }
         
         // 调试日志
-        System.out.println("[PlayValidator] 牌型比较：当前牌型=" + currentInfo.getType() + 
+        Log.d(TAG, "[PlayValidator] 牌型比较：当前牌型=" + currentInfo.getType() + 
                 "(优先级=" + getFiveCardPriority(currentInfo.getType()) + "), " +
                 "上家牌型=" + lastInfo.getType() + 
                 "(优先级=" + getFiveCardPriority(lastInfo.getType()) + ")");
@@ -89,7 +92,7 @@ public class PlayValidator {
             if (isFiveCardPattern(currentInfo.getType()) && isFiveCardPattern(lastInfo.getType())) {
                 int currentPriority = getFiveCardPriority(currentInfo.getType());
                 int lastPriority = getFiveCardPriority(lastInfo.getType());
-                System.out.println("[PlayValidator] 五张牌型比较：当前优先级=" + currentPriority + ", 上家优先级=" + lastPriority);
+                Log.d(TAG, "[PlayValidator] 五张牌型比较：当前优先级=" + currentPriority + ", 上家优先级=" + lastPriority);
                 
                 if (currentPriority > lastPriority) {
                     return new ValidationResult(true, "高级牌型压制");
