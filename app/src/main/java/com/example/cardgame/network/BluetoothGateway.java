@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 
 public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageListener {
 
+    private static final String TAG = "CardGame";
     private static final String[] CLIENT_PLAYER_IDS = {"P2", "P3", "P4"};
     private static final int MAX_CLIENTS = CLIENT_PLAYER_IDS.length;
 
@@ -162,7 +163,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         networkGameBridge.setPlayerContext(this.localPlayerId, new ArrayList<>());
 
         try {
-            Log.i("CardGame", "[INFO] [蓝牙] 创建房间（4人模式） | 本机玩家:" + localPlayerId);
+            Log.i(TAG, "[INFO] [蓝牙] 创建房间（4人模式） | 本机玩家:" + localPlayerId);
 
             // 第一步：创建服务端 Socket（非阻塞），此时房间已可被发现
             connectionManager.startServer();
@@ -178,7 +179,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 }
                 String clientPlayerId = CLIENT_PLAYER_IDS[i];
 
-                Log.i("CardGame", "[INFO] [蓝牙] 等待第" + (i + 1) + "个客户端连接（" + clientPlayerId + "）...");
+                Log.i(TAG, "[INFO] [蓝牙] 等待第" + (i + 1) + "个客户端连接（" + clientPlayerId + "）...");
 
                 String deviceAddress = connectionManager.waitForNextClient();
 
@@ -222,7 +223,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
                 notifyPlayerJoined(clientPlayerId, i + 1);
 
-                Log.i("CardGame", "[INFO] [蓝牙] 客户端" + (i + 1) + "已加入 | "
+                Log.i(TAG, "[INFO] [蓝牙] 客户端" + (i + 1) + "已加入 | "
                         + clientPlayerId + " | " + playerName
                         + " | totalClients=" + (i + 1));
             }
@@ -233,7 +234,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             this.remotePlayerId = CLIENT_PLAYER_IDS[0]; // 兼容旧代码
             notifyAllPlayersReady();
 
-            Log.i("CardGame", "[INFO] [蓝牙] 4人房间就绪 | HOST:" + localPlayerId);
+            Log.i(TAG, "[INFO] [蓝牙] 4人房间就绪 | HOST:" + localPlayerId);
 
         } catch (Exception exception) {
             if (roomFinalized) {
@@ -243,7 +244,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             acceptingClients = false;
 
             // 清理部分建立的连接（停止 receiver 线程 + 关闭 socket）
-            Log.e("CardGame", "[ERROR] [蓝牙] 房间创建失败，清理已建立的连接", exception);
+            Log.e(TAG, "[ERROR] [蓝牙] 房间创建失败，清理已建立的连接", exception);
             for (SenderReceiverPair pair : clientChannels.values()) {
                 if (pair.receiver != null) pair.receiver.stopListening();
                 if (pair.sender != null) pair.sender.stop();
@@ -274,7 +275,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         networkGameBridge.setPlayerContext(this.localPlayerId, new ArrayList<>());
 
         try {
-            Log.i("CardGame", "[INFO] [蓝牙] 发起连接 | 目标设备:" + deviceAddress);
+            Log.i(TAG, "[INFO] [蓝牙] 发起连接 | 目标设备:" + deviceAddress);
 
             this.hostDeviceAddress = deviceAddress;
             connectionManager.connectToDevice(deviceAddress);
@@ -289,11 +290,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             notifyConnected();
 
-            Log.i("CardGame", "[INFO] [蓝牙] 客户端已连接，等待HOST分配角色...");
+            Log.i(TAG, "[INFO] [蓝牙] 客户端已连接，等待HOST分配角色...");
 
         } catch (Exception exception) {
             // 清理部分建立的连接（停止 receiver 线程 + 关闭 socket）
-            Log.e("CardGame", "[ERROR] [蓝牙] 客户端连接失败，清理资源", exception);
+            Log.e(TAG, "[ERROR] [蓝牙] 客户端连接失败，清理资源", exception);
             for (SenderReceiverPair pair : clientChannels.values()) {
                 if (pair.receiver != null) pair.receiver.stopListening();
                 if (pair.sender != null) pair.sender.stop();
@@ -322,7 +323,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         List<BluetoothDeviceInfo> devices = connectionManager.discoverJoinableMobileDevices();
 
-        Log.i("CardGame", "[INFO] [蓝牙] 可加入设备搜索完成 | 数量:" + devices.size());
+        Log.i(TAG, "[INFO] [蓝牙] 可加入设备搜索完成 | 数量:" + devices.size());
 
         return devices;
     }
@@ -350,7 +351,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         pair.receiver.startListening();
         communicationReady = true;
 
-        Log.i("CardGame", "[INFO] [蓝牙] 通信通道建立 | 角色:" + role
+        Log.i(TAG, "[INFO] [蓝牙] 通信通道建立 | 角色:" + role
                 + " 本机:" + localPlayerId);
     }
 
@@ -361,7 +362,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     @Override
     public void sendPlayAction(Play play) {
         if (play == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] [发送] 出牌消息为空 | play:null");
+            Log.w(TAG, "[WARN] [蓝牙] [发送] 出牌消息为空 | play:null");
             return;
         }
 
@@ -380,7 +381,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     @Override
     public void sendPassAction(String playerId) {
         if (playerId == null || playerId.trim().isEmpty()) {
-            Log.w("CardGame", "[WARN] [蓝牙] [发送] Pass玩家为空 | playerId:null");
+            Log.w(TAG, "[WARN] [蓝牙] [发送] Pass玩家为空 | playerId:null");
             return;
         }
 
@@ -395,7 +396,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     @Override
     public void syncGameState(GameState gameState) {
         if (gameState == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] [发送] 同步状态为空 | gameState:null");
+            Log.w(TAG, "[WARN] [蓝牙] [发送] 同步状态为空 | gameState:null");
             return;
         }
 
@@ -455,7 +456,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         synchronized (sendLock) {
             SenderReceiverPair pair = clientChannels.get(deviceAddress);
             if (pair == null || pair.sender == null || !pair.sender.isActive()) {
-                Log.w("CardGame", "[WARN] [蓝牙] [发送] 目标通道不可用 | " + summary);
+                Log.w(TAG, "[WARN] [蓝牙] [发送] 目标通道不可用 | " + summary);
                 return;
             }
             try {
@@ -463,17 +464,17 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 if (needsAck(message.getMessageType())) {
                     pendingByChannel.put(deviceAddress, new PendingMessage(message));
                 }
-                Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 单播 | 到:" + deviceAddress
+                Log.d(TAG, "[DEBUG] [蓝牙] [发送] 单播 | 到:" + deviceAddress
                         + " 类型:" + message.getMessageType() + " " + summary);
             } catch (Exception e) {
-                Log.e("CardGame", "[ERROR] [蓝牙] [发送] 单播失败 | " + summary, e);
+                Log.e(TAG, "[ERROR] [蓝牙] [发送] 单播失败 | " + summary, e);
             }
         }
     }
 
     public void sendGameOver(String winnerId, String winnerName) {
         if (winnerId == null || winnerId.trim().isEmpty()) {
-            Log.w("CardGame", "[WARN] [蓝牙] [发送] 游戏结束胜者为空 | winnerId:null");
+            Log.w(TAG, "[WARN] [蓝牙] [发送] 游戏结束胜者为空 | winnerId:null");
             return;
         }
 
@@ -505,7 +506,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 try {
                     entry.getValue().sender.sendMessage(msg);
                 } catch (Exception e) {
-                    Log.e("CardGame", "[ERROR] [蓝牙] 广播PLAYER_JOINED失败 | to=" + addr, e);
+                    Log.e(TAG, "[ERROR] [蓝牙] 广播PLAYER_JOINED失败 | to=" + addr, e);
                 }
             }
         }
@@ -549,7 +550,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         try {
             sender.sendMessage(message);
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 发送已有玩家快照失败 | playerId="
+            Log.e(TAG, "[ERROR] [蓝牙] 发送已有玩家快照失败 | playerId="
                     + existingPlayerId + ", to=" + joiningPlayerId, e);
         }
     }
@@ -599,7 +600,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         synchronized (sendLock) {
             if (!communicationReady) {
                 HermesLog.log("SEND BLOCKED communicationReady=false " + summary);
-                Log.w("CardGame", "[WARN] [蓝牙] [发送] 通道未就绪，丢弃消息 | " + summary);
+                Log.w(TAG, "[WARN] [蓝牙] [发送] 通道未就绪，丢弃消息 | " + summary);
                 return;
             }
 
@@ -622,13 +623,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                         pendingByChannel.put(deviceAddress, new PendingMessage(message));
                     }
 
-                    Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息已广播 | 类型:"
+                    Log.d(TAG, "[DEBUG] [蓝牙] [发送] 消息已广播 | 类型:"
                             + message.getMessageType()
                             + " 到:" + deviceAddress
                             + " 内容:" + summary);
 
                 } catch (Exception exception) {
-                    Log.e("CardGame", "[ERROR] [蓝牙] [发送] 广播失败 | " + summary, exception);
+                    Log.e(TAG, "[ERROR] [蓝牙] [发送] 广播失败 | " + summary, exception);
                 }
             }
         }
@@ -646,20 +647,20 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         synchronized (sendLock) {
             if (clientChannels.isEmpty()) {
-                Log.w("CardGame", "[WARN] [蓝牙] [发送] 无可用通道 | " + summary);
+                Log.w(TAG, "[WARN] [蓝牙] [发送] 无可用通道 | " + summary);
                 return;
             }
 
             SenderReceiverPair pair = clientChannels.values().iterator().next();
             if (pair.sender == null || !pair.sender.isActive()) {
-                Log.w("CardGame", "[WARN] [蓝牙] [发送] sender未就绪 | " + summary);
+                Log.w(TAG, "[WARN] [蓝牙] [发送] sender未就绪 | " + summary);
                 return;
             }
 
             try {
                 pair.sender.sendMessage(message);
 
-                Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息已发送 | 类型:"
+                Log.d(TAG, "[DEBUG] [蓝牙] [发送] 消息已发送 | 类型:"
                         + message.getMessageType()
                         + " 内容:" + summary);
             } catch (Exception exception) {
@@ -684,11 +685,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     @Override
     public void onMessageReceived(BluetoothMessage message) {
         if (message == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] [接收] 空消息 | message:null");
+            Log.w(TAG, "[WARN] [蓝牙] [接收] 空消息 | message:null");
             return;
         }
 
-        Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息接收 | 类型:"
+        Log.d(TAG, "[DEBUG] [蓝牙] [接收] 消息接收 | 类型:"
                 + message.getMessageType()
                 + " 发送者:" + message.getSenderPlayerId());
 
@@ -722,7 +723,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             case HEARTBEAT:
                 updateHeartbeatTimestamp(message.getSenderPlayerId());
-                Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 心跳消息 | 发送者:" + message.getSenderPlayerId());
+                Log.d(TAG, "[DEBUG] [蓝牙] [接收] 心跳消息 | 发送者:" + message.getSenderPlayerId());
                 break;
 
             case ACK:
@@ -761,19 +762,19 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void handleJoinMessage(BluetoothMessage message) {
-        Log.d("CardGame", "[DEBUG] [蓝牙] 收到JOIN请求 from=" + message.getSenderPlayerId());
+        Log.d(TAG, "[DEBUG] [蓝牙] 收到JOIN请求 from=" + message.getSenderPlayerId());
         try {
             JoinPayload payload = messageCodec.decodeJoinPayload(message.getPayloadJson());
             if (payload != null && payload.getPlayerName() != null) {
                 pendingJoinNamesBySender.put(message.getSenderPlayerId(), payload.getPlayerName().trim());
             }
         } catch (Exception e) {
-            Log.w("CardGame", "[WARN] [蓝牙] 解析JOIN昵称失败", e);
+            Log.w(TAG, "[WARN] [蓝牙] 解析JOIN昵称失败", e);
         }
     }
 
     private void handleJoinAckMessage(BluetoothMessage message) {
-        Log.i("CardGame", "[INFO] [蓝牙] 收到JOIN_ACK");
+        Log.i(TAG, "[INFO] [蓝牙] 收到JOIN_ACK");
 
         try {
             JoinPayload payload = messageCodec.decodeJoinPayload(message.getPayloadJson());
@@ -792,7 +793,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             remoteIds.add("P1");
             networkGameBridge.setPlayerContext(this.localPlayerId, remoteIds);
 
-            Log.i("CardGame", "[INFO] [蓝牙] HOST分配角色: " + assignedPlayerId
+            Log.i(TAG, "[INFO] [蓝牙] HOST分配角色: " + assignedPlayerId
                     + ", slot=" + assignedSlotIndex);
 
             if (eventListener != null) {
@@ -803,12 +804,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             startHeartbeat();
 
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 解析JOIN_ACK失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 解析JOIN_ACK失败", e);
         }
     }
 
     private void handlePlayerJoinedMessage(BluetoothMessage message) {
-        Log.i("CardGame", "[INFO] [蓝牙] 收到PLAYER_JOINED");
+        Log.i(TAG, "[INFO] [蓝牙] 收到PLAYER_JOINED");
 
         try {
             JoinPayload payload = messageCodec.decodeJoinPayload(message.getPayloadJson());
@@ -817,7 +818,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             int slot = payload.getSlotIndex();
             playerNamesById.put(newPlayerId, safePlayerName(newPlayerName, "Player " + newPlayerId));
 
-            Log.i("CardGame", "[INFO] [蓝牙] 新玩家加入: " + newPlayerId
+            Log.i(TAG, "[INFO] [蓝牙] 新玩家加入: " + newPlayerId
                     + " (" + newPlayerName + "), slot=" + slot);
 
             if (eventListener != null) {
@@ -825,19 +826,19 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             }
 
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 解析PLAYER_JOINED失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 解析PLAYER_JOINED失败", e);
         }
     }
 
     private void handlePlayerLeftMessage(BluetoothMessage message) {
-        Log.i("CardGame", "[INFO] [蓝牙] 收到PLAYER_LEFT");
+        Log.i(TAG, "[INFO] [蓝牙] 收到PLAYER_LEFT");
 
         try {
             PlayerLeftPayload payload = messageCodec.decodePlayerLeftPayload(message.getPayloadJson());
             String leftPlayerId = payload.getPlayerId();
             String leftPlayerName = payload.getPlayerName();
 
-            Log.i("CardGame", "[INFO] [蓝牙] 玩家离开: " + leftPlayerId
+            Log.i(TAG, "[INFO] [蓝牙] 玩家离开: " + leftPlayerId
                     + " (" + leftPlayerName + ")");
 
             if (eventListener != null) {
@@ -845,7 +846,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             }
 
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 解析PLAYER_LEFT失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 解析PLAYER_LEFT失败", e);
         }
     }
 
@@ -872,13 +873,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 try {
                     pair.sender.sendMessage(originalMessage);
 
-                    Log.d("CardGame", "[DEBUG] [蓝牙] 消息已转发 | 类型:"
+                    Log.d(TAG, "[DEBUG] [蓝牙] 消息已转发 | 类型:"
                             + originalMessage.getMessageType()
                             + " 来自:" + senderPlayerId
                             + " 转发到:" + targetPlayerId);
 
                 } catch (Exception e) {
-                    Log.e("CardGame", "[ERROR] [蓝牙] 转发失败 | to=" + targetPlayerId, e);
+                    Log.e(TAG, "[ERROR] [蓝牙] 转发失败 | to=" + targetPlayerId, e);
                 }
             }
         }
@@ -895,7 +896,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 + " msg=" + (exception != null ? exception.getMessage() : "null")
                 + " role=" + role);
         if (!isHost() && communicationReady && !reconnecting) {
-            Log.i("CardGame", "[INFO] [蓝牙] CLIENT 接收异常，启动重连");
+            Log.i(TAG, "[INFO] [蓝牙] CLIENT 接收异常，启动重连");
             closeClientChannel();
             startClientReconnect();
             return;
@@ -984,7 +985,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 try {
                     entry.getValue().sender.sendMessage(msg);
                 } catch (Exception e) {
-                    Log.e("CardGame", "[ERROR] broadcast AI failed", e);
+                    Log.e(TAG, "[ERROR] broadcast AI failed", e);
                 }
             }
         }
@@ -1046,7 +1047,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         connectionManager.close();
 
-        Log.i("CardGame", "[INFO] [蓝牙] 连接断开 | 原因:用户主动断开");
+        Log.i(TAG, "[INFO] [蓝牙] 连接断开 | 原因:用户主动断开");
 
         if (eventListener != null) {
             eventListener.onDisconnected("用户主动断开");
@@ -1097,7 +1098,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void notifyConnected() {
-        Log.i("CardGame", "[INFO] [蓝牙] 连接成功 | 对方设备:"
+        Log.i(TAG, "[INFO] [蓝牙] 连接成功 | 对方设备:"
                 + connectionManager.getConnectedDeviceName());
 
         if (eventListener != null) {
@@ -1109,7 +1110,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void notifyServerReady() {
-        Log.i("CardGame", "[INFO] [蓝牙] 服务端就绪 | 等待客户端连接...");
+        Log.i(TAG, "[INFO] [蓝牙] 服务端就绪 | 等待客户端连接...");
 
         if (eventListener != null) {
             eventListener.onServerReady();
@@ -1117,7 +1118,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void notifyPlayerJoined(String playerId, int slotIndex) {
-        Log.i("CardGame", "[INFO] [蓝牙] 玩家加入 | " + playerId + " slot=" + slotIndex);
+        Log.i(TAG, "[INFO] [蓝牙] 玩家加入 | " + playerId + " slot=" + slotIndex);
 
         if (eventListener != null) {
             eventListener.onPlayerJoined(playerId,
@@ -1141,7 +1142,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void notifyAllPlayersReady() {
-        Log.i("CardGame", "[INFO] [蓝牙] 4人房间就绪");
+        Log.i(TAG, "[INFO] [蓝牙] 4人房间就绪");
 
         if (eventListener != null) {
             eventListener.onAllPlayersReady();
@@ -1149,7 +1150,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void notifyError(String message, Exception exception) {
-        Log.e("CardGame", "[ERROR] [蓝牙] 异常 | 原因:" + message, exception);
+        Log.e(TAG, "[ERROR] [蓝牙] 异常 | 原因:" + message, exception);
 
         if (eventListener != null) {
             eventListener.onError(message, exception);
@@ -1160,7 +1161,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         communicationReady = false;
         stopHeartbeat();
 
-        Log.e("CardGame", "[ERROR] [蓝牙] 连接断开 | 原因:" + message, exception);
+        Log.e(TAG, "[ERROR] [蓝牙] 连接断开 | 原因:" + message, exception);
 
         if (eventListener != null) {
             eventListener.onDisconnected(message);
@@ -1200,7 +1201,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                                 entry.getValue().sender.sendMessage(heartbeat);
                             }
                         } catch (Exception e) {
-                            Log.w("CardGame", "[WARN] [蓝牙] 心跳发送失败 | to=" + entry.getKey(), e);
+                            Log.w(TAG, "[WARN] [蓝牙] 心跳发送失败 | to=" + entry.getKey(), e);
                         }
                     }
                 }
@@ -1222,7 +1223,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     }
                     long elapsed = currentTime - lastHb;
                     if (elapsed > timeoutMs) {
-                        Log.e("CardGame", "[ERROR] [蓝牙] 心跳超时 | device=" + addr
+                        Log.e(TAG, "[ERROR] [蓝牙] 心跳超时 | device=" + addr
                                 + " | elapsed=" + (elapsed / 1000) + "s");
                         if (isHost()) {
                             handleChannelDisconnected(addr);
@@ -1234,11 +1235,11 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     }
                 }
             } catch (Exception e) {
-                Log.w("CardGame", "[WARN] [蓝牙] 心跳任务异常", e);
+                Log.w(TAG, "[WARN] [蓝牙] 心跳任务异常", e);
             }
         }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
 
-        Log.i("CardGame", "[INFO] [蓝牙] 心跳已启动 | interval=" + HEARTBEAT_INTERVAL_SECONDS + "s"
+        Log.i(TAG, "[INFO] [蓝牙] 心跳已启动 | interval=" + HEARTBEAT_INTERVAL_SECONDS + "s"
                 + " timeout=" + HEARTBEAT_TIMEOUT_SECONDS + "s"
                 + " channels=" + clientChannels.size());
     }
@@ -1266,7 +1267,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         if (heartbeatExecutor != null) {
             heartbeatExecutor.shutdownNow();
             heartbeatExecutor = null;
-            Log.i("CardGame", "[INFO] [蓝牙] 心跳已停止");
+            Log.i(TAG, "[INFO] [蓝牙] 心跳已停止");
         }
     }
 
@@ -1279,7 +1280,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         acceptingReconnects = true;
         reconnectListenerThread = new Thread(() -> {
-            Log.i("CardGame", "[INFO] [蓝牙] 重连监听线程已启动");
+            Log.i(TAG, "[INFO] [蓝牙] 重连监听线程已启动");
             while (acceptingReconnects && connectionManager.isServerSocketOpen()) {
                 try {
                     BluetoothConnectionManager.ClientConnection conn =
@@ -1294,15 +1295,15 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     pendingReconnections.put(conn.deviceAddress,
                             new PendingReconnect(pair, conn.deviceAddress));
 
-                    Log.i("CardGame", "[INFO] [蓝牙] 重连请求待验证 | device=" + conn.deviceAddress);
+                    Log.i(TAG, "[INFO] [蓝牙] 重连请求待验证 | device=" + conn.deviceAddress);
 
                 } catch (IOException e) {
                     if (acceptingReconnects) {
-                        Log.w("CardGame", "[WARN] [蓝牙] 重连监听 accept 异常", e);
+                        Log.w(TAG, "[WARN] [蓝牙] 重连监听 accept 异常", e);
                     }
                 }
             }
-            Log.i("CardGame", "[INFO] [蓝牙] 重连监听线程已退出");
+            Log.i(TAG, "[INFO] [蓝牙] 重连监听线程已退出");
         }, "CardGame-ReconnectListener");
         reconnectListenerThread.setDaemon(true);
         reconnectListenerThread.start();
@@ -1328,7 +1329,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
      */
     private void handleChannelDisconnected(String deviceAddress) {
         String playerId = deviceToPlayerId.get(deviceAddress);
-        Log.e("CardGame", "[ERROR] [蓝牙] 通道断开 | device=" + deviceAddress
+        Log.e(TAG, "[ERROR] [蓝牙] 通道断开 | device=" + deviceAddress
                 + " playerId=" + playerId);
 
         synchronized (sendLock) {
@@ -1353,7 +1354,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         // 确保 serverSocket 仍在监听（接受重连）
         if (!connectionManager.isServerSocketOpen()) {
-            Log.w("CardGame", "[WARN] [蓝牙] serverSocket 已关闭，无法接受重连");
+            Log.w(TAG, "[WARN] [蓝牙] serverSocket 已关闭，无法接受重连");
         }
     }
 
@@ -1365,18 +1366,18 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             claimedPlayerId = payload.getPlayerId();
             claimedPlayerName = payload.getPlayerName();
         } catch (Exception e) {
-            Log.w("CardGame", "[WARN] [蓝牙] 解析RECONNECT失败", e);
+            Log.w(TAG, "[WARN] [蓝牙] 解析RECONNECT失败", e);
             return;
         }
 
         if (claimedPlayerId == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] RECONNECT 缺少 playerId");
+            Log.w(TAG, "[WARN] [蓝牙] RECONNECT 缺少 playerId");
             return;
         }
 
         // 验证是否为已知玩家
         if (!playerNamesById.containsKey(claimedPlayerId)) {
-            Log.w("CardGame", "[WARN] [蓝牙] RECONNECT 无效 playerId: " + claimedPlayerId);
+            Log.w(TAG, "[WARN] [蓝牙] RECONNECT 无效 playerId: " + claimedPlayerId);
             return;
         }
 
@@ -1391,7 +1392,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         }
 
         if (found == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] RECONNECT 无匹配的 pending 连接");
+            Log.w(TAG, "[WARN] [蓝牙] RECONNECT 无匹配的 pending 连接");
             return;
         }
 
@@ -1425,7 +1426,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         // 更新 NetworkGameBridge 远程玩家列表
         updateNetworkBridgeRemotePlayers();
 
-        Log.i("CardGame", "[INFO] [蓝牙] 客户端重连成功 | playerId=" + claimedPlayerId
+        Log.i(TAG, "[INFO] [蓝牙] 客户端重连成功 | playerId=" + claimedPlayerId
                 + " device=" + foundAddr);
 
         // 发送 RECONNECT_ACK + 完整游戏状态
@@ -1488,7 +1489,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         while (iter.hasNext()) {
             Map.Entry<String, PendingReconnect> entry = iter.next();
             if (now - entry.getValue().acceptedAt > RECONNECT_PENDING_TIMEOUT_MS) {
-                Log.w("CardGame", "[WARN] [蓝牙] 待验证重连超时 | device=" + entry.getKey());
+                Log.w(TAG, "[WARN] [蓝牙] 待验证重连超时 | device=" + entry.getKey());
                 iter.remove();
                 entry.getValue().close();
             }
@@ -1507,7 +1508,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 try {
                     entry.getValue().sender.sendMessage(msg);
                 } catch (Exception e) {
-                    Log.e("CardGame", "[ERROR] [蓝牙] 广播重连失败 | to=" + addr, e);
+                    Log.e(TAG, "[ERROR] [蓝牙] 广播重连失败 | to=" + addr, e);
                 }
             }
         }
@@ -1520,13 +1521,13 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     private void startClientReconnect() {
         if (reconnecting) return;
         if (hostDeviceAddress == null) {
-            Log.w("CardGame", "[WARN] [蓝牙] 无 HOST 地址，无法重连");
+            Log.w(TAG, "[WARN] [蓝牙] 无 HOST 地址，无法重连");
             handleConnectionError("无法重连：缺少HOST设备地址", null);
             return;
         }
 
         reconnecting = true;
-        Log.i("CardGame", "[INFO] [蓝牙] 客户端开始重连 | host=" + hostDeviceAddress);
+        Log.i(TAG, "[INFO] [蓝牙] 客户端开始重连 | host=" + hostDeviceAddress);
 
         Thread reconnectThread = new Thread(() -> {
             int attempt = 0;
@@ -1536,7 +1537,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 attempt++;
                 long delay = backoff[Math.min(attempt - 1, backoff.length - 1)];
 
-                Log.i("CardGame", "[INFO] [蓝牙] 重连尝试 " + attempt
+                Log.i(TAG, "[INFO] [蓝牙] 重连尝试 " + attempt
                         + " | 等待 " + (delay / 1000) + "s");
 
                 try {
@@ -1562,7 +1563,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                             localPlayerId, "HOST", payload);
                     sendBluetoothMessageRaw(reconnectMsg, "重连请求 playerId=" + localPlayerId);
 
-                    Log.i("CardGame", "[INFO] [蓝牙] 重连请求已发送 | attempt=" + attempt);
+                    Log.i(TAG, "[INFO] [蓝牙] 重连请求已发送 | attempt=" + attempt);
 
                     // 等待 RECONNECT_ACK（handleReconnectAckMessage 将 reconnecting 置 false）
                     long ackDeadline = System.currentTimeMillis() + 10000;
@@ -1572,23 +1573,23 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
                     if (!reconnecting) {
                         // handleReconnectAckMessage 已处理成功
-                        Log.i("CardGame", "[INFO] [蓝牙] 重连成功 | attempt=" + attempt);
+                        Log.i(TAG, "[INFO] [蓝牙] 重连成功 | attempt=" + attempt);
                         return;
                     }
 
                     // 超时：关闭此次尝试的连接，继续下一轮
-                    Log.w("CardGame", "[WARN] [蓝牙] 重连 ACK 超时 | attempt=" + attempt);
+                    Log.w(TAG, "[WARN] [蓝牙] 重连 ACK 超时 | attempt=" + attempt);
                     closeClientChannel();
 
                 } catch (Exception e) {
-                    Log.w("CardGame", "[WARN] [蓝牙] 重连尝试失败 | attempt=" + attempt, e);
+                    Log.w(TAG, "[WARN] [蓝牙] 重连尝试失败 | attempt=" + attempt, e);
                     closeClientChannel();
                 }
             }
 
             // 所有重试耗尽
             reconnecting = false;
-            Log.e("CardGame", "[ERROR] [蓝牙] 重连失败，所有尝试已耗尽");
+            Log.e(TAG, "[ERROR] [蓝牙] 重连失败，所有尝试已耗尽");
             handleConnectionError("重连失败：无法恢复与HOST的连接", null);
         }, "CardGame-ClientReconnect");
         reconnectThread.setDaemon(true);
@@ -1612,7 +1613,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     }
 
     private void handleReconnectAckMessage(BluetoothMessage message) {
-        Log.i("CardGame", "[INFO] [蓝牙] 收到 RECONNECT_ACK");
+        Log.i(TAG, "[INFO] [蓝牙] 收到 RECONNECT_ACK");
 
         try {
             InitGamePayload payload = messageCodec.decodeInitGamePayload(message.getPayloadJson());
@@ -1649,10 +1650,10 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 );
             }
 
-            Log.i("CardGame", "[INFO] [蓝牙] 重连完成，状态已同步");
+            Log.i(TAG, "[INFO] [蓝牙] 重连完成，状态已同步");
 
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 处理RECONNECT_ACK失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 处理RECONNECT_ACK失败", e);
         }
     }
 
@@ -1709,12 +1710,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 PendingMessage pending = pendingByChannel.get(senderAddr);
                 if (pending != null && ackId.equals(pending.message.getMessageId())) {
                     pendingByChannel.remove(senderAddr);
-                    Log.d("CardGame", "[DEBUG] [蓝牙] ACK 确认 | device=" + senderAddr
+                    Log.d(TAG, "[DEBUG] [蓝牙] ACK 确认 | device=" + senderAddr
                             + " msgId=" + ackId.substring(0, Math.min(8, ackId.length())));
                 }
             }
         } catch (Exception e) {
-            Log.w("CardGame", "[WARN] [蓝牙] ACK 解析失败", e);
+            Log.w(TAG, "[WARN] [蓝牙] ACK 解析失败", e);
         }
     }
 
@@ -1727,7 +1728,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             if (elapsed < ACK_TIMEOUT_MS) continue;
 
             if (pending.retryCount >= ACK_MAX_RETRIES) {
-                Log.e("CardGame", "[ERROR] [蓝牙] ACK 重试耗尽 | device=" + addr
+                Log.e(TAG, "[ERROR] [蓝牙] ACK 重试耗尽 | device=" + addr
                         + " retries=" + pending.retryCount);
                 pendingByChannel.remove(addr);
                 handleConnectionError("消息确认超时，通道可能已断开",
@@ -1748,12 +1749,12 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 pair.sender.sendMessage(pending.message);
                 pending.sentAt = now;
                 pending.retryCount++;
-                Log.w("CardGame", "[WARN] [蓝牙] ACK 重发 | device=" + addr
+                Log.w(TAG, "[WARN] [蓝牙] ACK 重发 | device=" + addr
                         + " retry=" + pending.retryCount
                         + " type=" + pending.message.getMessageType());
             } catch (Exception e) {
                 pendingByChannel.remove(addr);
-                Log.e("CardGame", "[ERROR] [蓝牙] ACK 重发失败 | device=" + addr, e);
+                Log.e(TAG, "[ERROR] [蓝牙] ACK 重发失败 | device=" + addr, e);
             }
         }
     }

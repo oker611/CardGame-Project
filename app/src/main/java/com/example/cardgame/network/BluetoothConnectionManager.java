@@ -111,14 +111,14 @@ public class BluetoothConnectionManager {
                     if (info != null && info.getDeviceAddress() != null) {
                         resultMap.put(info.getDeviceAddress(), info);
 
-                        Log.d("CardGame", "[DEBUG] [蓝牙] 发现候选设备 | name="
+                        Log.d(TAG, "[DEBUG] [蓝牙] 发现候选设备 | name="
                                 + info.getDeviceName()
                                 + ", address="
                                 + info.getDeviceAddress());
                     }
                 } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
                     discoveryFinishedLatch.countDown();
-                    Log.i("CardGame", "[INFO] [蓝牙] 设备搜索完成");
+                    Log.i(TAG, "[INFO] [蓝牙] 设备搜索完成");
                 }
             }
         };
@@ -140,13 +140,13 @@ public class BluetoothConnectionManager {
             }
 
             boolean started = bluetoothAdapter.startDiscovery();
-            Log.i("CardGame", "[INFO] [蓝牙] startDiscovery result=" + started);
+            Log.i(TAG, "[INFO] [蓝牙] startDiscovery result=" + started);
 
             if (started) {
                 discoveryFinishedLatch.await(DISCOVERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             }
         } catch (Exception e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 搜索设备失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 搜索设备失败", e);
         } finally {
             try {
                 if (bluetoothAdapter.isDiscovering()) {
@@ -200,7 +200,7 @@ public class BluetoothConnectionManager {
         boolean bonded = device.getBondState() == BluetoothDevice.BOND_BONDED;
 
         if (!isLikelyPhoneOrTablet(name, bluetoothClass)) {
-            Log.d("CardGame", "[DEBUG] [蓝牙] 过滤非手机/平板设备 | name=" + name);
+            Log.d(TAG, "[DEBUG] [蓝牙] 过滤非手机/平板设备 | name=" + name);
             return null;
         }
 
@@ -346,7 +346,7 @@ public class BluetoothConnectionManager {
             }
         }
 
-        Log.i("CardGame", "[INFO] [蓝牙] 已配对候选设备=" + resultMap.size() + " (无需搜索)");
+        Log.i(TAG, "[INFO] [蓝牙] 已配对候选设备=" + resultMap.size() + " (无需搜索)");
         return new ArrayList<>(resultMap.values());
     }
 
@@ -386,7 +386,7 @@ public class BluetoothConnectionManager {
                 SERVICE_UUID
         );
 
-        Log.i("CardGame", "[INFO] [蓝牙] 服务端 Socket 已创建，等待客户端连接...");
+        Log.i(TAG, "[INFO] [蓝牙] 服务端 Socket 已创建，等待客户端连接...");
     }
 
     /**
@@ -431,7 +431,7 @@ public class BluetoothConnectionManager {
         // 同步单连接兼容字段
         syncLegacyFields(deviceAddress);
 
-        Log.i("CardGame", "[INFO] [蓝牙] 客户端已连接 | name=" + deviceName
+        Log.i(TAG, "[INFO] [蓝牙] 客户端已连接 | name=" + deviceName
                 + ", address=" + deviceAddress
                 + ", totalConnections=" + clientConnections.size());
 
@@ -451,7 +451,7 @@ public class BluetoothConnectionManager {
                 String address = waitForNextClient();
                 addresses.add(address);
             } catch (IOException e) {
-                Log.e("CardGame", "[ERROR] [蓝牙] 等待客户端" + (i + 1) + "连接失败", e);
+                Log.e(TAG, "[ERROR] [蓝牙] 等待客户端" + (i + 1) + "连接失败", e);
                 // 清理已建立的连接，避免半初始化状态
                 for (String addr : addresses) {
                     closeConnection(addr);
@@ -540,7 +540,7 @@ public class BluetoothConnectionManager {
 
         syncLegacyFields(deviceAddress);
 
-        Log.i("CardGame", "[INFO] [蓝牙] 客户端连接成功 | device=" + deviceAddress);
+        Log.i(TAG, "[INFO] [蓝牙] 客户端连接成功 | device=" + deviceAddress);
     }
 
     /**
@@ -553,11 +553,11 @@ public class BluetoothConnectionManager {
         try {
             socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
             connectSocketWithTimeout(socket, SOCKET_CONNECT_TIMEOUT_MS);
-            Log.i("CardGame", "[INFO] [蓝牙] 使用安全RFCOMM连接成功 | device=" + device.getAddress());
+            Log.i(TAG, "[INFO] [蓝牙] 使用安全RFCOMM连接成功 | device=" + device.getAddress());
             return socket;
         } catch (IOException firstAttemptError) {
             closeSocketQuietly(socket);
-            Log.w("CardGame", "[WARN] [蓝牙] 安全RFCOMM连接失败，尝试不安全RFCOMM"
+            Log.w(TAG, "[WARN] [蓝牙] 安全RFCOMM连接失败，尝试不安全RFCOMM"
                     + " | device=" + device.getAddress()
                     + " | error=" + firstAttemptError.getMessage());
         }
@@ -567,7 +567,7 @@ public class BluetoothConnectionManager {
         try {
             fallbackSocket = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID);
             connectSocketWithTimeout(fallbackSocket, SOCKET_CONNECT_TIMEOUT_MS);
-            Log.i("CardGame", "[INFO] [蓝牙] 使用不安全RFCOMM连接成功 | device=" + device.getAddress());
+            Log.i(TAG, "[INFO] [蓝牙] 使用不安全RFCOMM连接成功 | device=" + device.getAddress());
             return fallbackSocket;
         } catch (IOException secondAttemptError) {
             closeSocketQuietly(fallbackSocket);
@@ -726,7 +726,7 @@ public class BluetoothConnectionManager {
         }
         serverSocket = null;
 
-        Log.i("CardGame", "[INFO] [蓝牙] 服务端Socket已关闭（房间已开始游戏）");
+        Log.i(TAG, "[INFO] [蓝牙] 服务端Socket已关闭（房间已开始游戏）");
     }
 
     /**
@@ -758,7 +758,7 @@ public class BluetoothConnectionManager {
         String deviceAddress = remoteDevice.getAddress();
         String deviceName = safeDeviceName(remoteDevice);
 
-        Log.i("CardGame", "[INFO] [蓝牙] 重连监听接受连接 | name=" + deviceName
+        Log.i(TAG, "[INFO] [蓝牙] 重连监听接受连接 | name=" + deviceName
                 + ", address=" + deviceAddress);
 
         return new ClientConnection(
@@ -807,9 +807,9 @@ public class BluetoothConnectionManager {
         try {
             serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord(
                     SERVICE_NAME, SERVICE_UUID);
-            Log.i("CardGame", "[INFO] [蓝牙] serverSocket 已重新创建，用于重连监听");
+            Log.i(TAG, "[INFO] [蓝牙] serverSocket 已重新创建，用于重连监听");
         } catch (IOException e) {
-            Log.e("CardGame", "[ERROR] [蓝牙] 重新创建 serverSocket 失败", e);
+            Log.e(TAG, "[ERROR] [蓝牙] 重新创建 serverSocket 失败", e);
         }
     }
 

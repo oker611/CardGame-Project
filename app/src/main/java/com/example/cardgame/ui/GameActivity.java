@@ -401,7 +401,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         try {
             doFullRefresh();
         } catch (Exception e) {
-            Log.e("GameActivity", "fullRefresh failed", e);
+            Log.e(TAG, "fullRefresh failed", e);
             Toast.makeText(this, "刷新牌局失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }

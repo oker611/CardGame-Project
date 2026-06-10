@@ -161,7 +161,7 @@ public class BluetoothReceiver {
             HermesLog.log("RECV SEQ GAP sender=" + senderId
                     + " expected=" + expected + " actual=" + seq
                     + " gap=" + gap + " type=" + message.getMessageType());
-            Log.w("CardGame", "[WARN] [蓝牙] 消息序列号不连续 | sender=" + senderId
+            Log.w(TAG, "[WARN] [蓝牙] 消息序列号不连续 | sender=" + senderId
                     + " expected=" + expected + " actual=" + seq
                     + " gap=" + gap);
         }

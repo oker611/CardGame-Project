@@ -54,7 +54,7 @@ public class BluetoothSender {
 
         HermesLog.log("SEND_RAW flushed OK len=" + rawJson.length());
 
-        Log.d("CardGame", "[DEBUG] [蓝牙] [发送] 消息发送 | 内容:" + rawJson);
+        Log.d(TAG, "[DEBUG] [蓝牙] [发送] 消息发送 | 内容:" + rawJson);
     }
 
     public boolean isActive() {

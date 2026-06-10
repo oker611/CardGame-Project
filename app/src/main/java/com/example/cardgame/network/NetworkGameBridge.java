@@ -29,6 +29,7 @@ import java.util.Map;
 
 public class NetworkGameBridge {
 
+    private static final String TAG = "CardGame";
     private final GameEngine gameEngine;
     private final BluetoothMessageCodec messageCodec;
     private final Context appContext;
@@ -86,11 +87,11 @@ public class NetworkGameBridge {
                 break;
 
             case HEARTBEAT:
-                Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 心跳消息 | 发送者:" + message.getSenderPlayerId());
+                Log.d(TAG, "[DEBUG] [蓝牙] [接收] 心跳消息 | 发送者:" + message.getSenderPlayerId());
                 break;
 
             default:
-                Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息未由Bridge处理 | 类型:" + message.getMessageType());
+                Log.d(TAG, "[DEBUG] [蓝牙] [接收] 消息未由Bridge处理 | 类型:" + message.getMessageType());
                 break;
         }
     }
@@ -294,10 +295,10 @@ public class NetworkGameBridge {
                     typeMap
             );
 
-            Log.d("CardGame", "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
+            Log.d(TAG, "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
                     + ", remote=" + remotePlayerIds);
         } catch (Exception e) {
-            Log.w("CardGame", "[WARN] [蓝牙] configureBluetoothPlayerTypesMulti 不可用", e);
+            Log.w(TAG, "[WARN] [蓝牙] configureBluetoothPlayerTypesMulti 不可用", e);
         }
     }
 
@@ -307,7 +308,7 @@ public class NetworkGameBridge {
             method.invoke(gameEngine, args);
             return true;
         } catch (NoSuchMethodException exception) {
-            Log.w("CardGame", "[WARN] [蓝牙] 引擎接口未暴露 | 方法:" + methodName);
+            Log.w(TAG, "[WARN] [蓝牙] 引擎接口未暴露 | 方法:" + methodName);
             return false;
         } catch (Exception exception) {
             notifyError("Failed to invoke GameEngine method: " + methodName, exception);
@@ -316,7 +317,7 @@ public class NetworkGameBridge {
     }
 
     private void notifyReceived(MessageType messageType, String summary) {
-        Log.d("CardGame", "[DEBUG] [蓝牙] [接收] 消息处理完成 | 类型:" + messageType + " 内容:" + summary);
+        Log.d(TAG, "[DEBUG] [蓝牙] [接收] 消息处理完成 | 类型:" + messageType + " 内容:" + summary);
 
         if (eventListener != null) {
             eventListener.onMessageReceived(messageType, summary);
@@ -324,7 +325,7 @@ public class NetworkGameBridge {
     }
 
     private void notifyError(String message, Exception exception) {
-        Log.e("CardGame", "[ERROR] [蓝牙] 消息处理异常 | 原因:" + message, exception);
+        Log.e(TAG, "[ERROR] [蓝牙] 消息处理异常 | 原因:" + message, exception);
 
         if (eventListener != null) {
             eventListener.onError(message, exception);
