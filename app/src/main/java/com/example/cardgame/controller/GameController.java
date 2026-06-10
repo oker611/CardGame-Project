@@ -768,14 +768,13 @@ public class GameController implements GameActionHandler {
                 state.getLastPlay() == null ? "" : state.getLastPlay().toString(),
                 gameEngine.isGameOver(),
                 gameEngine.isGameOver() && winner != null ? winner.getPlayerName() : "",
-                playerLastPlayCards,
-                gameEngine.getAllPlayedCards());
+                playerLastPlayCards);
         viewData.setRemainingCountByRank(gameCardTracker.getAllUnknownRemainingByRank());
         return viewData;
     }
 
     private GameViewData emptyViewData() {
-        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>(), null);
+        return new GameViewData("", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", false, "", new HashMap<>());
     }
 
     private List<PlayerViewData> reorderPlayersForSelf(List<PlayerViewData> original, String myPlayerId) {

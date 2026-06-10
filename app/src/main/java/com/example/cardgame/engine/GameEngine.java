@@ -393,10 +393,6 @@ public class GameEngine {
         return CardPattern.INVALID;
     }
 
-    public List<Card> getAllPlayedCards() {
-        return new ArrayList<>(allPlayedCards);
-    }
-
     public void clearRuleCache() {
         if (ruleEngine != null) {
             ruleEngine.clearCache();

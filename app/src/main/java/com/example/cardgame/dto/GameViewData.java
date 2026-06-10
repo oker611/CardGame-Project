@@ -2,7 +2,6 @@ package com.example.cardgame.dto;
 
 import java.util.List;
 import java.util.Map;
-import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Rank;
 
 public class GameViewData {
@@ -18,8 +17,6 @@ public class GameViewData {
     private String winnerName;
 
     private Map<String, List<String>> playerLastPlayCards;
-    private List<Card> allPlayedCards;
-    // 记牌器：每种点数的未知剩余张数（总量减去自己手牌和已打出牌）
     private Map<Rank, Integer> remainingCountByRank;
 
     public GameViewData(String currentPlayerId, String currentPlayerName,
@@ -29,8 +26,7 @@ public class GameViewData {
                         String lastPlayText,
                         boolean gameOver,
                         String winnerName,
-                        Map<String, List<String>> playerLastPlayCards,
-                        List<Card> allPlayedCards) {
+                        Map<String, List<String>> playerLastPlayCards) {
         this.currentPlayerId = currentPlayerId;
         this.currentPlayerName = currentPlayerName;
         this.players = players;
@@ -40,20 +36,6 @@ public class GameViewData {
         this.gameOver = gameOver;
         this.winnerName = winnerName;
         this.playerLastPlayCards = playerLastPlayCards;
-        this.lastPlayCards = lastPlayCards;
-        this.allPlayedCards = allPlayedCards;
-    }
-
-    @Deprecated
-    public GameViewData(String currentPlayerId, String currentPlayerName,
-                        List<PlayerViewData> players,
-                        List<String> selectedCardIds,
-                        List<String> myHandCards,
-                        String lastPlayText,
-                        boolean gameOver,
-                        String winnerName) {
-        this(currentPlayerId, currentPlayerName, players, selectedCardIds, myHandCards,
-                lastPlayText, gameOver, winnerName, null, null);
     }
 
     public String getCurrentPlayerId() {
@@ -94,10 +76,6 @@ public class GameViewData {
 
     public Map<String, List<String>> getPlayerLastPlayCards() {
         return playerLastPlayCards;
-    }
-
-    public List<Card> getAllPlayedCards() {
-        return allPlayedCards;
     }
 
     public Map<Rank, Integer> getRemainingCountByRank() {
