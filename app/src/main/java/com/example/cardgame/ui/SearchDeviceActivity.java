@@ -68,7 +68,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
 
     private void startSearchFlow() {
         if (!BluetoothPermissionHelper.isBluetoothAvailable()) {
-            Toast.makeText(this, "当前设备不支持蓝牙", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_not_supported, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -101,13 +101,13 @@ public class SearchDeviceActivity extends AppCompatActivity {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
         } catch (Exception e) {
-            Toast.makeText(this, "无法打开蓝牙，请到系统设置中手动开启", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.bt_cannot_enable, Toast.LENGTH_LONG).show();
         }
     }
 
     private void searchBluetoothDevices() {
         if (bluetoothActionHandler == null) {
-            Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_init_failed, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -115,7 +115,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         deviceList.clear();
         deviceAdapter.notifyDataSetChanged();
 
-        Toast.makeText(this, "正在搜索可加入的手机或平板...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.bt_searching, Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.searchBluetoothDevices();
 
@@ -145,7 +145,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         BluetoothViewData viewData = bluetoothActionHandler.getBluetoothViewData();
 
         if (viewData == null) {
-            Toast.makeText(this, "蓝牙状态未初始化", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_not_initialized, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -167,18 +167,18 @@ public class SearchDeviceActivity extends AppCompatActivity {
         deviceAdapter.notifyDataSetChanged();
 
         if (!searching && !deviceList.isEmpty()) {
-            Toast.makeText(this, "搜索完成，共发现 " + deviceList.size() + " 个可加入设备", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.bt_search_done, deviceList.size()), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void connectToDevice(DeviceInfo device) {
         if (connecting) {
-            Toast.makeText(this, "正在连接，请稍候", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_connecting, Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (device == null || device.getDeviceAddress() == null) {
-            Toast.makeText(this, "设备地址无效", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_invalid_address, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -197,13 +197,13 @@ public class SearchDeviceActivity extends AppCompatActivity {
         }
 
         if (bluetoothActionHandler == null) {
-            Toast.makeText(this, "蓝牙控制器初始化失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_init_failed, Toast.LENGTH_SHORT).show();
             return;
         }
 
         connecting = true;
 
-        Toast.makeText(this, "正在连接：" + device.getDeviceName(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.bt_connecting_to, device.getDeviceName()), Toast.LENGTH_SHORT).show();
 
         bluetoothActionHandler.connectToDevice("CLIENT", device.getDeviceAddress());
 
@@ -222,7 +222,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         if (viewData != null && viewData.isConnected()) {
             connecting = false;
 
-            Toast.makeText(this, "蓝牙连接成功", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.bt_connected_success, Toast.LENGTH_SHORT).show();
 
             String assignedId = viewData.getAssignedPlayerId();
             String localId = (assignedId != null && !assignedId.isEmpty()) ? assignedId : "CLIENT";
@@ -238,7 +238,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         String errorMessage = viewData != null ? viewData.getErrorMessage() : null;
         if (errorMessage != null && !errorMessage.trim().isEmpty()) {
             connecting = false;
-            Toast.makeText(this, "连接失败：" + errorMessage, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.bt_connect_failed, errorMessage), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -252,7 +252,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
             if (BluetoothPermissionHelper.hasClientBluetoothPermissions(this)) {
                 startSearchFlow();
             } else {
-                Toast.makeText(this, "缺少蓝牙权限，无法搜索或连接设备", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.bt_no_permission, Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -267,7 +267,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
             if (BluetoothPermissionHelper.isBluetoothEnabled()) {
                 startSearchFlow();
             } else {
-                Toast.makeText(this, "蓝牙未开启，无法搜索设备", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.bt_not_enabled, Toast.LENGTH_LONG).show();
             }
         }
     }

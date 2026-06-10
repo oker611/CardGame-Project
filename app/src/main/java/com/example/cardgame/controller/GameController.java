@@ -92,6 +92,8 @@ public class GameController implements GameActionHandler {
     }
   
     private static final long NO_PLAY_WAIT_MS = 3000;
+    private static final long ACTION_POST_DELAY_MS = 100;
+    private static final long COUNTDOWN_TICK_MS = 500;
     private CountdownUICallback countdownCallback;
 
     private long lastTriggerTime = 0;
@@ -607,7 +609,7 @@ public class GameController implements GameActionHandler {
             cancelCountdown(currentPlayer);
 
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, ACTION_POST_DELAY_MS);
             }
         }
         return result;
@@ -643,7 +645,7 @@ public class GameController implements GameActionHandler {
             Log.d(TAG, "[CardGame][AI] AI " + currentPlayer.getPlayerId() + " passed after failed play");
             
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, ACTION_POST_DELAY_MS);
             }
         }
         if (result.isSuccess()) {
@@ -652,7 +654,7 @@ public class GameController implements GameActionHandler {
             cancelCountdown(currentPlayer);
 
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, ACTION_POST_DELAY_MS);
             }
         }
         return result;
@@ -673,7 +675,7 @@ public class GameController implements GameActionHandler {
         PassResult result = gameEngine.passTurn(currentPlayer.getPlayerId());
         if (result.isSuccess()) {
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, ACTION_POST_DELAY_MS);
             }
         }
         return result;
@@ -808,7 +810,7 @@ public class GameController implements GameActionHandler {
 
     private void startNoPlayCountdown(Player player) {
         cancelCountdown(player);
-        CountDownTimer timer = new CountDownTimer(NO_PLAY_WAIT_MS, 500) {
+        CountDownTimer timer = new CountDownTimer(NO_PLAY_WAIT_MS, COUNTDOWN_TICK_MS) {
             int lastDisplaySecond = -1;
             @Override
             public void onTick(long millisUntilFinished) {
@@ -841,7 +843,7 @@ public class GameController implements GameActionHandler {
         PassResult result = gameEngine.passTurn(player.getPlayerId());
         if (result.isSuccess()) {
             if (!gameEngine.isGameOver()) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, 100);
+                new Handler(Looper.getMainLooper()).postDelayed(this::triggerNextAction, ACTION_POST_DELAY_MS);
             }
         } else {
             Log.d(TAG, "[CardGame][COUNTDOWN] forcePass failed: " + result.getMessage());

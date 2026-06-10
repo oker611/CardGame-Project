@@ -77,6 +77,35 @@
    连接成功后，会自动进入房间大厅，等待房主开始游戏。
 </string>
 
+   <!-- 蓝牙搜索 / 连接 -->
+   <string name="bt_not_supported">当前设备不支持蓝牙</string>
+   <string name="bt_cannot_enable">无法打开蓝牙，请到系统设置中手动开启</string>
+   <string name="bt_init_failed">蓝牙控制器初始化失败</string>
+   <string name="bt_searching">正在搜索可加入的手机或平板...</string>
+   <string name="bt_not_initialized">蓝牙状态未初始化</string>
+   <string name="bt_search_done">搜索完成，共发现 %d 个可加入设备</string>
+   <string name="bt_connecting">正在连接，请稍候</string>
+   <string name="bt_invalid_address">设备地址无效</string>
+   <string name="bt_connecting_to">正在连接：%s</string>
+   <string name="bt_connected_success">蓝牙连接成功</string>
+   <string name="bt_connect_failed">连接失败：%s</string>
+   <string name="bt_no_permission">缺少蓝牙权限，无法搜索或连接设备</string>
+   <string name="bt_not_enabled">蓝牙未开启，无法搜索设备</string>
+
+   <!-- 游戏对局 -->
+   <string name="bt_host_started">蓝牙房主模式：已开局并同步</string>
+   <string name="bt_client_waiting">蓝牙加入者模式：等待房主同步开局</string>
+   <string name="mode_real_play">真实联调模式</string>
+   <string name="mode_mock_ui">模拟数据模式（UI演示）</string>
+   <string name="prop_tracker_disabled">房间未开启记牌器道具</string>
+   <string name="prop_see_through_disabled">房间未开启透视道具</string>
+   <string name="prop_pattern_hint_disabled">房间未开启牌型提示道具</string>
+   <string name="card_pass">不出</string>
+   <string name="game_refresh_failed">刷新牌局失败：%s</string>
+   <string name="my_rank_format">您的排名：第 %s 名</string>
+   <string name="confirm_exit_game">确认退出当前对局？</string>
+   <string name="confirm_exit_message">退出后无法恢复，当前积分将丢失。</string>
+
    <!-- AI 分析相关 -->
    <string name="ai_analyzing">AI分析中...</string>
    <string name="ai_suggestion_format">建议风格：%s</string>

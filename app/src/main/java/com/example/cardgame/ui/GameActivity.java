@@ -268,9 +268,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 if (isHost) {
                     gameActionHandler.setSelectedRuleType(ruleType);
                     gameActionHandler.startNewGame();
-                    Toast.makeText(this, "蓝牙房主模式：已开局并同步", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.bt_host_started, Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(this, "蓝牙加入者模式：等待房主同步开局", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.bt_client_waiting, Toast.LENGTH_SHORT).show();
                 }
 
                 fullRefresh();
@@ -280,12 +280,12 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                 gameActionHandler.setSelectedRuleType(ruleType);
                 gameActionHandler.startNewGame();
                 fullRefresh();
-                Toast.makeText(this, "真实联调模式", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.mode_real_play, Toast.LENGTH_SHORT).show();
             }
         } else {
             Log.d(TAG, "[CardGame][UI] gameActionHandler is null, fallback to mock mode");
             useMockDataForDemo();
-            Toast.makeText(this, "模拟数据模式（UI演示）", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.mode_mock_ui, Toast.LENGTH_LONG).show();
         }
 
         Button btnExitGame = findViewById(R.id.btn_exit_game);
@@ -531,7 +531,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         if ((cards == null || cards.isEmpty()) && player.isPassed()) {
             TextView textView = new TextView(this);
-            textView.setText("不出");
+            textView.setText(R.string.card_pass);
             textView.setTextColor(getColor(android.R.color.white));
             textView.setTextSize(18f);
             textView.setGravity(Gravity.CENTER);
@@ -555,7 +555,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
 
         if ((cards == null || cards.isEmpty()) && player.isPassed()) {
             TextView textView = new TextView(this);
-            textView.setText("不出");
+            textView.setText(R.string.card_pass);
             textView.setTextColor(getColor(android.R.color.white));
             textView.setTextSize(18f);
             textView.setGravity(Gravity.CENTER);
@@ -900,7 +900,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                     cardTrackerLayout.setVisibility(View.VISIBLE);
                 }
             } else {
-                Toast.makeText(this, "房间未开启记牌器道具", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.prop_tracker_disabled, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -912,7 +912,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                         .setPositiveButton("哈哈", null)
                         .show();
             } else {
-                Toast.makeText(this, "房间未开启透视道具", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.prop_see_through_disabled, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -925,7 +925,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
                     updatePatternHint();
                 }
             } else {
-                Toast.makeText(this, "房间未开启牌型提示道具", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.prop_pattern_hint_disabled, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -1150,9 +1150,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
         TextView tvMyRank = dialogView.findViewById(R.id.tv_my_rank);
         if (tvMyRank != null && myRank != -1) {
-            tvMyRank.setText("您的排名：第 " + myRank + " 名");
+            tvMyRank.setText(getString(R.string.my_rank_format, String.valueOf(myRank)));
         } else if (tvMyRank != null) {
-            tvMyRank.setText("您的排名：第 -- 名");
+            tvMyRank.setText(getString(R.string.my_rank_format, "--"));
         }
 
         ImageButton btnBackHome = dialogView.findViewById(R.id.btn_back_home);

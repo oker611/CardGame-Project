@@ -13,7 +13,7 @@ import com.example.cardgame.engine.GameEngine;
 
 public class CardGameApplication extends Application {
 
-    private static final String TAG = "CardGameApp";
+    private static final String TAG = "CardGame";
     
     private static GameEngine gameEngine;
     private static GameActionHandler gameActionHandler;

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public class LLMAnalyzer {
-    private static final String TAG = "LLMAnalyzer";
+    private static final String TAG = "CardGame";
     private final VivoLLMClient vivoClient;
 
     public LLMAnalyzer() {

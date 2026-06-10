@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HumanStyleAnalyzer {
-    private static final String TAG = "HumanStyleAnalyzer";
+    private static final String TAG = "CardGame";
     
     private static volatile ExecutorService executor;
     private static final Object LOCK = new Object();
