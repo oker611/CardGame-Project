@@ -69,6 +69,8 @@ public class GameController implements GameActionHandler {
 
     private PlayValidator playValidator;
     private final Map<String, CountDownTimer> activeCountdowns = new HashMap<>();
+    // 记牌器实例，跨游戏持久化已出牌统计
+    private final CardTracker gameCardTracker = new CardTracker();
 
     public void setSelectedRuleType(String ruleType) {
         this.selectedRuleType = ruleType != null ? ruleType : "南方规则";
@@ -265,6 +267,11 @@ public class GameController implements GameActionHandler {
             }
         }
 
+        // 跨游戏持久化：加载历史已出牌统计
+        if (appContext != null) {
+            gameCardTracker.loadFromPrefs(appContext);
+        }
+
         initAIEventListener();
 
         if (bluetoothMode && hostMode && bluetoothActionHandler != null) {
@@ -410,6 +417,15 @@ public class GameController implements GameActionHandler {
             return ((MonteCarloAIDecisionStrategy) aiStrategy).getCardTracker();
         }
         return null;
+    }
+
+    /**
+     * 持久化记牌器统计到 SharedPreferences，跨游戏会话保留。
+     */
+    public void saveCardTrackerIfNeeded() {
+        if (appContext != null) {
+            gameCardTracker.saveToPrefs(appContext);
+        }
     }
     
     /**
@@ -884,6 +900,7 @@ public class GameController implements GameActionHandler {
     }
 
     public void cleanup() {
+        saveCardTrackerIfNeeded();
         if (aiEventListener != null) {
             aiEventListener.unregister();
             aiEventListener = null;

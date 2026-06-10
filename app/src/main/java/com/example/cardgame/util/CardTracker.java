@@ -1,5 +1,8 @@
 package com.example.cardgame.util;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
@@ -7,6 +10,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class CardTracker {
+
+    private static final String PREFS_NAME = "cardgame_card_tracker";
+    private static final String PREF_PREFIX_RANK = "rank_";
+    private static final String PREF_PREFIX_SUIT = "suit_";
     private Set<Card> playedCards = new HashSet<>();
     private Map<Card, String> playedBy = new HashMap<>();
     private Map<String, List<String>> opponentHistory = new HashMap<>();
@@ -115,6 +122,36 @@ public class CardTracker {
                 .sorted((c1, c2) -> Double.compare(getRemainingProbability(c2), getRemainingProbability(c1)))
                 .limit(topN)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 持久化：保存当前已出牌统计到 SharedPreferences，跨游戏会话保留。
+     */
+    public void saveToPrefs(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        for (Rank rank : Rank.values()) {
+            editor.putInt(PREF_PREFIX_RANK + rank.name(), rankPlayedCount.getOrDefault(rank, 0));
+        }
+        for (Suit suit : Suit.values()) {
+            editor.putInt(PREF_PREFIX_SUIT + suit.name(), suitPlayedCount.getOrDefault(suit, 0));
+        }
+        editor.apply();
+    }
+
+    /**
+     * 持久化：从 SharedPreferences 恢复已出牌统计（在 reset 之后调用，叠加历史数据）。
+     */
+    public void loadFromPrefs(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        for (Rank rank : Rank.values()) {
+            int count = prefs.getInt(PREF_PREFIX_RANK + rank.name(), 0);
+            if (count > 0) rankPlayedCount.put(rank, count);
+        }
+        for (Suit suit : Suit.values()) {
+            int count = prefs.getInt(PREF_PREFIX_SUIT + suit.name(), 0);
+            if (count > 0) suitPlayedCount.put(suit, count);
+        }
     }
 
     /**

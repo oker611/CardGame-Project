@@ -15,12 +15,17 @@ import com.example.cardgame.model.Player;
 import com.example.cardgame.model.PlayerType;
 import com.example.cardgame.network.BluetoothGateway;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * 阶段一：蓝牙模块事件中继。
  * 监听 GameEngine 发布的游戏事件，将需要跨设备同步的事件
  * 转发到 BluetoothGateway 发送给远端玩家。
  *
  * 设计原则：只增不删，不修改任何已有文件的核心逻辑。
+ *
+ * 线程模型：Bluetooth I/O 在后台单线程执行，防止 UI 线程被 RFCOMM write 阻塞。
  */
 public class BluetoothEventRelay implements GameEventListener {
 
@@ -28,6 +33,8 @@ public class BluetoothEventRelay implements GameEventListener {
 
     private final BluetoothGateway gateway;
     private final GameEngine gameEngine;
+    private final ExecutorService sendExecutor = Executors.newSingleThreadExecutor(
+            r -> new Thread(r, "CardGame-BluetoothSend"));
     private volatile boolean registered;
 
     public BluetoothEventRelay(BluetoothGateway gateway, GameEngine gameEngine) {
@@ -58,6 +65,7 @@ public class BluetoothEventRelay implements GameEventListener {
         }
         EventBus.getInstance().unregister(this);
         registered = false;
+        sendExecutor.shutdownNow();
         Log.i(TAG, "[EVENT] BluetoothEventRelay unregistered from EventBus");
     }
 
@@ -92,7 +100,7 @@ public class BluetoothEventRelay implements GameEventListener {
             Log.d(TAG, "[EVENT] CardPlayedEvent skipped: remote player ("
                     + event.getPlayerId() + "), play came from network");
             if (gateway.isHost()) {
-                gateway.syncGameState(state);
+                asyncSend(() -> gateway.syncGameState(state));
             }
             return;
         }
@@ -107,10 +115,12 @@ public class BluetoothEventRelay implements GameEventListener {
         Log.i(TAG, "[EVENT] BluetoothEventRelay: CardPlayedEvent → sendPlayAction"
                 + " playerId=" + event.getPlayerId()
                 + " cardCount=" + event.getPlayedCardIds().size());
-        gateway.sendPlayAction(lastPlay);
-        if (gateway.isHost()) {
-            gateway.syncGameState(state);
-        }
+        asyncSend(() -> {
+            gateway.sendPlayAction(lastPlay);
+            if (gateway.isHost()) {
+                gateway.syncGameState(state);
+            }
+        });
     }
 
     private void handlePlayerPassed(PlayerPassedEvent event) {
@@ -132,17 +142,19 @@ public class BluetoothEventRelay implements GameEventListener {
             Log.d(TAG, "[EVENT] PlayerPassedEvent skipped: remote player ("
                     + event.getPlayerId() + "), pass came from network");
             if (gateway.isHost()) {
-                gateway.syncGameState(state);
+                asyncSend(() -> gateway.syncGameState(state));
             }
             return;
         }
 
         Log.i(TAG, "[EVENT] BluetoothEventRelay: PlayerPassedEvent → sendPassAction"
                 + " playerId=" + event.getPlayerId());
-        gateway.sendPassAction(event.getPlayerId());
-        if (gateway.isHost()) {
-            gateway.syncGameState(state);
-        }
+        asyncSend(() -> {
+            gateway.sendPassAction(event.getPlayerId());
+            if (gateway.isHost()) {
+                gateway.syncGameState(state);
+            }
+        });
     }
 
     private void handleGameOver(GameOverEvent event) {
@@ -153,18 +165,26 @@ public class BluetoothEventRelay implements GameEventListener {
         }
 
         String winnerId = event.getWinnerId();
-        String winnerName = winnerId;
-
+        final String winnerName;
+        String tempName = winnerId;
         GameState state = gameEngine.getGameState();
         if (state != null) {
             Player winner = state.getPlayerById(winnerId);
             if (winner != null && winner.getPlayerName() != null) {
-                winnerName = winner.getPlayerName();
+                tempName = winner.getPlayerName();
             }
         }
+        winnerName = tempName;
 
         Log.i(TAG, "[EVENT] BluetoothEventRelay: GameOverEvent → sendGameOver"
                 + " winnerId=" + winnerId + " winnerName=" + winnerName);
-        gateway.sendGameOver(winnerId, winnerName);
+        asyncSend(() -> gateway.sendGameOver(winnerId, winnerName));
+    }
+
+    /**
+     * 将 Bluetooth 发送操作提交到后台线程执行，防止 UI 线程被 RFCOMM 阻塞 I/O 卡死。
+     */
+    private void asyncSend(Runnable task) {
+        sendExecutor.execute(task);
     }
 }
