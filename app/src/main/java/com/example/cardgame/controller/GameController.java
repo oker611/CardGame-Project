@@ -235,17 +235,6 @@ public class GameController implements GameActionHandler {
         this.playValidator = new PlayValidator(ruleConfig);
         gameEngine.initializeGame(players, ruleConfig);
         gameEngine.dealCards();
-        // 在 gameEngine.dealCards(); 之后添加
-        if (!bluetoothMode) {
-            for (Player p : gameEngine.getGameState().getPlayers()) {
-                if (p.getPlayerId().equals("P1")) {
-                    p.setType(PlayerType.HUMAN);
-                } else {
-                    p.setType(PlayerType.AI);
-                }
-                Log.d(TAG, "[GameController] Player " + p.getPlayerId() + " type = " + p.getType());
-            }
-        }
 
         if (bluetoothMode) {
             List<String> remoteIds = bluetoothActionHandler != null

@@ -51,6 +51,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.example.cardgame.event.GameEventListener;
 import com.example.cardgame.event.GameEvent;
@@ -64,6 +66,13 @@ import com.example.cardgame.llm.LLMAnalyzer;
 public class GameActivity extends AppCompatActivity implements GameController.CountdownUICallback, GameEventListener {
 
     private static final String TAG = "CardGame";
+    // 出牌区卡牌渲染尺寸（dp 像素基准值）
+    private static final int PLAY_AREA_CARD_WIDTH_DP = 36;
+    private static final int PLAY_AREA_CARD_HEIGHT_DP = 56;
+    // 道具栏高亮颜色
+    private static final int COLOR_PROP_ENABLED = 0xFFFFD700;
+    private static final int COLOR_PROP_DISABLED = 0xFF888888;
+    private static final int COLOR_TRACKER_REMAINING = 0xFF002060;
     private static final String[] RANK_DISPLAY_ORDER =
             {"2", "A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3"};
     private static final Rank[] RANK_ENUM_ORDER =
@@ -82,8 +91,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private RuleConfig ruleConfig;
     private boolean gameOverDialogShown = false;
     private boolean enableAiAssistant = false;
+    private final ExecutorService llmExecutor = Executors.newSingleThreadExecutor();
     private static final float CARD_WIDTH_DP = 50f;
-    private static final float CARD_OVERLAP_DP = -8f;
+    private static final int CARD_OVERLAP_DP = -8;
     @Nullable
     private GameActionHandler gameActionHandler;
     @Nullable
@@ -283,8 +293,8 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             showExitGameConfirmDialog();
         });
 
-        // 测试 vivo LLM 连接
-        new Thread(() -> {
+        // 测试 LLM 连接（使用受控线程池）
+        llmExecutor.execute(() -> {
             try {
                 LLMAnalyzer analyzer = new LLMAnalyzer();
                 String result = analyzer.analyzeHand("♥2 ♣2 ♠K");
@@ -292,7 +302,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             } catch (Exception e) {
                 runOnUiThread(() -> Toast.makeText(GameActivity.this, "LLM 测试失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
-        }).start();
+        });
 
         hideSystemUI();
 
@@ -330,18 +340,19 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.d("GameActivity", "onDestroy() called, cleaning up resources...");
+        Log.d(TAG, "onDestroy() called, cleaning up resources...");
         EventBus.getInstance().unregister(this);
         bluetoothRefreshHandler.removeCallbacks(bluetoothRefreshRunnable);
+        llmExecutor.shutdownNow();
         if (gameActionHandler instanceof GameController) {
-            Log.d("GameActivity", "Calling cleanupAdaptiveAI() on GameController");
+            Log.d(TAG, "Calling cleanupAdaptiveAI() on GameController");
             ((GameController) gameActionHandler).cleanupAdaptiveAI();
-            Log.d("GameActivity", "cleanupAdaptiveAI() completed");
+            Log.d(TAG, "cleanupAdaptiveAI() completed");
         }
         if (isFinishing()) {
             closeBluetoothSessionIfNeeded();
         }
-        Log.d("GameActivity", "onDestroy() finished");
+        Log.d(TAG, "onDestroy() finished");
     }
 
     @Override
@@ -575,9 +586,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         });
 
         float density = getResources().getDisplayMetrics().density;
-        int cardWidthPx = (int) (36 * density);
-        int cardHeightPx = (int) (56 * density);
-        int overlapPx = (int) (-8 * density);
+        int cardWidthPx = (int) (PLAY_AREA_CARD_WIDTH_DP * density);
+        int cardHeightPx = (int) (PLAY_AREA_CARD_HEIGHT_DP * density);
+        int overlapPx = (int) (CARD_OVERLAP_DP * density);
 
         for (int i = 0; i < sortedCards.size(); i++) {
             String cardStr = sortedCards.get(i);
@@ -619,9 +630,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         });
 
         float density = getResources().getDisplayMetrics().density;
-        int cardWidthPx = (int) (36 * density);
-        int cardHeightPx = (int) (56 * density);
-        int overlapPx = (int) (-8 * density);
+        int cardWidthPx = (int) (PLAY_AREA_CARD_WIDTH_DP * density);
+        int cardHeightPx = (int) (PLAY_AREA_CARD_HEIGHT_DP * density);
+        int overlapPx = (int) (CARD_OVERLAP_DP * density);
 
         for (int i = 0; i < sortedCards.size(); i++) {
             String cardStr = sortedCards.get(i);
@@ -739,7 +750,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         float density = getResources().getDisplayMetrics().density;
 
-        int cardWidthPx = (int) (CARD_WIDTH_DP * density);
+        int cardWidthPx = (int) (PLAY_AREA_CARD_WIDTH_DP * density);
         int overlapPx = (int) (CARD_OVERLAP_DP * density);
         int totalWidth = cardWidthPx + (handCards.size() - 1) * (cardWidthPx + overlapPx);
 
@@ -838,17 +849,17 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         ImageView avatarTop = findViewById(R.id.iv_avatar_top);
         TextView nameTop = findViewById(R.id.tv_name_top);
         avatarTop.setImageResource(R.drawable.default_avatar);
-        nameTop.setText("玩家2");
+        nameTop.setText(R.string.player2);
 
         ImageView avatarLeft = findViewById(R.id.iv_avatar_left);
         TextView nameLeft = findViewById(R.id.tv_name_left);
         avatarLeft.setImageResource(R.drawable.default_avatar);
-        nameLeft.setText("玩家3");
+        nameLeft.setText(R.string.player3);
 
         ImageView avatarRight = findViewById(R.id.iv_avatar_right);
         TextView nameRight = findViewById(R.id.tv_name_right);
         avatarRight.setImageResource(R.drawable.default_avatar);
-        nameRight.setText("玩家4");
+        nameRight.setText(R.string.player4);
     }
 
     private void initPropBar() {
@@ -922,32 +933,32 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private void updatePropUI() {
         if (isTrackerEnabled) {
             propCardTracker.setEnabled(true);
-            ivPropTracker.setColorFilter(Color.parseColor("#FFD700"));
-            tvPropTracker.setTextColor(Color.parseColor("#FFD700"));
+            ivPropTracker.setColorFilter(COLOR_PROP_ENABLED);
+            tvPropTracker.setTextColor(COLOR_PROP_ENABLED);
         } else {
             propCardTracker.setEnabled(false);
-            ivPropTracker.setColorFilter(Color.parseColor("#888888"));
-            tvPropTracker.setTextColor(Color.parseColor("#888888"));
+            ivPropTracker.setColorFilter(COLOR_PROP_DISABLED);
+            tvPropTracker.setTextColor(COLOR_PROP_DISABLED);
         }
 
         if (isSeeThroughEnabled) {
             propSeeThrough.setEnabled(true);
-            ivPropSeeThrough.setColorFilter(Color.parseColor("#FFD700"));
-            tvPropSeeThrough.setTextColor(Color.parseColor("#FFD700"));
+            ivPropSeeThrough.setColorFilter(COLOR_PROP_ENABLED);
+            tvPropSeeThrough.setTextColor(COLOR_PROP_ENABLED);
         } else {
             propSeeThrough.setEnabled(false);
-            ivPropSeeThrough.setColorFilter(Color.parseColor("#888888"));
-            tvPropSeeThrough.setTextColor(Color.parseColor("#888888"));
+            ivPropSeeThrough.setColorFilter(COLOR_PROP_DISABLED);
+            tvPropSeeThrough.setTextColor(COLOR_PROP_DISABLED);
         }
 
         if (isPatternHintEnabled) {
             propPatternHint.setEnabled(true);
-            ivPropPatternHint.setColorFilter(Color.parseColor("#FFD700"));
-            tvPropPatternHint.setTextColor(Color.parseColor("#FFD700"));
+            ivPropPatternHint.setColorFilter(COLOR_PROP_ENABLED);
+            tvPropPatternHint.setTextColor(COLOR_PROP_ENABLED);
         } else {
             propPatternHint.setEnabled(false);
-            ivPropPatternHint.setColorFilter(Color.parseColor("#888888"));
-            tvPropPatternHint.setTextColor(Color.parseColor("#888888"));
+            ivPropPatternHint.setColorFilter(COLOR_PROP_DISABLED);
+            tvPropPatternHint.setTextColor(COLOR_PROP_DISABLED);
         }
     }
 
@@ -997,7 +1008,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         if (patternHintBar == null || patternHintBar.getVisibility() != View.VISIBLE) return;
         if (!isPatternHintEnabled) return;
 
-        setAllHintTextColor(Color.parseColor("#888888"));
+        setAllHintTextColor(COLOR_PROP_DISABLED);
 
         if (selectedCardIds == null || selectedCardIds.isEmpty()) return;
 
@@ -1014,14 +1025,14 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         if (info.getType() == PatternRecognizer.PatternType.INVALID) return;
 
         switch (info.getType()) {
-            case SINGLE: hintSingle.setTextColor(Color.parseColor("#FFD700")); break;
-            case PAIR: hintPair.setTextColor(Color.parseColor("#FFD700")); break;
-            case TRIPLE: hintTriple.setTextColor(Color.parseColor("#FFD700")); break;
-            case STRAIGHT: hintStraight.setTextColor(Color.parseColor("#FFD700")); break;
-            case FLUSH: hintFlush.setTextColor(Color.parseColor("#FFD700")); break;
-            case IRON_BRANCH: hintIron.setTextColor(Color.parseColor("#FFD700")); break;
-            case STRAIGHT_FLUSH: hintStraightFlush.setTextColor(Color.parseColor("#FFD700")); break;
-            case FULL_HOUSE: hintFullHouse.setTextColor(Color.parseColor("#FFD700")); break;
+            case SINGLE: hintSingle.setTextColor(COLOR_PROP_ENABLED); break;
+            case PAIR: hintPair.setTextColor(COLOR_PROP_ENABLED); break;
+            case TRIPLE: hintTriple.setTextColor(COLOR_PROP_ENABLED); break;
+            case STRAIGHT: hintStraight.setTextColor(COLOR_PROP_ENABLED); break;
+            case FLUSH: hintFlush.setTextColor(COLOR_PROP_ENABLED); break;
+            case IRON_BRANCH: hintIron.setTextColor(COLOR_PROP_ENABLED); break;
+            case STRAIGHT_FLUSH: hintStraightFlush.setTextColor(COLOR_PROP_ENABLED); break;
+            case FULL_HOUSE: hintFullHouse.setTextColor(COLOR_PROP_ENABLED); break;
             default: break;
         }
     }
@@ -1079,7 +1090,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             tv.setTextSize(11);
             tv.setPadding(4, 4, 4, 4);
             if (remain > 0) {
-                tv.setTextColor(Color.parseColor("#002060"));
+                tv.setTextColor(COLOR_TRACKER_REMAINING);
             } else {
                 tv.setTextColor(Color.GRAY);
             }

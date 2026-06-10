@@ -108,8 +108,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
             for (int i = 1; i < MAX_PLAYERS; i++) {
                 isConnected[i] = false;
                 isAi[i] = false;
-                tvNames[i].setText("等待加入");
-                tvStatus[i].setText("未连接");
+                tvNames[i].setText(R.string.waiting_join);
+                tvStatus[i].setText(R.string.not_connected);
                 ivCrowns[i].setVisibility(View.GONE);
             }
 
@@ -142,8 +142,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 if (isConnected[i]) continue;
                 isConnected[i] = false;
                 isAi[i] = false;
-                tvNames[i].setText("等待加入");
-                tvStatus[i].setText("未连接");
+                tvNames[i].setText(R.string.waiting_join);
+                tvStatus[i].setText(R.string.not_connected);
                 ivCrowns[i].setVisibility(View.GONE);
             }
 
@@ -180,7 +180,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
                 tvNames[slot].setText(device.deviceName != null && !device.deviceName.isEmpty()
                         ? device.deviceName
                         : device.playerId);
-                tvStatus[slot].setText("已连接");
+                tvStatus[slot].setText(R.string.connected);
                 ivCrowns[slot].setVisibility(View.GONE);
             }
         }
@@ -399,8 +399,8 @@ public class RoomLobbyActivity extends AppCompatActivity {
             if (!isConnected[i] && !isAi[i]) {
                 isAi[i] = true;
                 isConnected[i] = true;
-                tvNames[i].setText("AI 玩家");
-                tvStatus[i].setText("已连接");
+                tvNames[i].setText(R.string.ai_player);
+                tvStatus[i].setText(R.string.connected);
                 ivCrowns[i].setVisibility(View.GONE);
 
                 // 通知已连接客户端有 AI 玩家加入
@@ -436,11 +436,11 @@ public class RoomLobbyActivity extends AppCompatActivity {
             need = 0;
         }
 
-        tvNeedCount.setText("还需 " + need + " 人");
+        tvNeedCount.setText(getString(R.string.still_need, need));
 
         if (need <= 0) {
             btnAddAi.setEnabled(false);
-            btnAddAi.setText("已满员");
+            btnAddAi.setText(R.string.full);
         } else {
             btnAddAi.setEnabled(true);
             btnAddAi.setText("+ AI");
