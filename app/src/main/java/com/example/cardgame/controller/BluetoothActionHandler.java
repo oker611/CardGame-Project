@@ -3,13 +3,15 @@ package com.example.cardgame.controller;
 import com.example.cardgame.dto.BluetoothViewData;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
+import com.example.cardgame.util.CardTracker;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-public interface BluetoothActionHandler {
+/**
+ * 蓝牙操作处理接口（HOST + CLIENT 通用）。
+ *
+ * HOST 专用方法通过 extends BluetoothHostActions 继承。
+ * 遵循 ISP：CLIENT 不被迫实现 HOST 方法。
+ */
+public interface BluetoothActionHandler extends BluetoothHostActions {
 
     void createBluetoothRoom(String localPlayerId);
 
@@ -29,41 +31,6 @@ public interface BluetoothActionHandler {
 
     BluetoothViewData getBluetoothViewData();
 
-    /**
-     * 获取当前已连接的所有远程玩家 ID 列表。
-     * HOST 端返回 P2/P3/P4 等已分配的 ID，CLIENT 端返回空列表。
-     */
-    default List<String> getRemotePlayerIds() {
-        return new ArrayList<>();
-    }
-
-    default Map<String, String> getPlayerNamesById() {
-        return new HashMap<>();
-    }
-
-    /**
-     * HOST 端：通知蓝牙网关房间已准备好开始游戏（AI 玩家已补齐）。
-     * 必须在 syncGameState 之前调用。
-     */
-    default void readyForGame() {
-    }
-
-    /**
-     * 快速加载已配对设备（不启动蓝牙搜索，毫秒级返回）。
-     */
-    default void loadBondedDevices() {
-    }
-
-    /**
-     * 是否有真实蓝牙客户端连接（不依赖 ViewData 的 connected 标志）。
-     */
-    default boolean hasRealClients() {
-        return false;
-    }
-
-    /**
-     * HOST 端：通知已连接客户端有 AI 玩家加入。
-     */
-    default void notifyAiPlayerAdded(String playerId, int slotIndex) {
-    }
+    /** 设置本地记牌器实例（HOST+CLIENT 均需调用） */
+    default void setCardTracker(CardTracker cardTracker) {}
 }

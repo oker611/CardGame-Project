@@ -16,7 +16,6 @@ import com.example.cardgame.rule.RuleEngine;
 import com.example.cardgame.rule.ConfigurableRuleEngine;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
-import com.example.cardgame.util.Logger;
 import com.example.cardgame.event.EventBus;
 import com.example.cardgame.event.CardPlayedEvent;
 import com.example.cardgame.event.PlayerPassedEvent;
@@ -122,7 +121,7 @@ public class GameEngine {
         if (!gameState.isGameOver()) {
             turnManager.switchPlayer(gameState);
         } else {
-            Logger.win("游戏结束，获胜者: " + gameState.getWinnerId());
+            Log.i(TAG, "游戏结束，获胜者: " + gameState.getWinnerId());
         }
         EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
         Log.d(TAG, "posted CardPlayedEvent for " + playerId);
