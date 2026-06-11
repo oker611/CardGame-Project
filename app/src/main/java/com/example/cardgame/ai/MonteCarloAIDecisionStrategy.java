@@ -865,35 +865,8 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
         return adjustedScore;
     }
     
-    private boolean isAggressivePlay(Play candidate, Play lastPlay) {
-        if (candidate == null || candidate.isEmpty()) return false;
-        
-        List<Card> cards = candidate.getCards();
-        if (cards.isEmpty()) return false;
-        
-        double avgWeight = cards.stream()
-                .mapToDouble(c -> c.getRank().getWeight())
-                .average()
-                .orElse(0);
-        
-        return avgWeight >= 10;
-    }
-    
-    private boolean isDefensivePlay(Play candidate, Play lastPlay) {
-        if (candidate == null || candidate.isEmpty()) return true;
-        
-        if (lastPlay == null || lastPlay.isEmpty()) return false;
-        
-        List<Card> cards = candidate.getCards();
-        if (cards.isEmpty()) return true;
-        
-        double avgWeight = cards.stream()
-                .mapToDouble(c -> c.getRank().getWeight())
-                .average()
-                .orElse(0);
-        
-        return avgWeight < 8;
-    }
+    private boolean isAggressivePlay(Play candidate, Play lastPlay) { return PatternAnalyzer.isAggressivePlay(candidate); }
+    private boolean isDefensivePlay(Play candidate, Play lastPlay) { return PatternAnalyzer.isDefensivePlay(candidate, lastPlay); }
 
     /**
      * 找到能压制最后出牌的最佳单牌（优先2，其次A）

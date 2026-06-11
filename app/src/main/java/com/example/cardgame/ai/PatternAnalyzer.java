@@ -3,6 +3,7 @@ package com.example.cardgame.ai;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.CardPattern;
 import com.example.cardgame.model.GameState;
+import com.example.cardgame.model.Play;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
@@ -194,5 +195,24 @@ public final class PatternAnalyzer {
                 .filter(p -> !p.getPlayerId().equals(aiPlayerId))
                 .mapToInt(p -> p.getHandCards().size())
                 .min().orElse(Integer.MAX_VALUE);
+    }
+
+    // ========== 策略分类 ==========
+
+    /** 是否为进攻型出牌（平均牌值 ≥ 10） */
+    public static boolean isAggressivePlay(Play candidate) {
+        if (candidate == null || candidate.isEmpty()) return false;
+        List<Card> cards = candidate.getCards();
+        if (cards.isEmpty()) return false;
+        return cards.stream().mapToDouble(c -> c.getRank().getWeight()).average().orElse(0) >= 10;
+    }
+
+    /** 是否为防守型出牌（平均牌值 < 8 或空过） */
+    public static boolean isDefensivePlay(Play candidate, Play lastPlay) {
+        if (candidate == null || candidate.isEmpty()) return true;
+        if (lastPlay == null || lastPlay.isEmpty()) return false;
+        List<Card> cards = candidate.getCards();
+        if (cards.isEmpty()) return true;
+        return cards.stream().mapToDouble(c -> c.getRank().getWeight()).average().orElse(0) < 8;
     }
 }
