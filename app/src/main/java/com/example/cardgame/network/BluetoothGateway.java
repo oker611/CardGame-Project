@@ -467,7 +467,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             try {
                 pair.sender.sendMessage(message);
                 if (needsAck(message.getMessageType())) {
-                    pendingByChannel.put(deviceAddress, new PendingMessage(message));
+                    reliabilityManager.trackPending(deviceAddress, message);
                 }
                 Log.d(TAG, "[DEBUG] [蓝牙] [发送] 单播 | 到:" + deviceAddress
                         + " 类型:" + message.getMessageType() + " " + summary);
@@ -625,7 +625,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     pair.sender.sendMessage(message);
 
                     if (needsAck(message.getMessageType())) {
-                        pendingByChannel.put(deviceAddress, new PendingMessage(message));
+                        reliabilityManager.trackPending(deviceAddress, message);
                     }
 
                     Log.d(TAG, "[DEBUG] [蓝牙] [发送] 消息已广播 | 类型:"
@@ -1255,20 +1255,15 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
      * CLIENT 只有一条通道，直接用通道 key。
      */
     private void updateHeartbeatTimestamp(String senderPlayerId) {
-        // HOST：通过 playerId → 设备地址
         String addr = playerIdToDevice.get(senderPlayerId);
-        if (addr != null) {
-            lastHeartbeatByAddress.put(addr, System.currentTimeMillis());
-            return;
-        }
-        // CLIENT 或 fallback：只有一条通道，直接更新时间戳
+        if (addr != null) { reliabilityManager.recordHeartbeat(addr); return; }
         if (!clientChannels.isEmpty()) {
-            String firstAddr = clientChannels.keySet().iterator().next();
-            lastHeartbeatByAddress.put(firstAddr, System.currentTimeMillis());
+            reliabilityManager.recordHeartbeat(clientChannels.keySet().iterator().next());
         }
     }
 
     private void stopHeartbeat() {
+        reliabilityManager.stop();
         if (heartbeatExecutor != null) {
             heartbeatExecutor.shutdownNow();
             heartbeatExecutor = null;
