@@ -197,6 +197,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             gameController.setCountdownCallback(this);
             // 初始化自适应 AI
             gameController.initAdaptiveAI(getApplicationContext());
+            gameController.setAiHintCallback(hintText -> runOnUiThread(() -> updateAiHint(hintText)));
             gameController.setAIDifficulty(com.example.cardgame.ai.AIDifficulty.ADAPTIVE);
             Log.d(TAG, "Adaptive AI initialized with ADAPTIVE difficulty");
         }

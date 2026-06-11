@@ -48,13 +48,29 @@ public class EventBus {
             Log.e(TAG, "[EventBus] post called with null event");
             return;
         }
-        Log.d(TAG, "[EventBus] Posting " + event.getClass().getSimpleName() + " to " + listeners.size() + " listeners");
+        Log.d(TAG, "[EventBus] Posting " + event.getClass().getSimpleName()
+                + " to " + listeners.size() + " listeners");
         for (GameEventListener listener : listeners) {
             try {
-                listener.onEvent(event);
+                dispatchTyped(listener, event);
             } catch (Exception e) {
-                Log.e(TAG, "[EventBus] Listener " + listener.getClass().getSimpleName() + " threw exception", e);
+                Log.e(TAG, "[EventBus] Listener " + listener.getClass().getSimpleName()
+                        + " threw exception", e);
             }
+        }
+    }
+
+    private void dispatchTyped(GameEventListener listener, GameEvent event) {
+        if (event instanceof CardPlayedEvent) {
+            listener.onCardPlayed((CardPlayedEvent) event);
+        } else if (event instanceof PlayerPassedEvent) {
+            listener.onPlayerPassed((PlayerPassedEvent) event);
+        } else if (event instanceof TurnChangedEvent) {
+            listener.onTurnChanged((TurnChangedEvent) event);
+        } else if (event instanceof GameOverEvent) {
+            listener.onGameOver((GameOverEvent) event);
+        } else {
+            listener.onEvent(event);
         }
     }
 }

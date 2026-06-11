@@ -70,16 +70,18 @@ public class BluetoothEventRelay implements GameEventListener {
     }
 
     @Override
-    public void onEvent(GameEvent event) {
-        if (event instanceof CardPlayedEvent) {
-            handleCardPlayed((CardPlayedEvent) event);
-        } else if (event instanceof PlayerPassedEvent) {
-            handlePlayerPassed((PlayerPassedEvent) event);
-        } else if (event instanceof GameOverEvent) {
-            handleGameOver((GameOverEvent) event);
-        }
-        // TurnChangedEvent 不需要蓝牙同步，忽略
-    }
+    public void onEvent(GameEvent event) {}
+
+    @Override
+    public void onCardPlayed(CardPlayedEvent event) { handleCardPlayed(event); }
+
+    @Override
+    public void onPlayerPassed(PlayerPassedEvent event) { handlePlayerPassed(event); }
+
+    @Override
+    public void onGameOver(GameOverEvent event) { handleGameOver(event); }
+
+    // TurnChangedEvent 不需要蓝牙同步，忽略
 
     private void handleCardPlayed(CardPlayedEvent event) {
         GameState state = gameEngine.getGameState();

@@ -150,19 +150,13 @@ public class GameController implements GameActionHandler {
     }
 
     public void setAIDifficulty(com.example.cardgame.ai.AIDifficulty difficulty) {
-        switch (difficulty) {
-            case GREEDY:
-                aiStrategy = new GreedyAIDecisionStrategy(ensureRuleConfigReady());
-                break;
-            case MONTE_CARLO:
-                aiStrategy = new MonteCarloAIDecisionStrategy();
-                break;
-            case ADAPTIVE:
-                if (adaptiveAI == null) {
-                    adaptiveAI = new AdaptiveAIDecisionStrategy();
-                }
-                aiStrategy = adaptiveAI;
-                break;
+        if (difficulty == com.example.cardgame.ai.AIDifficulty.ADAPTIVE && adaptiveAI != null) {
+            aiStrategy = adaptiveAI;
+        } else {
+            aiStrategy = com.example.cardgame.ai.AIStrategyFactory.create(difficulty, ensureRuleConfigReady());
+            if (difficulty == com.example.cardgame.ai.AIDifficulty.ADAPTIVE) {
+                adaptiveAI = (AdaptiveAIDecisionStrategy) aiStrategy;
+            }
         }
         HermesLog.log("GameController: AI difficulty set to " + difficulty);
     }
@@ -914,11 +908,16 @@ public class GameController implements GameActionHandler {
     /**
      * 更新AI提示文本（供AI策略调用）
      */
+    private AiHintCallback aiHintCallback;
+
+    public interface AiHintCallback {
+        void onHintUpdated(String hintText);
+    }
+
+    public void setAiHintCallback(AiHintCallback callback) { this.aiHintCallback = callback; }
+
     public void updateAiHint(String hintText) {
-        if (appContext != null && appContext instanceof com.example.cardgame.ui.GameActivity) {
-            com.example.cardgame.ui.GameActivity activity = (com.example.cardgame.ui.GameActivity) appContext;
-            activity.runOnUiThread(() -> activity.updateAiHint(hintText));
-        }
+        if (aiHintCallback != null) aiHintCallback.onHintUpdated(hintText);
     }
     
     /**
