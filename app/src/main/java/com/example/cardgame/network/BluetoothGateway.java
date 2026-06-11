@@ -79,7 +79,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     /** 按设备地址追踪待确认的消息 */
     private final ConcurrentHashMap<String, PendingMessage> pendingByChannel = new ConcurrentHashMap<>();
 
-    private static class PendingMessage {
+    static class PendingMessage {
         final BluetoothMessage message;
         long sentAt;
         int retryCount;
@@ -104,7 +104,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     /** CLIENT 模式：HOST 设备地址（重连时使用） */
     private volatile String hostDeviceAddress;
 
-    private static class PendingReconnect {
+    static class PendingReconnect {
         final SenderReceiverPair pair;
         final String deviceAddress;
         final long acceptedAt;
@@ -128,12 +128,21 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     // ——— 单连接兼容（旧代码依赖） ———
     private String remotePlayerId;
 
+    // ——— 解耦模块 ———
+    final RoomController roomController;
+    final ReliabilityManager reliabilityManager;
+
     public BluetoothGateway(Context context, GameEngine gameEngine) {
         this.appContext = context.getApplicationContext();
         this.connectionManager = new BluetoothConnectionManager(context);
         this.messageCodec = new BluetoothMessageCodec();
         this.networkGameBridge = new NetworkGameBridge(context, gameEngine, messageCodec);
         this.role = "NONE";
+
+        this.roomController = new RoomController(
+                deviceToPlayerId, playerIdToDevice, playerNamesById, pendingJoinNamesBySender);
+        this.reliabilityManager = new ReliabilityManager(
+                lastHeartbeatByAddress, pendingByChannel);
     }
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
@@ -153,12 +162,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         this.communicationReady = false;
         this.acceptingClients = true;
         this.roomFinalized = false;
-        this.deviceToPlayerId.clear();
         this.clientChannels.clear();
-        this.playerIdToDevice.clear();
-        this.playerNamesById.clear();
-        this.pendingJoinNamesBySender.clear();
-        this.playerNamesById.put(localPlayerId, safePlayerName(localPlayerName, "Player " + localPlayerId));
+        roomController.clear();
+        roomController.registerPlayerName(localPlayerId, localPlayerName);
 
         networkGameBridge.setPlayerContext(this.localPlayerId, new ArrayList<>());
 
@@ -172,20 +178,19 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             notifyServerReady();
 
             // 第二步：依次接受 3 个客户端连接
-            for (int i = 0; i < MAX_CLIENTS; i++) {
+            for (int i = 0; i < RoomController.MAX_CLIENTS; i++) {
                 if (roomFinalized) {
                     HermesLog.log("startAsHost loop break: room finalized at slot " + i);
                     break;
                 }
-                String clientPlayerId = CLIENT_PLAYER_IDS[i];
+                String clientPlayerId = roomController.clientPlayerIdForSlot(i);
 
                 Log.i(TAG, "[INFO] [蓝牙] 等待第" + (i + 1) + "个客户端连接（" + clientPlayerId + "）...");
 
                 String deviceAddress = connectionManager.waitForNextClient();
 
-                // 分配 playerId
-                deviceToPlayerId.put(deviceAddress, clientPlayerId);
-                playerIdToDevice.put(clientPlayerId, deviceAddress);
+                // 分配 playerId（委托 RoomController）
+                roomController.assignClientSlot(deviceAddress, i);
 
                 // 建立通信通道
                 BluetoothConnectionManager.ClientConnection conn =
@@ -201,9 +206,9 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 clientChannels.put(deviceAddress, new SenderReceiverPair(sender, receiver));
 
                 // 发送 JOIN_ACK 给新客户端
-                String fallbackName = defaultPlayerName(clientPlayerId);
+                String fallbackName = RoomController.defaultPlayerName(clientPlayerId);
                 String playerName = waitForJoinPlayerName(fallbackName);
-                playerNamesById.put(clientPlayerId, playerName);
+                roomController.registerPlayerName(clientPlayerId, playerName);
                 JoinPayload ackPayload = new JoinPayload(playerName, clientPlayerId, i + 1);
                 BluetoothMessage ackMessage = messageCodec.buildJoinAckMessage(
                         localPlayerId, clientPlayerId, ackPayload);
@@ -1763,7 +1768,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     //  内部类：Sender + Receiver 对
     // ========================================================================
 
-    private static class SenderReceiverPair {
+    static class SenderReceiverPair {
         final BluetoothSender sender;
         final BluetoothReceiver receiver;
 
