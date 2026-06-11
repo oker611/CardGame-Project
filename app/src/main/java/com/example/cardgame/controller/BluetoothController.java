@@ -91,7 +91,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
             bluetoothViewData.setDevices(viewDevices);
             bluetoothViewData.setStatusText("搜索完成，可加入候选设备：" + viewDevices.size());
-        }).start();
+        }, "CardGame-DeviceSearch").start();
     }
 
     /**
@@ -137,7 +137,7 @@ public class BluetoothController implements BluetoothActionHandler, BluetoothEve
 
         eventRelay.register();
 
-        new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress, getLocalGamePlayerName())).start();
+        new Thread(() -> bluetoothGateway.connectAsClient(localPlayerId, deviceAddress, getLocalGamePlayerName()), "CardGame-ClientConnect").start();
     }
 
     @Override

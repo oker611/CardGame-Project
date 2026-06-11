@@ -115,6 +115,32 @@ public class PatternAnalyzerTest {
     @Test
     public void isFullHouse_notFull() { assertFalse(PatternAnalyzer.isFullHouseSimple(Arrays.asList(new Card("SA", Suit.SPADES, Rank.ACE)))); }
 
+    // ========== calculateDynamicSamples ==========
+
+    @Test public void dynamicSamples_early() { assertEquals(100, PatternAnalyzer.calculateDynamicSamples(13)); }
+    @Test public void dynamicSamples_mid() { assertEquals(200, PatternAnalyzer.calculateDynamicSamples(6)); }
+    @Test public void dynamicSamples_endgame() { assertEquals(400, PatternAnalyzer.calculateDynamicSamples(2)); }
+
+    // ========== isAggressivePlay / isDefensivePlay ==========
+
+    @Test
+    public void isAggressivePlay_highCards() {
+        com.example.cardgame.model.Play play = new com.example.cardgame.model.Play("P1",
+                Arrays.asList(new Card("SA", Suit.SPADES, Rank.ACE),
+                              new Card("SK", Suit.SPADES, Rank.KING)),
+                CardPattern.PAIR);
+        assertTrue(PatternAnalyzer.isAggressivePlay(play));
+    }
+
+    @Test
+    public void isDefensivePlay_lowCards() {
+        com.example.cardgame.model.Play play = new com.example.cardgame.model.Play("P1",
+                Arrays.asList(new Card("S2", Suit.SPADES, Rank.TWO),
+                              new Card("H2", Suit.HEARTS, Rank.TWO)),
+                CardPattern.PAIR);
+        assertFalse(PatternAnalyzer.isDefensivePlay(play, null));
+    }
+
     // ========== getPatternType ==========
 
     @Test

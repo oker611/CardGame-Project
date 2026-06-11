@@ -13,6 +13,18 @@ import java.util.Map;
 
 public class LLMAnalyzer {
     private static final String TAG = "CardGame";
+    // 手牌分析权重系数
+    private static final double HIGH_CARD_WEIGHT = 2.0;
+    private static final double PAIR_WEIGHT = 1.5;
+    private static final double TRIPLE_WEIGHT = 2.0;
+    private static final double LOW_CARD_WEIGHT = 2.0;
+    private static final double MEDIUM_CARD_WEIGHT = 0.5;
+    private static final double ENDGAME_BONUS = 1.5;
+    private static final int HIGH_CARD_THRESHOLD = 13;
+    private static final int MEDIUM_CARD_THRESHOLD = 10;
+    private static final int ENDGAME_HAND_THRESHOLD = 7;
+    private static final int LLM_MAX_RETRIES = 2;
+    private static final long LLM_RETRY_DELAY_MS = 500;
     private final VivoLLMClient vivoClient;
 
     public LLMAnalyzer() {
@@ -33,18 +45,35 @@ public class LLMAnalyzer {
         messages.add(new ChatMessage("system", "You are an expert card game strategy advisor."));
         messages.add(new ChatMessage("user", buildStrategyPrompt(handCards, lastPlay, gameProgress)));
 
-        return vivoClient.chat(messages);
+        return chatWithRetry(messages);
     }
 
     public String analyzeHand(String handCards) {
         String prompt = "你是一个锄大地专家。请分析以下手牌并给出简短的战略建议：\n" + handCards;
+        List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", prompt));
         try {
-            List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", prompt));
-            return vivoClient.chat(messages);
+            return chatWithRetry(messages);
         } catch (IOException e) {
             Log.e(TAG, "LLM quick analysis failed", e);
             return "分析失败：" + e.getMessage();
         }
+    }
+
+    private String chatWithRetry(List<ChatMessage> messages) throws IOException {
+        IOException lastException = null;
+        for (int attempt = 0; attempt <= LLM_MAX_RETRIES; attempt++) {
+            try {
+                return vivoClient.chat(messages);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < LLM_MAX_RETRIES) {
+                    Log.w(TAG, "LLM retry " + (attempt + 1) + "/" + LLM_MAX_RETRIES);
+                    try { Thread.sleep(LLM_RETRY_DELAY_MS * (attempt + 1)); }
+                    catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+                }
+            }
+        }
+        throw lastException;
     }
 
     private String buildStrategyPrompt(String handCards, String lastPlay, String gameProgress) {
@@ -125,9 +154,9 @@ public class LLMAnalyzer {
             int count = entry.getValue();
             int weight = rank.getWeight();
 
-            if (weight >= 13) {
+            if (weight >= HIGH_CARD_THRESHOLD) {
                 highCards += count;
-            } else if (weight >= 10) {
+            } else if (weight >= MEDIUM_CARD_THRESHOLD) {
                 mediumCards += count;
             } else {
                 lowCards += count;
@@ -137,11 +166,11 @@ public class LLMAnalyzer {
             if (count >= 3) triples++;
         }
 
-        double aggressiveScore = highCards * 2.0 + pairs * 1.5 + triples * 2.0;
-        double conservativeScore = lowCards * 2.0 + (hand.size() - highCards - mediumCards) * 0.5;
+        double aggressiveScore = highCards * HIGH_CARD_WEIGHT + pairs * PAIR_WEIGHT + triples * TRIPLE_WEIGHT;
+        double conservativeScore = lowCards * LOW_CARD_WEIGHT + (hand.size() - highCards - mediumCards) * MEDIUM_CARD_WEIGHT;
 
         if (hand.size() <= 5) {
-            aggressiveScore += (7 - hand.size()) * 1.5;
+            aggressiveScore += (ENDGAME_HAND_THRESHOLD - hand.size()) * ENDGAME_BONUS;
         }
 
         Log.d(TAG, "本地分析 - highCards=" + highCards + ", pairs=" + pairs + ", triples=" + triples +
