@@ -36,7 +36,7 @@ public class TurnManager {
         gameState.setCurrentPlayerId(nextPlayer.getPlayerId());
 
         // ===== [事件驱动重构] 发布回合切换事件 =====
-        EventBus.getInstance().post(new TurnChangedEvent(nextPlayer.getPlayerId(), "PLAY"));
+        EventBus.getInstance().post(new TurnChangedEvent(nextPlayer.getPlayerId(), TurnChangedEvent.Reason.PLAY));
         Log.d(TAG, "posted TurnChangedEvent for " + nextPlayer.getPlayerId());
         // ===== 结束 =====
 

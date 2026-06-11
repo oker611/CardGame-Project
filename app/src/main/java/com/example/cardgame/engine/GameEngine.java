@@ -160,7 +160,7 @@ public class GameEngine {
             gameState.resetConsecutivePassCount();
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
-                EventBus.getInstance().post(new TurnChangedEvent(winnerId, "NEW_ROUND"));
+                EventBus.getInstance().post(new TurnChangedEvent(winnerId, TurnChangedEvent.Reason.NEW_ROUND));
                 Log.d(TAG, "[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
                 turnManager.switchPlayer(gameState);

@@ -11,6 +11,7 @@ import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Play;
 import com.example.cardgame.model.PlayerType;
+import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.network.payload.ErrorPayload;
 import com.example.cardgame.network.payload.GameOverPayload;
 import com.example.cardgame.network.payload.InitGamePayload;
@@ -21,7 +22,6 @@ import com.example.cardgame.network.payload.PlayerLeftPayload;
 
 import com.example.cardgame.util.HermesLog;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -107,11 +107,7 @@ public class NetworkGameBridge {
                 HermesLog.log("BRIDGE handleInitGame hasGameState=true");
                 GameState syncedState = payload.getGameState();
 
-                invokeEngineMethod(
-                        "rebuildGameState",
-                        new Class[]{GameState.class},
-                        syncedState
-                );
+                gameEngine.rebuildGameState(syncedState);
                 configurePlayerTypes();
 
                 // 完整 GameState 来自 HOST，需要按本机视角重设 PlayerType：
@@ -121,7 +117,7 @@ public class NetworkGameBridge {
                 // CLIENT 端 UI 依赖 TurnChangedEvent 来显示/隐藏出牌按钮
                 String currentId = syncedState.getCurrentPlayerId();
                 if (currentId != null) {
-                    EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                    EventBus.getInstance().post(new TurnChangedEvent(currentId, TurnChangedEvent.Reason.GAME_START));
                 }
 
                 HermesLog.log("BRIDGE handleInitGame OK");
@@ -132,19 +128,14 @@ public class NetworkGameBridge {
             // N-player 手牌同步（新格式）
             Map<String, List<Card>> playerHandCards = payload.getPlayerHandCards();
             if (playerHandCards != null && !playerHandCards.isEmpty()) {
-                invokeEngineMethod(
-                        "rebuildGameStateMulti",
-                        new Class[]{Map.class, String.class},
-                        playerHandCards,
-                        payload.getCurrentPlayerId()
-                );
+                gameEngine.rebuildGameStateMulti(playerHandCards, payload.getCurrentPlayerId());
 
                 configurePlayerTypes();
 
                 // 手动发布 TurnChangedEvent 通知 UI 当前回合
                 String currentId = payload.getCurrentPlayerId();
                 if (currentId != null) {
-                    EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                    EventBus.getInstance().post(new TurnChangedEvent(currentId, TurnChangedEvent.Reason.GAME_START));
                 }
 
                 notifyReceived(MessageType.INIT_GAME, "多人手牌已同步");
@@ -156,19 +147,13 @@ public class NetworkGameBridge {
             List<Card> opponentHand = payload.getLocalHandCards();
             String currentPlayerId = payload.getCurrentPlayerId();
 
-            invokeEngineMethod(
-                    "rebuildGameState",
-                    new Class[]{List.class, List.class, String.class},
-                    myHand,
-                    opponentHand,
-                    currentPlayerId
-            );
+            gameEngine.rebuildGameState(myHand, opponentHand, currentPlayerId);
 
             configurePlayerTypes();
 
             // 手动发布 TurnChangedEvent 通知 UI 当前回合
             if (currentPlayerId != null) {
-                EventBus.getInstance().post(new TurnChangedEvent(currentPlayerId, "GAME_START"));
+                EventBus.getInstance().post(new TurnChangedEvent(currentPlayerId, TurnChangedEvent.Reason.GAME_START));
             }
 
             notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
@@ -185,18 +170,9 @@ public class NetworkGameBridge {
             Play play = payload.getPlay();
 
             if (play != null) {
-                invokeEngineMethod(
-                        "executeRemotePlay",
-                        new Class[]{Play.class},
-                        play
-                );
+                gameEngine.executeRemotePlay(play);
             } else {
-                invokeEngineMethod(
-                        "playCards",
-                        new Class[]{String.class, List.class},
-                        payload.getPlayerId(),
-                        payload.getSelectedCardIds()
-                );
+                gameEngine.playCards(payload.getPlayerId(), payload.getSelectedCardIds());
             }
 
             notifyReceived(MessageType.PLAY_ACTION, "收到远程出牌:" + payload.getPlayerId());
@@ -210,18 +186,10 @@ public class NetworkGameBridge {
             PassActionPayload payload =
                     messageCodec.decodePassActionPayload(message.getPayloadJson());
 
-            boolean executed = invokeEngineMethod(
-                    "executeRemotePass",
-                    new Class[]{String.class},
-                    payload.getPlayerId()
-            );
+            PassResult passResult = gameEngine.executeRemotePass(payload.getPlayerId());
 
-            if (!executed) {
-                invokeEngineMethod(
-                        "passTurn",
-                        new Class[]{String.class},
-                        payload.getPlayerId()
-                );
+            if (!passResult.isSuccess()) {
+                gameEngine.passTurn(payload.getPlayerId());
             }
 
             notifyReceived(MessageType.PASS_ACTION, "收到远程Pass:" + payload.getPlayerId());
@@ -289,11 +257,7 @@ public class NetworkGameBridge {
                 }
             }
 
-            invokeEngineMethod(
-                    "configureBluetoothPlayerTypesMulti",
-                    new Class[]{Map.class},
-                    typeMap
-            );
+            gameEngine.configureBluetoothPlayerTypesMulti(typeMap);
 
             Log.d(TAG, "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
                     + ", remote=" + remotePlayerIds);
@@ -302,19 +266,6 @@ public class NetworkGameBridge {
         }
     }
 
-    private boolean invokeEngineMethod(String methodName, Class<?>[] parameterTypes, Object... args) {
-        try {
-            Method method = gameEngine.getClass().getMethod(methodName, parameterTypes);
-            method.invoke(gameEngine, args);
-            return true;
-        } catch (NoSuchMethodException exception) {
-            Log.w(TAG, "[WARN] [蓝牙] 引擎接口未暴露 | 方法:" + methodName);
-            return false;
-        } catch (Exception exception) {
-            notifyError("Failed to invoke GameEngine method: " + methodName, exception);
-            return false;
-        }
-    }
 
     private void notifyReceived(MessageType messageType, String summary) {
         Log.d(TAG, "[DEBUG] [蓝牙] [接收] 消息处理完成 | 类型:" + messageType + " 内容:" + summary);

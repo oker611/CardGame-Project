@@ -294,7 +294,7 @@ public class GameController implements GameActionHandler {
                 }
             }
             if (currentId != null) {
-                EventBus.getInstance().post(new TurnChangedEvent(currentId, "GAME_START"));
+                EventBus.getInstance().post(new TurnChangedEvent(currentId, TurnChangedEvent.Reason.GAME_START));
                 HermesLog.log("GameController: Manual TurnChangedEvent posted for " + currentId);
             }
         }
