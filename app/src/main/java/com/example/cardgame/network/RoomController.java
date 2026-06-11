@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RoomController {
 
     private static final String TAG = "CardGame";
-    private static final String[] CLIENT_PLAYER_IDS = {"P2", "P3", "P4"};
+    static final String[] CLIENT_PLAYER_IDS = {"P2", "P3", "P4"};
     static final int MAX_CLIENTS = CLIENT_PLAYER_IDS.length;
 
     private final Map<String, String> deviceToPlayerId;

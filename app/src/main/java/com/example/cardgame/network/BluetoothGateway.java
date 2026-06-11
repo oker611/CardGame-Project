@@ -34,8 +34,6 @@ import java.util.concurrent.TimeUnit;
 public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageListener {
 
     private static final String TAG = "CardGame";
-    private static final String[] CLIENT_PLAYER_IDS = {"P2", "P3", "P4"};
-    private static final int MAX_CLIENTS = CLIENT_PLAYER_IDS.length;
 
     private final BluetoothConnectionManager connectionManager;
     private final BluetoothMessageCodec messageCodec;
@@ -131,6 +129,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
     // ——— 解耦模块 ———
     final RoomController roomController;
     final ReliabilityManager reliabilityManager;
+    final ReconnectionHandler reconnectionHandler;
 
     public BluetoothGateway(Context context, GameEngine gameEngine) {
         this.appContext = context.getApplicationContext();
@@ -143,6 +142,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 deviceToPlayerId, playerIdToDevice, playerNamesById, pendingJoinNamesBySender);
         this.reliabilityManager = new ReliabilityManager(
                 lastHeartbeatByAddress, pendingByChannel);
+        this.reconnectionHandler = new ReconnectionHandler(
+                connectionManager, messageCodec, this, clientChannels, pendingReconnections);
     }
 
     public void setBluetoothEventListener(BluetoothEventListener eventListener) {
@@ -236,7 +237,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             // 所有客户端就绪
             this.communicationReady = true;
             this.acceptingClients = false;
-            this.remotePlayerId = CLIENT_PLAYER_IDS[0]; // 兼容旧代码
+            this.remotePlayerId = RoomController.CLIENT_PLAYER_IDS[0]; // 兼容旧代码
             notifyAllPlayersReady();
 
             Log.i(TAG, "[INFO] [蓝牙] 4人房间就绪 | HOST:" + localPlayerId);
@@ -524,7 +525,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         synchronized (sendLock) {
             sendExistingPlayerToJoiningClient(sender, joiningPlayerId, localPlayerId);
-            for (String playerId : CLIENT_PLAYER_IDS) {
+            for (String playerId : RoomController.CLIENT_PLAYER_IDS) {
                 sendExistingPlayerToJoiningClient(sender, joiningPlayerId, playerId);
             }
         }
@@ -564,8 +565,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
         if ("P1".equals(playerId)) {
             return 0;
         }
-        for (int i = 0; i < CLIENT_PLAYER_IDS.length; i++) {
-            if (CLIENT_PLAYER_IDS[i].equals(playerId)) {
+        for (int i = 0; i < RoomController.CLIENT_PLAYER_IDS.length; i++) {
+            if (RoomController.CLIENT_PLAYER_IDS[i].equals(playerId)) {
                 return i + 1;
             }
         }
@@ -611,8 +612,6 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             HermesLog.log("SEND START type=" + message.getMessageType()
                     + " channels=" + clientChannels.size());
-
-
             for (Map.Entry<String, SenderReceiverPair> entry : clientChannels.entrySet()) {
                 try {
                     String deviceAddress = entry.getKey();
