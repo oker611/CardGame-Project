@@ -2,6 +2,8 @@ package com.example.cardgame.ai;
 
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.CardPattern;
+import com.example.cardgame.model.GameState;
+import com.example.cardgame.model.Player;
 import com.example.cardgame.model.Rank;
 import com.example.cardgame.model.Suit;
 import com.example.cardgame.rule.PatternRecognizer;
@@ -162,5 +164,35 @@ public final class PatternAnalyzer {
         return cards.stream()
                 .mapToInt(c -> c.getRank().getWeight())
                 .max().orElse(0);
+    }
+
+    // ========== 残局与动态策略 ==========
+
+    /** 根据手牌数动态调整蒙特卡洛模拟次数 */
+    public static int calculateDynamicSamples(int handSize) {
+        if (handSize > 8) return 100;
+        if (handSize >= 4) return 200;
+        return 400;
+    }
+
+    /** 判断是否进入残局（对手人均手牌 ≤ 5） */
+    public static boolean isEndGamePhase(GameState gameState, String aiPlayerId) {
+        if (gameState == null) return false;
+        int total = 0, count = 0;
+        for (Player p : gameState.getPlayers()) {
+            if (!p.getPlayerId().equals(aiPlayerId)) {
+                total += p.getHandCards().size();
+                count++;
+            }
+        }
+        return count > 0 && (total / count) <= 5;
+    }
+
+    /** 获取对手最少手牌数 */
+    public static int getMinOpponentHandSize(GameState gameState, String aiPlayerId) {
+        return gameState.getPlayers().stream()
+                .filter(p -> !p.getPlayerId().equals(aiPlayerId))
+                .mapToInt(p -> p.getHandCards().size())
+                .min().orElse(Integer.MAX_VALUE);
     }
 }

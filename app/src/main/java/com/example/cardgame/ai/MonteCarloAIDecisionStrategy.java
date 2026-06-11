@@ -964,16 +964,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      * 判断是否进入残局阶段（对手平均手牌数 <= 5）
      */
     private boolean isEndGamePhase(GameState gameState) {
-        int totalOpponentCards = 0;
-        int opponentCount = 0;
-        for (Player p : gameState.getPlayers()) {
-            if (!p.getPlayerId().equals("AI")) { // 假设AI玩家ID为"AI"
-                totalOpponentCards += p.getHandCards().size();
-                opponentCount++;
-            }
-        }
-        if (opponentCount == 0) return false;
-        return (totalOpponentCards / opponentCount) <= 5;
+        return PatternAnalyzer.isEndGamePhase(gameState, "AI");
     }
 
     // ========== 高级策略辅助方法 ==========
@@ -1078,10 +1069,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      * 获取对手最小手牌数
      */
     private int getMinOpponentHandSize(GameState gameState, Player aiPlayer) {
-        return gameState.getPlayers().stream()
-                .filter(p -> !p.getPlayerId().equals(aiPlayer.getPlayerId()))
-                .mapToInt(p -> p.getHandCards().size())
-                .min().orElse(99);
+        return PatternAnalyzer.getMinOpponentHandSize(gameState, aiPlayer.getPlayerId());
     }
 
     /**
@@ -1337,13 +1325,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      * - 手牌 ≤ 3：残局精细决策（400次）
      */
     private int calculateDynamicSamples(int handSize) {
-        if (handSize > 8) {
-            return 100;  // 开局快速决策
-        } else if (handSize >= 4) {
-            return 200;  // 中盘平衡
-        } else {
-            return 400;  // 残局精细
-        }
+        return PatternAnalyzer.calculateDynamicSamples(handSize);
     }
 
     /**
