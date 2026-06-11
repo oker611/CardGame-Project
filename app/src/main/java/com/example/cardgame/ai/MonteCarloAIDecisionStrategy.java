@@ -1317,38 +1317,14 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      * 获取牌型的基础分数（用于排序）- 基于CardPattern
      */
     private int getPatternScore(CardPattern pattern) {
-        if (pattern == null) return 0;
-        switch (pattern) {
-            case STRAIGHT_FLUSH: return 9;
-            case IRON_BRANCH: return 8;
-            case FULL_HOUSE: return 7;
-            case FLUSH: return 6;
-            case STRAIGHT: return 5;
-            case QUADRUPLE: return 4;
-            case TRIPLE: return 3;
-            case PAIR: return 2;
-            case SINGLE: return 1;
-            default: return 0;
-        }
+        return PatternAnalyzer.getPatternScore(pattern);
     }
 
     /**
      * 获取牌型的基础分数（用于排序）- 基于PatternType
      */
     private int getPatternScoreFromType(PatternRecognizer.PatternType patternType) {
-        if (patternType == null) return 0;
-        switch (patternType) {
-            case STRAIGHT_FLUSH: return 9;
-            case IRON_BRANCH: return 8;
-            case FULL_HOUSE: return 7;
-            case FLUSH: return 6;
-            case STRAIGHT: return 5;
-            case QUADRUPLE: return 4;
-            case TRIPLE: return 3;
-            case PAIR: return 2;
-            case SINGLE: return 1;
-            default: return 0;
-        }
+        return PatternAnalyzer.getPatternScoreFromType(patternType);
     }
 
     /**
@@ -1464,118 +1440,19 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
      * 获取牌型类型（锄大地规则）
      * 1-顺子 2-同花 3-葫芦 4-铁支 5-同花顺
      */
-    private int getPatternType(List<Card> cards) {
-        if (isStraightFlush(cards)) return 5;
-        if (isFourOfAKindSimple(cards)) return 4;
-        if (isFullHouseSimple(cards)) return 3;
-        if (isFlushSimple(cards)) return 2;
-        if (isStraightSimple(cards)) return 1;
-        return 0;
-    }
+    private int getPatternType(List<Card> cards) { return PatternAnalyzer.getPatternType(cards); }
+    private int getPatternKeyValue(List<Card> cards) { return PatternAnalyzer.getPatternKeyValue(cards); }
 
-    /**
-     * 获取牌型关键比较值
-     */
-    private int getPatternKeyValue(List<Card> cards) {
-        int type = getPatternType(cards);
-        switch (type) {
-            case 5: // 同花顺
-            case 1: // 顺子
-                return getStraightMaxKey(cards);
-            case 4: // 铁支
-                return getFourRankKey(cards);
-            case 3: // 葫芦
-                return getThreeRankKey(cards);
-            case 2: // 同花
-                return getFlushMaxKey(cards);
-            default:
-                return 0;
-        }
-    }
-
-    // 简化的牌型判断方法
-    private boolean isStraightSimple(List<Card> cards) {
-        if (cards.size() != 5) return false;
-        List<Integer> weights = cards.stream()
-                .map(c -> c.getRank().getWeight())
-                .sorted()
-                .distinct()
-                .collect(java.util.stream.Collectors.toList());
-        if (weights.size() != 5) return false;
-        for (int i = 1; i < weights.size(); i++) {
-            if (weights.get(i) != weights.get(i-1) + 1) {
-                if (!(weights.get(0) == 2 && weights.get(1) == 3 && 
-                      weights.get(2) == 4 && weights.get(3) == 5 && weights.get(4) == 14)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean isFlushSimple(List<Card> cards) {
-        if (cards.size() != 5) return false;
-        Suit suit = cards.get(0).getSuit();
-        return cards.stream().allMatch(c -> c.getSuit() == suit);
-    }
-
-    private boolean isStraightFlush(List<Card> cards) {
-        return isStraightSimple(cards) && isFlushSimple(cards);
-    }
-
-    private boolean isFourOfAKindSimple(List<Card> cards) {
-        if (cards.size() != 5) return false;
-        Map<Rank, Long> freq = cards.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Card::getRank, java.util.stream.Collectors.counting()));
-        return freq.containsValue(4L);
-    }
-
-    private boolean isFullHouseSimple(List<Card> cards) {
-        if (cards.size() != 5) return false;
-        Map<Rank, Long> freq = cards.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Card::getRank, java.util.stream.Collectors.counting()));
-        return freq.containsValue(3L) && freq.containsValue(2L);
-    }
-
-    private int getStraightMaxKey(List<Card> cards) {
-        List<Integer> weights = cards.stream()
-                .map(c -> c.getRank().getWeight())
-                .sorted()
-                .collect(java.util.stream.Collectors.toList());
-        if (weights.get(0) == 2 && weights.get(1) == 3 && 
-            weights.get(2) == 4 && weights.get(3) == 5 && weights.get(4) == 14) {
-            return 5; // A-2-3-4-5 的最大是5
-        }
-        return weights.get(4);
-    }
-
-    private int getFourRankKey(List<Card> cards) {
-        Map<Rank, Long> freq = cards.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Card::getRank, java.util.stream.Collectors.counting()));
-        for (Map.Entry<Rank, Long> e : freq.entrySet()) {
-            if (e.getValue() == 4) {
-                return e.getKey().getWeight();
-            }
-        }
-        return 0;
-    }
-
-    private int getThreeRankKey(List<Card> cards) {
-        Map<Rank, Long> freq = cards.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Card::getRank, java.util.stream.Collectors.counting()));
-        for (Map.Entry<Rank, Long> e : freq.entrySet()) {
-            if (e.getValue() == 3) {
-                return e.getKey().getWeight();
-            }
-        }
-        return 0;
-    }
-
-    private int getFlushMaxKey(List<Card> cards) {
-        return cards.stream()
-                .mapToInt(c -> c.getRank().getWeight())
-                .max().orElse(0);
-    }
+    // 牌型检测全部委托给 PatternAnalyzer（纯函数，已提取为独立工具类）
+    private boolean isStraightSimple(List<Card> cards) { return PatternAnalyzer.isStraightSimple(cards); }
+    private boolean isFlushSimple(List<Card> cards) { return PatternAnalyzer.isFlushSimple(cards); }
+    private boolean isStraightFlush(List<Card> cards) { return PatternAnalyzer.isStraightFlush(cards); }
+    private boolean isFourOfAKindSimple(List<Card> cards) { return PatternAnalyzer.isFourOfAKindSimple(cards); }
+    private boolean isFullHouseSimple(List<Card> cards) { return PatternAnalyzer.isFullHouseSimple(cards); }
+    private int getStraightMaxKey(List<Card> cards) { return PatternAnalyzer.getStraightMaxKey(cards); }
+    private int getFourRankKey(List<Card> cards) { return PatternAnalyzer.getFourRankKey(cards); }
+    private int getThreeRankKey(List<Card> cards) { return PatternAnalyzer.getThreeRankKey(cards); }
+    private int getFlushMaxKey(List<Card> cards) { return PatternAnalyzer.getFlushMaxKey(cards); }
 
     /**
      * 获取手牌中最强的五张牌型
