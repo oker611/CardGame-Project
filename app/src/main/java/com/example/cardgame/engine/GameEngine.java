@@ -17,6 +17,7 @@ import com.example.cardgame.rule.ConfigurableRuleEngine;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.IEventBus;
 import com.example.cardgame.event.CardPlayedEvent;
 import com.example.cardgame.event.PlayerPassedEvent;
 import com.example.cardgame.event.GameOverEvent;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 
-public class GameEngine {
+public class GameEngine implements GameStateAccess {
 
     private static final String TAG = "CardGame";
     private static final boolean DEBUG_AUTO_PLAY = false;
@@ -32,15 +33,22 @@ public class GameEngine {
     private GameState gameState;
     private RuleConfig ruleConfig;
     private RuleEngine ruleEngine;
-    private final DealManager dealManager;
-    private final TurnManager turnManager;
-    private final SettlementManager settlementManager;
+    private final IDealManager dealManager;
+    private final ITurnManager turnManager;
+    private final ISettlementManager settlementManager;
+    private final IEventBus eventBus;
     private List<Card> allPlayedCards = new ArrayList<>();
 
+    public GameEngine(IDealManager dealManager, ITurnManager turnManager,
+                      ISettlementManager settlementManager, IEventBus eventBus) {
+        this.dealManager = dealManager;
+        this.turnManager = turnManager;
+        this.settlementManager = settlementManager;
+        this.eventBus = eventBus;
+    }
+
     public GameEngine() {
-        this.dealManager = new DealManager();
-        this.turnManager = new TurnManager();
-        this.settlementManager = new SettlementManager();
+        this(new DealManager(), new TurnManager(), new SettlementManager(), EventBus.getInstance());
     }
 
     public void initializeGame(List<Player> players, RuleConfig ruleConfig) {
@@ -115,7 +123,7 @@ public class GameEngine {
 
         settlementManager.checkAndSettle(gameState);
         if (gameState.isGameOver() && gameState.getWinnerId() != null) {
-            EventBus.getInstance().post(new GameOverEvent(gameState.getWinnerId()));
+            eventBus.post(new GameOverEvent(gameState.getWinnerId()));
             Log.d(TAG, "posted GameOverEvent for " + gameState.getWinnerId());
         }
         if (!gameState.isGameOver()) {
@@ -123,7 +131,7 @@ public class GameEngine {
         } else {
             Log.i(TAG, "游戏结束，获胜者: " + gameState.getWinnerId());
         }
-        EventBus.getInstance().post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
+        eventBus.post(new CardPlayedEvent(playerId, new ArrayList<>(selectedCardIds)));
         Log.d(TAG, "posted CardPlayedEvent for " + playerId);
         return createPlayResult(true, "PLAY_OK", gameState);
     }
@@ -159,7 +167,7 @@ public class GameEngine {
             gameState.resetConsecutivePassCount();
             if (winnerId != null && !gameState.isOpeningTurn()) {
                 gameState.setCurrentPlayerId(winnerId);
-                EventBus.getInstance().post(new TurnChangedEvent(winnerId, TurnChangedEvent.Reason.NEW_ROUND));
+                eventBus.post(new TurnChangedEvent(winnerId, TurnChangedEvent.Reason.NEW_ROUND));
                 Log.d(TAG, "[CardGame][PASS] 连续三人Pass，清空桌面，新回合玩家（上赢家）: " + winnerId);
             } else {
                 turnManager.switchPlayer(gameState);
@@ -171,7 +179,7 @@ public class GameEngine {
         }
 
         Log.d(TAG, "[CardGame][PASS] success playerId=" + playerId);
-        EventBus.getInstance().post(new PlayerPassedEvent(playerId));
+        eventBus.post(new PlayerPassedEvent(playerId));
         Log.d(TAG, "posted PlayerPassedEvent for " + playerId);
         return createPassResult(true, "PASS_OK", gameState);
     }

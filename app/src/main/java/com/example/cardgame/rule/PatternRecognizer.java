@@ -12,7 +12,7 @@ import java.util.Comparator;
 /**
  * 牌型识别器（支持单张、对子）
  */
-public class PatternRecognizer {
+public class PatternRecognizer implements IPatternRecognizer {
 
     public enum PatternType {
         SINGLE, PAIR, TRIPLE, QUADRUPLE,

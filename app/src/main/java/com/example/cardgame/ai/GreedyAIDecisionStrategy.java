@@ -5,6 +5,8 @@ import android.util.Log;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
+import com.example.cardgame.rule.IPatternRecognizer;
+import com.example.cardgame.rule.IPlayValidator;
 import com.example.cardgame.rule.PatternRecognizer;
 import com.example.cardgame.rule.PlayValidator;
 import com.example.cardgame.rule.PatternRecognizer.PatternInfo;
@@ -22,8 +24,8 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
     private static final String TAG = "CardGame";
 
     private final RuleConfig config;
-    private final PatternRecognizer patternRecognizer;
-    private final PlayValidator playValidator;
+    private final IPatternRecognizer patternRecognizer;
+    private final IPlayValidator playValidator;
 
     // 出牌失败计数（用于兜底逻辑）
     private int consecutiveFailCount = 0;
@@ -41,12 +43,24 @@ public class GreedyAIDecisionStrategy implements AIDecisionStrategy {
     
     private Style style = Style.NORMAL;
 
-    public GreedyAIDecisionStrategy(RuleConfig config) {
+    public GreedyAIDecisionStrategy(RuleConfig config, IPatternRecognizer patternRecognizer,
+                                    IPlayValidator playValidator) {
         this.config = config;
-        this.patternRecognizer = new PatternRecognizer(config);
-        this.playValidator = new PlayValidator(config);
+        this.patternRecognizer = patternRecognizer;
+        this.playValidator = playValidator;
     }
-    
+
+    public GreedyAIDecisionStrategy(RuleConfig config, IPatternRecognizer patternRecognizer,
+                                    IPlayValidator playValidator, Style style) {
+        this(config, patternRecognizer, playValidator);
+        this.style = style;
+        setStyle(style);
+    }
+
+    public GreedyAIDecisionStrategy(RuleConfig config) {
+        this(config, new PatternRecognizer(config), new PlayValidator(config));
+    }
+
     public GreedyAIDecisionStrategy(RuleConfig config, Style style) {
         this(config);
         this.style = style;

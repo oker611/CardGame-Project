@@ -15,10 +15,6 @@ public class AdaptiveAIDecisionStrategy implements AIDecisionStrategy {
     private HumanStyleProfile humanStyleProfile;
     private String humanPlayerId;
 
-    public AdaptiveAIDecisionStrategy() {
-        this.monteCarloStrategy = new MonteCarloAIDecisionStrategy();
-    }
-
     public AdaptiveAIDecisionStrategy(MonteCarloAIDecisionStrategy strategy) {
         this.monteCarloStrategy = strategy;
     }

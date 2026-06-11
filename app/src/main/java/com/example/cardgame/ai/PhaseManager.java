@@ -6,7 +6,7 @@ import com.example.cardgame.rule.RuleEngine;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class PhaseManager {
+public class PhaseManager implements IPhaseManager {
 
     public enum GamePhase {
         EARLY, MID, LATE

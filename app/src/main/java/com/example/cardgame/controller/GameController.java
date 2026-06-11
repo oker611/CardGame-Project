@@ -10,10 +10,11 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import com.example.cardgame.ai.AIDecisionStrategy;
-import com.example.cardgame.ai.AdaptiveAIDecisionStrategy;
 import com.example.cardgame.ai.AIEventListener;
 import com.example.cardgame.ai.AIPlayerProfile;
-import com.example.cardgame.ai.GreedyAIDecisionStrategy;
+import com.example.cardgame.ai.AIStrategyFactory;
+import com.example.cardgame.ai.AIStrategyStyle;
+import com.example.cardgame.ai.AdaptiveAIDecisionStrategy;
 import com.example.cardgame.ai.HumanStyleAnalyzer;
 import com.example.cardgame.dto.GameViewData;
 import com.example.cardgame.dto.PassResult;
@@ -117,11 +118,12 @@ public class GameController implements GameActionHandler {
 
     public void initAdaptiveAI(Context context) {
         this.appContext = context.getApplicationContext();
-        this.styleAnalyzer = new HumanStyleAnalyzer();
+        com.example.cardgame.llm.LLMAnalyzer llmAnalyzer = new com.example.cardgame.llm.LLMAnalyzer();
+        this.styleAnalyzer = new HumanStyleAnalyzer(llmAnalyzer);
         this.memoryManager = new CrossGameMemoryManager(appContext);
-        this.adaptiveAI = new AdaptiveAIDecisionStrategy();
+        this.adaptiveAI = new AdaptiveAIDecisionStrategy(new MonteCarloAIDecisionStrategy());
         this.aiStrategy = adaptiveAI;
-        this.opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer();
+        this.opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer(llmAnalyzer);
         
         HumanStyleProfile savedProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
         if (savedProfile != null) {
@@ -309,58 +311,33 @@ public class GameController implements GameActionHandler {
         // 调试日志
         HermesLog.log("GameController: initAIEventListener() - strategy=" + strategy + ", difficulty=" + difficulty);
 
-        // 根据难度选择AI策略
+        // 根据难度选择AI策略 — 委托 AIStrategyFactory
         switch (difficulty) {
             case "EASY":
-                // 简单模式：贪心算法 + 风格参数
-                switch (strategy) {
-                    case "AGGRESSIVE":
-                        aiStrategy = new com.example.cardgame.ai.AggressiveAIDecisionStrategy(ruleConfig);
-                        HermesLog.log("GameController: Easy-Aggressive (Greedy) AI Strategy initialized");
-                        break;
-                    case "DEFENSIVE":
-                        aiStrategy = new com.example.cardgame.ai.DefensiveAIDecisionStrategy(ruleConfig);
-                        HermesLog.log("GameController: Easy-Defensive (Greedy) AI Strategy initialized");
-                        break;
-                    default:
-                        aiStrategy = new com.example.cardgame.ai.NormalAIDecisionStrategy(ruleConfig);
-                        HermesLog.log("GameController: Easy-Normal (Greedy) AI Strategy initialized");
-                        break;
-                }
+                AIStrategyStyle style = parseStrategyStyle(strategy);
+                aiStrategy = AIStrategyFactory.createGreedyWithStyle(style, ruleConfig);
+                HermesLog.log("GameController: Easy-" + style + " (Greedy) AI Strategy initialized");
                 break;
-                
+
             case "MEDIUM":
-                // 中等模式：标准蒙特卡洛
-                aiStrategy = new MonteCarloAIDecisionStrategy();
-                HermesLog.log("GameController: Medium (MonteCarlo) AI Strategy initialized");
-                break;
-                
             case "HARD":
-                // 困难模式：蒙特卡洛（固定策略，不学习）
-                aiStrategy = new MonteCarloAIDecisionStrategy();
-                HermesLog.log("GameController: Hard (MonteCarlo) AI Strategy initialized");
+                aiStrategy = AIStrategyFactory.create(com.example.cardgame.ai.AIDifficulty.MONTE_CARLO, ruleConfig);
+                HermesLog.log("GameController: " + difficulty + " (MonteCarlo) AI Strategy initialized");
                 break;
-                
+
             case "ADAPTIVE":
-                // 智能模式：自适应AI（加载保存的风格，越玩越聪明）
-                if (adaptiveAI == null) {
-                    adaptiveAI = new AdaptiveAIDecisionStrategy();
-                }
-                
-                // 始终加载保存的风格（如果有）
                 HumanStyleProfile savedProfile = memoryManager.loadHumanStyleProfile(myPlayerId);
+                adaptiveAI = (AdaptiveAIDecisionStrategy)
+                        AIStrategyFactory.createAdaptiveIfNeeded(adaptiveAI, ruleConfig, savedProfile);
                 if (savedProfile != null) {
-                    adaptiveAI.setHumanStyleProfile(savedProfile);
                     HermesLog.log("GameController: Loaded saved human style: " + savedProfile.getStyleLabel());
                 }
-                
                 aiStrategy = adaptiveAI;
                 HermesLog.log("GameController: Adaptive AI Strategy initialized");
                 break;
-                
+
             default:
-                // 默认使用中等难度
-                aiStrategy = new MonteCarloAIDecisionStrategy();
+                aiStrategy = AIStrategyFactory.create(com.example.cardgame.ai.AIDifficulty.MONTE_CARLO, ruleConfig);
                 HermesLog.log("GameController: Default (MonteCarlo) AI Strategy initialized");
                 break;
         }
@@ -374,6 +351,12 @@ public class GameController implements GameActionHandler {
         HermesLog.log("GameController: AIEventListener created isHost=" + aiHost);
     }
     
+    private AIStrategyStyle parseStrategyStyle(String strategy) {
+        if ("AGGRESSIVE".equals(strategy)) return AIStrategyStyle.AGGRESSIVE;
+        if ("DEFENSIVE".equals(strategy)) return AIStrategyStyle.DEFENSIVE;
+        return AIStrategyStyle.NORMAL;
+    }
+
     /**
      * 从SharedPreferences读取用户选择的AI难度
      * 根据ai_strategy推断难度等级：NORMAL=EASY, AGGRESSIVE=MEDIUM, DEFENSIVE=HARD
@@ -475,7 +458,7 @@ public class GameController implements GameActionHandler {
         
         if (aiStrategy instanceof MonteCarloAIDecisionStrategy) {
             MonteCarloAIDecisionStrategy mcStrategy = (MonteCarloAIDecisionStrategy) aiStrategy;
-            OpponentStyleAnalyzer analyzer = new OpponentStyleAnalyzer();
+            OpponentStyleAnalyzer analyzer = new OpponentStyleAnalyzer(new com.example.cardgame.llm.LLMAnalyzer());
             GameState state = gameEngine.getGameState();
             if (state == null) return;
             for (Player p : state.getPlayers()) {
@@ -932,7 +915,7 @@ public class GameController implements GameActionHandler {
      */
     public void analyzeOpponentStyles() {
         if (opponentStyleAnalyzer == null) {
-            opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer();
+            opponentStyleAnalyzer = new com.example.cardgame.llm.OpponentStyleAnalyzer(new com.example.cardgame.llm.LLMAnalyzer());
         }
         
         GameState gameState = gameEngine.getGameState();

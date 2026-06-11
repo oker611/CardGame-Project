@@ -2,8 +2,9 @@ package com.example.cardgame.ai;
 
 import android.util.Log;
 
-import com.example.cardgame.llm.LLMAnalyzer;
+import com.example.cardgame.llm.ILLMAnalyzer;
 import com.example.cardgame.model.HumanStyleProfile;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -14,11 +15,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HumanStyleAnalyzer {
     private static final String TAG = "CardGame";
-    
-    private static volatile ExecutorService executor;
-    private static final Object LOCK = new Object();
-    
-    private final LLMAnalyzer llmAnalyzer;
+
+    private final ILLMAnalyzer llmAnalyzer;
+    private final ExecutorService executor;
     private WeakReference<StyleAnalysisCallback> callbackRef;
     private Future<?> currentTask;
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
@@ -28,24 +27,13 @@ public class HumanStyleAnalyzer {
         void onAnalysisFailed(String error);
     }
 
-    private static ExecutorService getExecutor() {
-        if (executor == null || executor.isShutdown()) {
-            synchronized (LOCK) {
-                if (executor == null || executor.isShutdown()) {
-                    Log.d(TAG, "Creating new executor thread pool");
-                    executor = Executors.newSingleThreadExecutor(r -> {
-                        Thread t = new Thread(r, "HumanStyleAnalyzer-Thread");
-                        t.setDaemon(true);
-                        return t;
-                    });
-                }
-            }
-        }
-        return executor;
-    }
-
-    public HumanStyleAnalyzer() {
-        this.llmAnalyzer = new LLMAnalyzer();
+    public HumanStyleAnalyzer(ILLMAnalyzer llmAnalyzer) {
+        this.llmAnalyzer = llmAnalyzer;
+        this.executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "HumanStyleAnalyzer-Thread");
+            t.setDaemon(true);
+            return t;
+        });
         Log.d(TAG, "HumanStyleAnalyzer instance created");
     }
 
@@ -73,7 +61,7 @@ public class HumanStyleAnalyzer {
         }
 
         Log.d(TAG, "Submitting analysis task to executor...");
-        currentTask = getExecutor().submit(() -> {
+        currentTask = executor.submit(() -> {
             Log.d(TAG, "[Thread] Analysis task started on thread: " + Thread.currentThread().getName());
             
             if (Thread.currentThread().isInterrupted()) {
@@ -109,12 +97,28 @@ public class HumanStyleAnalyzer {
                     Log.d(TAG, "[Step 2] LLM API call completed in " + elapsed + "ms");
                     Log.d(TAG, "[Step 2] LLM response length: " + (llmResponse != null ? llmResponse.length() : "null"));
                     Log.d(TAG, "[Step 2] LLM response: " + (llmResponse != null && llmResponse.length() > 500 ? llmResponse.substring(0, 500) + "..." : llmResponse));
-                } catch (Exception e) {
+                } catch (IOException e) {
                     long elapsed = System.currentTimeMillis() - startTime;
                     Log.e(TAG, "[Step 2] LLM API call FAILED after " + elapsed + "ms: " + e.getMessage(), e);
-                    throw e;
+
+                    if (!Thread.currentThread().isInterrupted()) {
+                        // LLM 失败，使用本地规则 fallback 分析
+                        Log.w(TAG, "[FALLBACK] LLM failed, using local fallback analysis");
+                        HumanStyleProfile fallbackProfile = analyzeLocally(playerId, playHistory, existingProfile);
+                        if (fallbackProfile != null) {
+                            Log.d(TAG, "[FALLBACK] Local analysis result: " + fallbackProfile.getStyleLabel());
+                            notifyComplete(fallbackProfile);
+                            Log.d(TAG, "=== analyzeStyleAsync COMPLETED WITH FALLBACK ===");
+                            return;
+                        }
+
+                        // Fallback 也失败，通知错误
+                        notifyFailed("LLM failed and fallback also failed: " + e.getMessage());
+                    }
+                    Log.d(TAG, "=== analyzeStyleAsync FAILED ===");
+                    return;
                 }
-                
+
                 if (Thread.currentThread().isInterrupted()) {
                     Log.w(TAG, "[Thread] Task interrupted after LLM call");
                     return;
@@ -123,32 +127,21 @@ public class HumanStyleAnalyzer {
                 // Step 3: Parse response
                 Log.d(TAG, "[Step 3] Parsing LLM response...");
                 HumanStyleProfile profile = parseLLMResponse(playerId, llmResponse, existingProfile);
-                Log.d(TAG, "[Step 3] Parsed profile - style: " + profile.getStyleLabel() + 
+                Log.d(TAG, "[Step 3] Parsed profile - style: " + profile.getStyleLabel() +
                       ", aggressiveness: " + profile.getAggressivenessScore() +
                       ", conservativeness: " + profile.getConservativenessScore() +
                       ", gamesAnalyzed: " + profile.getGamesAnalyzed());
-                
+
                 // Step 4: Notify callback
                 Log.d(TAG, "[Step 4] Notifying callback with success result");
                 notifyComplete(profile);
                 Log.d(TAG, "=== analyzeStyleAsync COMPLETED SUCCESSFULLY ===");
-                
-            } catch (Exception e) {
+
+            } catch (RuntimeException e) {
                 Log.e(TAG, "[ERROR] Exception during analysis: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
-                
+
                 if (!Thread.currentThread().isInterrupted()) {
-                    // LLM 失败，使用本地规则 fallback 分析
-                    Log.w(TAG, "[FALLBACK] LLM failed, using local fallback analysis");
-                    HumanStyleProfile fallbackProfile = analyzeLocally(playerId, playHistory, existingProfile);
-                    if (fallbackProfile != null) {
-                        Log.d(TAG, "[FALLBACK] Local analysis result: " + fallbackProfile.getStyleLabel());
-                        notifyComplete(fallbackProfile);
-                        Log.d(TAG, "=== analyzeStyleAsync COMPLETED WITH FALLBACK ===");
-                        return;
-                    }
-                    
-                    // Fallback 也失败，通知错误
-                    notifyFailed(e.getClass().getSimpleName() + ": " + e.getMessage());
+                    notifyFailed("Unexpected error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
                 Log.d(TAG, "=== analyzeStyleAsync FAILED ===");
             }
@@ -165,7 +158,7 @@ public class HumanStyleAnalyzer {
             try {
                 callback.onAnalysisComplete(profile);
                 Log.d(TAG, "onAnalysisComplete() callback executed successfully");
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 Log.e(TAG, "Error in onAnalysisComplete callback: " + e.getMessage(), e);
             }
         } else {
@@ -181,7 +174,7 @@ public class HumanStyleAnalyzer {
             try {
                 callback.onAnalysisFailed(error);
                 Log.d(TAG, "onAnalysisFailed() callback executed successfully");
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 Log.e(TAG, "Error in onAnalysisFailed callback: " + e.getMessage(), e);
             }
         } else {
@@ -375,77 +368,21 @@ public class HumanStyleAnalyzer {
     }
 
     /**
-     * 关闭当前实例，取消任务并清理引用
-     * 注意：这不会关闭静态线程池，线程池会继续为其他实例服务
+     * 关闭当前实例，取消任务、清理回调引用、关闭线程池。
      */
     public void shutdown() {
         Log.d(TAG, "shutdown() called");
-        Log.d(TAG, "[HumanStyleAnalyzer] shutdown() called");
         isShutdown.set(true);
         cancel();
         callbackRef = null;
+        executor.shutdownNow();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                Log.w(TAG, "Executor did not terminate in time");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         Log.d(TAG, "shutdown() complete, isShutdown=" + isShutdown.get());
-        Log.d(TAG, "[HumanStyleAnalyzer] shutdown() complete, isShutdown=" + isShutdown.get());
-    }
-
-    /**
-     * 完全关闭静态线程池
-     * 应在应用退出时调用（如 Application.onTerminate()）
-     * 调用后所有 HumanStyleAnalyzer 实例将无法再执行分析任务
-     */
-    public static void shutdownExecutor() {
-        synchronized (LOCK) {
-            Log.d(TAG, "shutdownExecutor() called");
-            Log.d(TAG, "[HumanStyleAnalyzer] shutdownExecutor() called");
-            
-            if (executor == null) {
-                Log.d(TAG, "Executor is already null");
-                Log.d(TAG, "[HumanStyleAnalyzer] Executor is already null");
-                return;
-            }
-            
-            if (executor.isShutdown()) {
-                Log.d(TAG, "Executor is already shutdown");
-                Log.d(TAG, "[HumanStyleAnalyzer] Executor is already shutdown");
-                return;
-            }
-            
-            Log.d(TAG, "Calling shutdownNow() on executor...");
-            Log.d(TAG, "[HumanStyleAnalyzer] Calling shutdownNow() on executor...");
-            executor.shutdownNow();
-            
-            try {
-                Log.d(TAG, "Waiting for termination (max 5 seconds)...");
-                Log.d(TAG, "[HumanStyleAnalyzer] Waiting for termination (max 5 seconds)...");
-                boolean terminated = executor.awaitTermination(5, TimeUnit.SECONDS);
-                if (!terminated) {
-                    Log.w(TAG, "Thread pool did not terminate in time");
-                    Log.e(TAG, "[HumanStyleAnalyzer] Thread pool did not terminate in time");
-                } else {
-                    Log.d(TAG, "Thread pool terminated successfully");
-                    Log.d(TAG, "[HumanStyleAnalyzer] Thread pool terminated successfully");
-                }
-            } catch (InterruptedException e) {
-                Log.w(TAG, "awaitTermination interrupted");
-                Log.d(TAG, "[HumanStyleAnalyzer] awaitTermination interrupted");
-                Thread.currentThread().interrupt();
-            }
-            
-            executor = null;
-            Log.d(TAG, "shutdownExecutor() complete, executor set to null");
-            Log.d(TAG, "[HumanStyleAnalyzer] shutdownExecutor() complete, executor set to null");
-        }
-    }
-
-    /**
-     * 检查线程池是否已关闭
-     */
-    public static boolean isExecutorShutdown() {
-        synchronized (LOCK) {
-            boolean result = executor == null || executor.isShutdown();
-            Log.d(TAG, "isExecutorShutdown() = " + result);
-            Log.d(TAG, "[HumanStyleAnalyzer] isExecutorShutdown() = " + result);
-            return result;
-        }
     }
 }

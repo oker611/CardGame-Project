@@ -5,7 +5,7 @@ import com.example.cardgame.util.CardTracker;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class OpponentHandSampler {
+public class OpponentHandSampler implements IOpponentHandSampler {
 
     public static class World {
         public final List<List<Card>> opponentHands; // 索引0,1,2

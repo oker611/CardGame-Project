@@ -19,7 +19,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 @SuppressWarnings("SpellCheckingInspection")
-public class VivoLLMClient {
+public class VivoLLMClient implements IVivoLLMClient {
 
     private static final String TAG = "CardGame";
     private static final String API_URL = "https://api-ai.vivo.com.cn/v1/chat/completions";

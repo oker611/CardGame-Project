@@ -21,6 +21,7 @@ import com.example.cardgame.network.payload.PlayActionPayload;
 import com.example.cardgame.network.payload.PlayerLeftPayload;
 
 import com.example.cardgame.util.HermesLog;
+import com.google.gson.JsonSyntaxException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -157,8 +158,8 @@ public class NetworkGameBridge {
             }
 
             notifyReceived(MessageType.INIT_GAME, "开局手牌已同步");
-        } catch (Exception exception) {
-            notifyError("Failed to handle INIT_GAME", exception);
+        } catch (JsonSyntaxException exception) {
+            notifyError("Failed to parse INIT_GAME payload JSON", exception);
         }
     }
 
@@ -176,8 +177,8 @@ public class NetworkGameBridge {
             }
 
             notifyReceived(MessageType.PLAY_ACTION, "收到远程出牌:" + payload.getPlayerId());
-        } catch (Exception exception) {
-            notifyError("Failed to handle PLAY_ACTION", exception);
+        } catch (JsonSyntaxException exception) {
+            notifyError("Failed to parse PLAY_ACTION payload JSON", exception);
         }
     }
 
@@ -193,8 +194,8 @@ public class NetworkGameBridge {
             }
 
             notifyReceived(MessageType.PASS_ACTION, "收到远程Pass:" + payload.getPlayerId());
-        } catch (Exception exception) {
-            notifyError("Failed to handle PASS_ACTION", exception);
+        } catch (JsonSyntaxException exception) {
+            notifyError("Failed to parse PASS_ACTION payload JSON", exception);
         }
     }
 
@@ -208,8 +209,10 @@ public class NetworkGameBridge {
             if (eventListener != null) {
                 eventListener.onGameOver(payload.getWinnerId(), payload.getWinnerName());
             }
-        } catch (Exception exception) {
-            notifyError("Failed to handle GAME_OVER", exception);
+        } catch (JsonSyntaxException exception) {
+            notifyError("Failed to parse GAME_OVER payload JSON", exception);
+        } catch (RuntimeException exception) {
+            notifyError("Listener error in handleGameOver", exception);
         }
     }
 
@@ -231,8 +234,8 @@ public class NetworkGameBridge {
                     messageCodec.decodeErrorPayload(message.getPayloadJson());
 
             notifyError(payload.getErrorMessage(), null);
-        } catch (Exception exception) {
-            notifyError("Failed to handle ERROR message", exception);
+        } catch (JsonSyntaxException exception) {
+            notifyError("Failed to parse ERROR payload JSON", exception);
         }
     }
 
@@ -240,30 +243,26 @@ public class NetworkGameBridge {
      * 配置 GameEngine 中的玩家类型：本机=HUMAN，远程=REMOTE，其余=AI。
      */
     private void configurePlayerTypes() {
-        try {
-            Map<String, String> typeMap = new HashMap<>();
-            typeMap.put(localPlayerId, PlayerType.HUMAN.name());
+        Map<String, String> typeMap = new HashMap<>();
+        typeMap.put(localPlayerId, PlayerType.HUMAN.name());
 
-            GameState state = gameEngine.getGameState();
-            if (state != null && state.getPlayers() != null && !"P1".equals(localPlayerId)) {
-                for (com.example.cardgame.model.Player player : state.getPlayers()) {
-                    if (player != null && !player.getPlayerId().equals(localPlayerId)) {
-                        typeMap.put(player.getPlayerId(), PlayerType.REMOTE.name());
-                    }
-                }
-            } else {
-                for (String remoteId : remotePlayerIds) {
-                    typeMap.put(remoteId, PlayerType.REMOTE.name());
+        GameState state = gameEngine.getGameState();
+        if (state != null && state.getPlayers() != null && !"P1".equals(localPlayerId)) {
+            for (com.example.cardgame.model.Player player : state.getPlayers()) {
+                if (player != null && !player.getPlayerId().equals(localPlayerId)) {
+                    typeMap.put(player.getPlayerId(), PlayerType.REMOTE.name());
                 }
             }
-
-            gameEngine.configureBluetoothPlayerTypesMulti(typeMap);
-
-            Log.d(TAG, "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
-                    + ", remote=" + remotePlayerIds);
-        } catch (Exception e) {
-            Log.w(TAG, "[WARN] [蓝牙] configureBluetoothPlayerTypesMulti 不可用", e);
+        } else {
+            for (String remoteId : remotePlayerIds) {
+                typeMap.put(remoteId, PlayerType.REMOTE.name());
+            }
         }
+
+        gameEngine.configureBluetoothPlayerTypesMulti(typeMap);
+
+        Log.d(TAG, "[DEBUG] [蓝牙] PlayerTypes配置 | local=" + localPlayerId
+                + ", remote=" + remotePlayerIds);
     }
 
 

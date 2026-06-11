@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 import com.example.cardgame.model.HumanStyleProfile;
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 
 public class CrossGameMemoryManager {
     private static final String TAG = "CardGame";
@@ -35,8 +36,8 @@ public class CrossGameMemoryManager {
         }
         try {
             return gson.fromJson(json, HumanStyleProfile.class);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to load human style profile", e);
+        } catch (JsonSyntaxException e) {
+            Log.e(TAG, "Failed to parse human style profile JSON", e);
             return new HumanStyleProfile(playerId);
         }
     }

@@ -145,20 +145,20 @@ public class BluetoothConnectionManager {
             if (started) {
                 discoveryFinishedLatch.await(DISCOVERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             }
-        } catch (Exception e) {
+        } catch (SecurityException | InterruptedException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 搜索设备失败", e);
         } finally {
             try {
                 if (bluetoothAdapter.isDiscovering()) {
                     bluetoothAdapter.cancelDiscovery();
                 }
-            } catch (Exception ignored) {
+            } catch (SecurityException ignored) {
                 Log.w(TAG, "Operation failed", ignored);
             }
 
             try {
                 context.unregisterReceiver(discoveryReceiver);
-            } catch (Exception ignored) {
+            } catch (IllegalArgumentException ignored) {
                 Log.w(TAG, "Operation failed", ignored);
             }
         }
@@ -615,7 +615,7 @@ public class BluetoothConnectionManager {
         if (socket != null) {
             try {
                 socket.close();
-            } catch (Exception ignored) {
+            } catch (IOException ignored) {
                 Log.w(TAG, "Operation failed", ignored);
             }
         }
@@ -809,6 +809,7 @@ public class BluetoothConnectionManager {
                     SERVICE_NAME, SERVICE_UUID);
             Log.i(TAG, "[INFO] [蓝牙] serverSocket 已重新创建，用于重连监听");
         } catch (IOException e) {
+            accepting = false;
             Log.e(TAG, "[ERROR] [蓝牙] 重新创建 serverSocket 失败", e);
         }
     }

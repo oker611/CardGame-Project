@@ -70,7 +70,7 @@ public class RoomLobbyActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_room_lobby);
 
-        bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
+        bluetoothActionHandler = ((CardGameApplication) getApplication()).getBluetoothActionHandler(this);
 
         isHost = getIntent().getBooleanExtra("is_host", false);
         localPlayerId = getIntent().getStringExtra("local_player_id");

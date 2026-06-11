@@ -1,6 +1,7 @@
 package com.example.cardgame.ui;
 
 import android.bluetooth.BluetoothAdapter;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -48,7 +49,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search_device);
 
-        bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
+        bluetoothActionHandler = ((CardGameApplication) getApplication()).getBluetoothActionHandler(this);
 
         TextView tvTitle = findViewById(R.id.tv_title);
         Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
@@ -100,7 +101,7 @@ public class SearchDeviceActivity extends AppCompatActivity {
         try {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
-        } catch (Exception e) {
+        } catch (ActivityNotFoundException e) {
             Toast.makeText(this, R.string.bt_cannot_enable, Toast.LENGTH_LONG).show();
         }
     }

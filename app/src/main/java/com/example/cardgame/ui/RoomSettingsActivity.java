@@ -2,6 +2,7 @@ package com.example.cardgame.ui;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -62,7 +63,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_room_settings);
         boolean isPractice = getIntent().getBooleanExtra("is_practice", false);
-        bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
+        bluetoothActionHandler = ((CardGameApplication) getApplication()).getBluetoothActionHandler(this);
 
         TextView tvTitle = findViewById(R.id.tv_title);
         Typeface typeface = Typeface.createFromAsset(getAssets(), "my_custom_font.ttf");
@@ -180,7 +181,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
         try {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             enableBluetoothLauncher.launch(enableIntent);
-        } catch (Exception e) {
+        } catch (ActivityNotFoundException e) {
             Toast.makeText(this, "无法打开蓝牙，请到系统设置中手动开启", Toast.LENGTH_LONG).show();
         }
     }
@@ -190,7 +191,7 @@ public class RoomSettingsActivity extends AppCompatActivity {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
             discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION_SECONDS);
             discoverableLauncher.launch(discoverableIntent);
-        } catch (Exception e) {
+        } catch (ActivityNotFoundException e) {
             Toast.makeText(this, "无法设置设备可被发现，请检查蓝牙权限", Toast.LENGTH_LONG).show();
         }
     }

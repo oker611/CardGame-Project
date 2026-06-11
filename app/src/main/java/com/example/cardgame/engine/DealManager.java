@@ -16,7 +16,7 @@ import java.util.Collections;
 /**
  * Manager responsible for the deck lifecycle: generating, shuffling, and dealing.
  */
-public class DealManager {
+public class DealManager implements IDealManager {
 
     private static final String TAG = "CardGame";
 

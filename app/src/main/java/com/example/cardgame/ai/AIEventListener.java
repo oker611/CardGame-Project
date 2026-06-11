@@ -6,7 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
-import com.example.cardgame.engine.GameEngine;
+import com.example.cardgame.engine.GameStateAccess;
 import com.example.cardgame.event.*;
 import com.example.cardgame.model.Card;
 import com.example.cardgame.model.GameState;
@@ -24,16 +24,16 @@ public class AIEventListener implements GameEventListener {
     private static final String TAG = "CardGame";
     private final Consumer<String> hintCallback;
     private final Function<List<Card>, PlayResult> playCallback;
-    private final GameEngine gameEngine;
+    private final GameStateAccess gameStateAccess;
     private final AIDecisionStrategy strategy;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final boolean isHost;
 
     public AIEventListener(Consumer<String> hintCallback, Function<List<Card>, PlayResult> playCallback,
-                           GameEngine gameEngine, AIDecisionStrategy strategy, boolean isHost) {
+                           GameStateAccess gameStateAccess, AIDecisionStrategy strategy, boolean isHost) {
         this.hintCallback = hintCallback;
         this.playCallback = playCallback;
-        this.gameEngine = gameEngine;
+        this.gameStateAccess = gameStateAccess;
         this.strategy = strategy;
         this.isHost = isHost;
         EventBus.getInstance().register(this);
@@ -49,7 +49,7 @@ public class AIEventListener implements GameEventListener {
             String newPlayerId = turnEvent.getNewCurrentPlayerId();
             Log.d(TAG, "[AIEventListener] Turn to player: " + newPlayerId);
 
-            Player currentPlayer = gameEngine.getGameState().getPlayerById(newPlayerId);
+            Player currentPlayer = gameStateAccess.getGameState().getPlayerById(newPlayerId);
             if (currentPlayer == null) {
                 Log.d(TAG, "[AIEventListener] currentPlayer is NULL !!!");
                 return;
@@ -65,7 +65,7 @@ public class AIEventListener implements GameEventListener {
                 }
                 handler.postDelayed(() -> {
                     try {
-                        GameState gameState = gameEngine.getGameState();
+                        GameState gameState = gameStateAccess.getGameState();
                         // 再次确认当前玩家是否还是这个AI（防止回合已变）
                         Player nowPlayer = gameState.getCurrentPlayer();
                         if (nowPlayer == null || !nowPlayer.getPlayerId().equals(newPlayerId)) {
@@ -78,7 +78,7 @@ public class AIEventListener implements GameEventListener {
                         hintCallback.accept(hint);
                         
                         if (cards == null || cards.isEmpty()) {
-                            PassResult passResult = gameEngine.passTurn(newPlayerId);
+                            PassResult passResult = gameStateAccess.passTurn(newPlayerId);
                             Log.d(TAG, "[AIEventListener] AI passed, result=" + passResult.isSuccess());
                             if (!passResult.isSuccess()) {
                                 // Pass 被拒绝（新回合起始玩家不能Pass）
@@ -108,10 +108,10 @@ public class AIEventListener implements GameEventListener {
                                 strategy.recordPlayFailure();
                                 // 尝试过牌作为兜底，避免卡死
                                 Log.e(TAG, "[AIEventListener] AI play failed, falling back to pass");
-                                gameEngine.passTurn(newPlayerId);
+                                gameStateAccess.passTurn(newPlayerId);
                             }
                         }
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         Log.e(TAG, "[AIEventListener] Error", e);
                     }
                 }, 2200);

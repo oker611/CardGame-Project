@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LLMAnalyzer {
+public class LLMAnalyzer implements ILLMAnalyzer {
     private static final String TAG = "CardGame";
     // 手牌分析权重系数
     private static final double HIGH_CARD_WEIGHT = 2.0;
@@ -25,11 +25,14 @@ public class LLMAnalyzer {
     private static final int ENDGAME_HAND_THRESHOLD = 7;
     private static final int LLM_MAX_RETRIES = 2;
     private static final long LLM_RETRY_DELAY_MS = 500;
-    private final VivoLLMClient vivoClient;
+    private final IVivoLLMClient vivoClient;
+
+    public LLMAnalyzer(IVivoLLMClient vivoClient) {
+        this.vivoClient = vivoClient;
+    }
 
     public LLMAnalyzer() {
-        Log.d(TAG, "LLMAnalyzer 初始化");
-        this.vivoClient = new VivoLLMClient();
+        this(new VivoLLMClient());
     }
 
     public String analyzeGameSituation(String gameStateDescription) throws IOException {
@@ -68,6 +71,7 @@ public class LLMAnalyzer {
                 lastException = e;
                 if (attempt < LLM_MAX_RETRIES) {
                     Log.w(TAG, "LLM retry " + (attempt + 1) + "/" + LLM_MAX_RETRIES);
+                    // Linear backoff between LLM retry attempts; synchronous call chain
                     try { Thread.sleep(LLM_RETRY_DELAY_MS * (attempt + 1)); }
                     catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
                 }

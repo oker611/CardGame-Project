@@ -12,30 +12,27 @@ import java.util.stream.Collectors;
 /**
  * 候选动作生成器 + 启发式排序（已优化）
  */
-public class CandidateGenerator {
+public class CandidateGenerator implements ICandidateGenerator {
 
     private static final String TAG = "CardGame";
 
     private final RuleEngine ruleEngine;
     private final int topK;
-    private PhaseManager phaseManager;
+    private IPhaseManager phaseManager;
     private AIPlayerProfile profile;
 
-    // 原有构造函数（兼容旧调用）
     public CandidateGenerator(RuleEngine ruleEngine, int topK) {
         this(ruleEngine, topK, null, null);
     }
 
-    // 新构造函数，用于注入保牌逻辑所需的对象
-    public CandidateGenerator(RuleEngine ruleEngine, int topK, PhaseManager phaseManager, AIPlayerProfile profile) {
+    public CandidateGenerator(RuleEngine ruleEngine, int topK, IPhaseManager phaseManager, AIPlayerProfile profile) {
         this.ruleEngine = ruleEngine;
         this.topK = topK;
         this.phaseManager = phaseManager;
         this.profile = profile;
     }
 
-    // 添加设置方法（可选）
-    public void setPhaseManager(PhaseManager phaseManager) { this.phaseManager = phaseManager; }
+    public void setPhaseManager(IPhaseManager phaseManager) { this.phaseManager = phaseManager; }
     public void setProfile(AIPlayerProfile profile) { this.profile = profile; }
 
     public List<Play> generate(List<Card> hand, Play lastPlay, boolean isFirstRound, boolean isFirstTurn) {

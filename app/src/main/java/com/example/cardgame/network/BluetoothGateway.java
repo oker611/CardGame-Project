@@ -18,6 +18,7 @@ import com.example.cardgame.network.payload.PlayerLeftPayload;
 import com.example.cardgame.network.payload.ReconnectPayload;
 
 import com.example.cardgame.util.HermesLog;
+import com.google.gson.JsonSyntaxException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -242,7 +243,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             Log.i(TAG, "[INFO] [蓝牙] 4人房间就绪 | HOST:" + localPlayerId);
 
-        } catch (Exception exception) {
+        } catch (IOException | RuntimeException exception) {
             if (roomFinalized) {
                 HermesLog.log("startAsHost thread exiting (room finalized)");
                 return;
@@ -298,7 +299,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             Log.i(TAG, "[INFO] [蓝牙] 客户端已连接，等待HOST分配角色...");
 
-        } catch (Exception exception) {
+        } catch (IOException | RuntimeException exception) {
             // 清理部分建立的连接（停止 receiver 线程 + 关闭 socket）
             Log.e(TAG, "[ERROR] [蓝牙] 客户端连接失败，清理资源", exception);
             for (SenderReceiverPair pair : clientChannels.values()) {
@@ -472,7 +473,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 }
                 Log.d(TAG, "[DEBUG] [蓝牙] [发送] 单播 | 到:" + deviceAddress
                         + " 类型:" + message.getMessageType() + " " + summary);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 Log.e(TAG, "[ERROR] [蓝牙] [发送] 单播失败 | " + summary, e);
             }
         }
@@ -511,7 +512,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
                 try {
                     entry.getValue().sender.sendMessage(msg);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     Log.e(TAG, "[ERROR] [蓝牙] 广播PLAYER_JOINED失败 | to=" + addr, e);
                 }
             }
@@ -555,7 +556,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
         try {
             sender.sendMessage(message);
-        } catch (Exception e) {
+        } catch (IOException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 发送已有玩家快照失败 | playerId="
                     + existingPlayerId + ", to=" + joiningPlayerId, e);
         }
@@ -587,6 +588,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     return name.trim();
                 }
             }
+            // Polling wait for JOIN player name; could use CountDownLatch if callback-driven
             try {
                 Thread.sleep(20);
             } catch (InterruptedException e) {
@@ -632,7 +634,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                             + " 到:" + deviceAddress
                             + " 内容:" + summary);
 
-                } catch (Exception exception) {
+                } catch (IOException exception) {
                     Log.e(TAG, "[ERROR] [蓝牙] [发送] 广播失败 | " + summary, exception);
                 }
             }
@@ -667,7 +669,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 Log.d(TAG, "[DEBUG] [蓝牙] [发送] 消息已发送 | 类型:"
                         + message.getMessageType()
                         + " 内容:" + summary);
-            } catch (Exception exception) {
+            } catch (IOException exception) {
                 sendException = exception;
             }
         }
@@ -772,7 +774,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             if (payload != null && payload.getPlayerName() != null) {
                 pendingJoinNamesBySender.put(message.getSenderPlayerId(), payload.getPlayerName().trim());
             }
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.w(TAG, "[WARN] [蓝牙] 解析JOIN昵称失败", e);
         }
     }
@@ -807,7 +809,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             // JOIN_ACK 确认通道就绪，启动心跳覆盖大厅等待阶段
             startHeartbeat();
 
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 解析JOIN_ACK失败", e);
         }
     }
@@ -829,7 +831,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 eventListener.onPlayerJoined(newPlayerId, newPlayerName, slot);
             }
 
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 解析PLAYER_JOINED失败", e);
         }
     }
@@ -849,7 +851,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 eventListener.onPlayerLeft(leftPlayerId, leftPlayerName);
             }
 
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 解析PLAYER_LEFT失败", e);
         }
     }
@@ -882,7 +884,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                             + " 来自:" + senderPlayerId
                             + " 转发到:" + targetPlayerId);
 
-                } catch (Exception e) {
+                } catch (IOException e) {
                     Log.e(TAG, "[ERROR] [蓝牙] 转发失败 | to=" + targetPlayerId, e);
                 }
             }
@@ -988,7 +990,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             for (Map.Entry<String, SenderReceiverPair> entry : clientChannels.entrySet()) {
                 try {
                     entry.getValue().sender.sendMessage(msg);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     Log.e(TAG, "[ERROR] broadcast AI failed", e);
                 }
             }
@@ -1204,7 +1206,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                             if (entry.getValue().sender.isActive()) {
                                 entry.getValue().sender.sendMessage(heartbeat);
                             }
-                        } catch (Exception e) {
+                        } catch (IOException e) {
                             Log.w(TAG, "[WARN] [蓝牙] 心跳发送失败 | to=" + entry.getKey(), e);
                         }
                     }
@@ -1364,7 +1366,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
             ReconnectPayload payload = messageCodec.decodeReconnectPayload(message.getPayloadJson());
             claimedPlayerId = payload.getPlayerId();
             claimedPlayerName = payload.getPlayerName();
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.w(TAG, "[WARN] [蓝牙] 解析RECONNECT失败", e);
             return;
         }
@@ -1506,7 +1508,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 if (addr.equals(excludeAddr)) continue;
                 try {
                     entry.getValue().sender.sendMessage(msg);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     Log.e(TAG, "[ERROR] [蓝牙] 广播重连失败 | to=" + addr, e);
                 }
             }
@@ -1539,6 +1541,8 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 Log.i(TAG, "[INFO] [蓝牙] 重连尝试 " + attempt
                         + " | 等待 " + (delay / 1000) + "s");
 
+                // Exponential backoff for reconnect retries; Thread.sleep is acceptable
+                // since this is a dedicated reconnect thread
                 try {
                     Thread.sleep(delay);
                 } catch (InterruptedException e) {
@@ -1565,6 +1569,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     Log.i(TAG, "[INFO] [蓝牙] 重连请求已发送 | attempt=" + attempt);
 
                     // 等待 RECONNECT_ACK（handleReconnectAckMessage 将 reconnecting 置 false）
+                    // Polling wait; could use CountDownLatch triggered by handleReconnectAckMessage
                     long ackDeadline = System.currentTimeMillis() + 10000;
                     while (reconnecting && System.currentTimeMillis() < ackDeadline) {
                         Thread.sleep(200);
@@ -1580,7 +1585,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                     Log.w(TAG, "[WARN] [蓝牙] 重连 ACK 超时 | attempt=" + attempt);
                     closeClientChannel();
 
-                } catch (Exception e) {
+                } catch (IOException | RuntimeException | InterruptedException e) {
                     Log.w(TAG, "[WARN] [蓝牙] 重连尝试失败 | attempt=" + attempt, e);
                     closeClientChannel();
                 }
@@ -1651,7 +1656,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
 
             Log.i(TAG, "[INFO] [蓝牙] 重连完成，状态已同步");
 
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.e(TAG, "[ERROR] [蓝牙] 处理RECONNECT_ACK失败", e);
         }
     }
@@ -1713,7 +1718,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                             + " msgId=" + ackId.substring(0, Math.min(8, ackId.length())));
                 }
             }
-        } catch (Exception e) {
+        } catch (JsonSyntaxException e) {
             Log.w(TAG, "[WARN] [蓝牙] ACK 解析失败", e);
         }
     }
@@ -1751,7 +1756,7 @@ public class BluetoothGateway implements MultiplayerGateway, BluetoothMessageLis
                 Log.w(TAG, "[WARN] [蓝牙] ACK 重发 | device=" + addr
                         + " retry=" + pending.retryCount
                         + " type=" + pending.message.getMessageType());
-            } catch (Exception e) {
+            } catch (IOException e) {
                 pendingByChannel.remove(addr);
                 Log.e(TAG, "[ERROR] [蓝牙] ACK 重发失败 | device=" + addr, e);
             }

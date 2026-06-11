@@ -1,24 +1,28 @@
-// 【已修改，引入观察者模式基础框架】
 package com.example.cardgame.engine;
 
 import android.util.Log;
 import com.example.cardgame.model.GameState;
 import com.example.cardgame.model.Player;
 import com.example.cardgame.event.EventBus;
+import com.example.cardgame.event.IEventBus;
 import com.example.cardgame.event.TurnChangedEvent;
 
 import java.util.List;
 
-/**
- * Manager responsible for turn rotation.
- */
-public class TurnManager {
+public class TurnManager implements ITurnManager {
 
     private static final String TAG = "CardGame";
 
-    /**
-     * Switches the turn to the next player in the list
-     */
+    private final IEventBus eventBus;
+
+    public TurnManager(IEventBus eventBus) {
+        this.eventBus = eventBus;
+    }
+
+    public TurnManager() {
+        this(EventBus.getInstance());
+    }
+
     public void switchPlayer(GameState gameState) {
         List<Player> players = gameState.getPlayers();
         String currentId = gameState.getCurrentPlayerId();
@@ -35,10 +39,8 @@ public class TurnManager {
         Player nextPlayer = players.get(nextIndex);
         gameState.setCurrentPlayerId(nextPlayer.getPlayerId());
 
-        // ===== [事件驱动重构] 发布回合切换事件 =====
-        EventBus.getInstance().post(new TurnChangedEvent(nextPlayer.getPlayerId(), TurnChangedEvent.Reason.PLAY));
+        eventBus.post(new TurnChangedEvent(nextPlayer.getPlayerId(), TurnChangedEvent.Reason.PLAY));
         Log.d(TAG, "posted TurnChangedEvent for " + nextPlayer.getPlayerId());
-        // ===== 结束 =====
 
         gameState.setOpeningTurn(false);
 

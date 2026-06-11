@@ -4,7 +4,7 @@ import com.example.cardgame.model.*;
 import com.example.cardgame.rule.RuleEngine;
 import java.util.*;
 
-public class MonteCarloSimulator {
+public class MonteCarloSimulator implements IMonteCarloSimulator {
 
     private final FastGameSimulator fastSimulator;
     private final int numSamples;

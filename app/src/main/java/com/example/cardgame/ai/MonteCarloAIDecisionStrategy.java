@@ -23,12 +23,12 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
     private static final int TOP_K_CANDIDATES = 4;      // 候选动作截断数
     private static final long DECISION_TIMEOUT_MS = 1500;  // 决策超时（毫秒，1500ms足够完成精细模拟）
 
-    private final CandidateGenerator candidateGenerator;
-    private final OpponentHandSampler opponentHandSampler;
-    private final MonteCarloSimulator monteCarloSimulator;
-    private final PhaseManager phaseManager;
+    private final ICandidateGenerator candidateGenerator;
+    private final IOpponentHandSampler opponentHandSampler;
+    private final IMonteCarloSimulator monteCarloSimulator;
+    private final IPhaseManager phaseManager;
     private final RuleEngine ruleEngine;
-    private final CardTracker cardTracker = new CardTracker();
+    private final CardTracker cardTracker;
 
     // AI玩家配置（默认最强）
     private AIPlayerProfile profile;
@@ -38,7 +38,7 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
 
     // 出牌失败计数（用于兜底逻辑）
     private int consecutiveFailCount = 0;
-    
+
     // 连续过牌轮数（用于消极游戏检测）
     private int consecutivePassRounds = 0;
 
@@ -51,16 +51,31 @@ public class MonteCarloAIDecisionStrategy implements AIDecisionStrategy {
     private double aggressivenessFactor = 1.0;
     private double defenseFactor = 1.0;
 
+    public MonteCarloAIDecisionStrategy(
+            RuleEngine ruleEngine,
+            ICandidateGenerator candidateGenerator,
+            IOpponentHandSampler opponentHandSampler,
+            IMonteCarloSimulator monteCarloSimulator,
+            IPhaseManager phaseManager,
+            CardTracker cardTracker,
+            AIPlayerProfile profile) {
+        this.ruleEngine = ruleEngine;
+        this.candidateGenerator = candidateGenerator;
+        this.opponentHandSampler = opponentHandSampler;
+        this.monteCarloSimulator = monteCarloSimulator;
+        this.phaseManager = phaseManager;
+        this.cardTracker = cardTracker;
+        this.profile = profile;
+    }
+
     public MonteCarloAIDecisionStrategy() {
         this.ruleEngine = new ConfigurableRuleEngine(RuleConfig.SOUTHERN);
-        // 先创建 phaseManager，因为 candidateGenerator 需要它
         this.phaseManager = new PhaseManager(ruleEngine);
-        // 再创建 profile（默认强）
         this.profile = new AIPlayerProfile(AIPlayerProfile.LEVEL_STRONG);
-        // 最后创建 candidateGenerator，传入 phaseManager 和 profile
         this.candidateGenerator = new CandidateGenerator(ruleEngine, TOP_K_CANDIDATES, phaseManager, profile);
         this.opponentHandSampler = new OpponentHandSampler();
         this.monteCarloSimulator = new MonteCarloSimulator(ruleEngine, NUM_SAMPLES);
+        this.cardTracker = new CardTracker();
     }
 
     @Override

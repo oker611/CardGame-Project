@@ -188,7 +188,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
             });
         }
 
-        gameActionHandler = CardGameApplication.getGameActionHandler();
+        gameActionHandler = ((CardGameApplication) getApplication()).getGameActionHandler();
         Log.d(TAG, "gameActionHandler = " + gameActionHandler);
 
         // 设置倒计时回调，并初始化自适应 AI（如果启用）
@@ -253,7 +253,7 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
         }
 
         if (gameActionHandler != null) {
-            bluetoothActionHandler = CardGameApplication.getBluetoothActionHandler(this);
+            bluetoothActionHandler = ((CardGameApplication) getApplication()).getBluetoothActionHandler(this);
             gameActionHandler.setBluetoothActionHandler(bluetoothActionHandler);
 
             if (isBluetoothGame) {
@@ -401,9 +401,9 @@ public class GameActivity extends AppCompatActivity implements GameController.Co
     private void fullRefresh() {
         try {
             doFullRefresh();
-        } catch (Exception e) {
-            Log.e(TAG, "fullRefresh failed", e);
-            Toast.makeText(this, "刷新牌局失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+        } catch (NullPointerException e) {
+            Log.e(TAG, "fullRefresh failed due to null data", e);
+            Toast.makeText(this, "刷新牌局失败：数据异常", Toast.LENGTH_LONG).show();
         }
     }
 

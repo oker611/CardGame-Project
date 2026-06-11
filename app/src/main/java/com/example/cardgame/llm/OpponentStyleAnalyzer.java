@@ -12,11 +12,11 @@ import java.util.concurrent.Executors;
 public class OpponentStyleAnalyzer {
     private static final String TAG = "CardGame";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final LLMAnalyzer llmAnalyzer;
+    private final ILLMAnalyzer llmAnalyzer;
 
-    public OpponentStyleAnalyzer() {
+    public OpponentStyleAnalyzer(ILLMAnalyzer llmAnalyzer) {
         Log.d(TAG, "OpponentStyleAnalyzer 初始化");
-        this.llmAnalyzer = new LLMAnalyzer();
+        this.llmAnalyzer = llmAnalyzer;
     }
 
     public void analyzeAndUpdate(String playerId, CardTracker tracker, AIPlayerProfile profile) {

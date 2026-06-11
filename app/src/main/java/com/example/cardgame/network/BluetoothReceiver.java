@@ -3,6 +3,7 @@ package com.example.cardgame.network;
 import android.util.Log;
 
 import com.example.cardgame.util.HermesLog;
+import com.google.gson.JsonSyntaxException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -107,7 +108,7 @@ public class BluetoothReceiver {
                     }
                 }
             }
-        } catch (Exception exception) {
+        } catch (IOException | RuntimeException exception) {
             if (listening) {
                 listening = false;
                 HermesLog.log("RECV ERROR type="
@@ -139,7 +140,9 @@ public class BluetoothReceiver {
             if (messageListener != null) {
                 messageListener.onMessageReceived(message);
             }
-        } catch (Exception exception) {
+        } catch (JsonSyntaxException | IOException exception) {
+            notifyReceiveError(exception);
+        } catch (RuntimeException exception) {
             notifyReceiveError(exception);
         }
     }

@@ -8,7 +8,7 @@ import com.example.cardgame.model.Player;
 /**
  * Manager responsible for determining game over conditions and settlement.
  */
-public class SettlementManager {
+public class SettlementManager implements ISettlementManager {
 
     private static final String TAG = "CardGame";
 

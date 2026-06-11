@@ -17,12 +17,17 @@ import java.util.stream.Collectors;
  * 出牌合法性校验器
  * 支持首轮方块3、压过上家、Pass逻辑
  */
-public class PlayValidator {
+public class PlayValidator implements IPlayValidator {
 
     private static final String TAG = "CardGame";
 
-    private final PatternRecognizer recognizer;
+    private final IPatternRecognizer recognizer;
     private final RuleConfig config;
+
+    public PlayValidator(RuleConfig config, IPatternRecognizer recognizer) {
+        this.config = config;
+        this.recognizer = recognizer;
+    }
 
     public PlayValidator(RuleConfig config) {
         this.config = config;

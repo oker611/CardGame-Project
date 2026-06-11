@@ -5,7 +5,7 @@ import android.util.Log;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class EventBus {
+public class EventBus implements IEventBus {
 
     private static final String TAG = "CardGame";
 
@@ -53,7 +53,7 @@ public class EventBus {
         for (GameEventListener listener : listeners) {
             try {
                 dispatchTyped(listener, event);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 Log.e(TAG, "[EventBus] Listener " + listener.getClass().getSimpleName()
                         + " threw exception", e);
             }
