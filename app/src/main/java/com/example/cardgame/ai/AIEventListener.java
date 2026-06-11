@@ -4,7 +4,6 @@ import android.util.Log;
 
 import android.os.Handler;
 import android.os.Looper;
-import com.example.cardgame.controller.GameController;
 import com.example.cardgame.dto.PassResult;
 import com.example.cardgame.dto.PlayResult;
 import com.example.cardgame.engine.GameEngine;
@@ -17,19 +16,23 @@ import com.example.cardgame.model.PlayerType;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class AIEventListener implements GameEventListener {
 
     private static final String TAG = "CardGame";
-    private final GameController gameController;
+    private final Consumer<String> hintCallback;
+    private final Function<List<Card>, PlayResult> playCallback;
     private final GameEngine gameEngine;
     private final AIDecisionStrategy strategy;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final boolean isHost;
 
-    public AIEventListener(GameController gameController, GameEngine gameEngine,
-                           AIDecisionStrategy strategy, boolean isHost) {
-        this.gameController = gameController;
+    public AIEventListener(Consumer<String> hintCallback, Function<List<Card>, PlayResult> playCallback,
+                           GameEngine gameEngine, AIDecisionStrategy strategy, boolean isHost) {
+        this.hintCallback = hintCallback;
+        this.playCallback = playCallback;
         this.gameEngine = gameEngine;
         this.strategy = strategy;
         this.isHost = isHost;
@@ -72,7 +75,7 @@ public class AIEventListener implements GameEventListener {
                         List<Card> cards = strategy.decidePlay(nowPlayer, gameState);
                         // 生成AI提示
                         String hint = generateHint(cards, nowPlayer, gameState);
-                        gameController.updateAiHint(hint);
+                        hintCallback.accept(hint);
                         
                         if (cards == null || cards.isEmpty()) {
                             PassResult passResult = gameEngine.passTurn(newPlayerId);
@@ -88,13 +91,13 @@ public class AIEventListener implements GameEventListener {
                                                     c.getRank().getWeight() * 10 + c.getSuit().getWeight()))
                                             .orElse(null);
                                     if (smallest != null) {
-                                        gameController.aiPlayCards(Collections.singletonList(smallest));
+                                        playCallback.apply(Collections.singletonList(smallest));
                                     }
                                 }
                             }
                         } else {
                             Log.d(TAG, "[AIEventListener] AI playing: " + cards);
-                            PlayResult result = gameController.aiPlayCards(cards);
+                            PlayResult result = playCallback.apply(cards);
                             Log.d(TAG, "[AIEventListener] Result: " + result.isSuccess() + " - " + result.getMessage());
 
                             if (result.isSuccess()) {

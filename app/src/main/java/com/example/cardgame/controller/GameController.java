@@ -367,7 +367,10 @@ public class GameController implements GameActionHandler {
         
         // 非蓝牙模式或蓝牙 HOST 模式才运行 AI；CLIENT 端 AI 由网络消息驱动
         boolean aiHost = !bluetoothMode || hostMode;
-        aiEventListener = new AIEventListener(this, gameEngine, aiStrategy, aiHost);
+        aiEventListener = new AIEventListener(
+                hintText -> updateAiHint(hintText),
+                cards -> aiPlayCards(cards),
+                gameEngine, aiStrategy, aiHost);
         HermesLog.log("GameController: AIEventListener created isHost=" + aiHost);
     }
     
@@ -910,10 +913,7 @@ public class GameController implements GameActionHandler {
      */
     private AiHintCallback aiHintCallback;
 
-    public interface AiHintCallback {
-        void onHintUpdated(String hintText);
-    }
-
+    public interface AiHintCallback { void onHintUpdated(String hintText); }
     public void setAiHintCallback(AiHintCallback callback) { this.aiHintCallback = callback; }
 
     public void updateAiHint(String hintText) {
