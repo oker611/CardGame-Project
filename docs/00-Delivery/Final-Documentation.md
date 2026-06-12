@@ -10,7 +10,7 @@
 | 第2周 Elaboration | `02-Design/` | Domain-Model, SSD, Operation-Contracts, Class-Diagram, Package-Diagrams, State-Machine-Diagrams |
 | 第3周 Construction | `03-Plans/Sprint3/` | Iteration-Plan, Milestones, Interface-Contract, Project-Structure |
 | 第4周 Stabilization | `03-Plans/Sprint4/` + `04-Refactoring/` | 事件框架, 设计模式报告, 旧代码切除 |
-| 第5周 Final Delivery | `00-Delivery/` + `05-Model-Refinement/` | 终版检查表, 模型精化日志 |
+| 第5周 Final Delivery | `00-Delivery/` + `05-Model-Refinement/` | 终版索引, 模型精化日志 |
 | 第6周 Defense | `06-Defense/` | 答辩PPT, Defense-Materials |
 
 ## 项目规模
