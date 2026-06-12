@@ -6,9 +6,6 @@
 docs/
 ├── README.md                                     ← 你在这里
 │
-├── 00-Delivery/                                  最终交付材料
-│   ├── Final-Documentation.md                    文档索引 (链接到各阶段文件)
-│
 ├── 01-Requirements/                              第1周：Inception
 │   ├── Use-Case-Model.md                         用例模型
 │   ├── Vision.md                                 愿景
