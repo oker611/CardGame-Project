@@ -13,7 +13,7 @@
 | **项目类型** | Android 移动端多人卡牌游戏 |
 | **技术栈** | Java + Android SDK + Bluetooth RFCOMM + OkHttp + Gson |
 | **AI 集成** | Vivo 蓝心大模型 (DeepSeek-V3.2) + 蒙特卡洛树搜索 + 遗传算法参数优化 |
-| **代码规模** | 约 100 个 Java 类，覆盖 11 个功能包 |
+| **代码规模** | 约 100 个 Java 类，覆盖 11 个功能包，14 个接口，123 个测试用例 |
 | **开发周期** | 5 个 Sprint（约 10 周） |
 | **团队规模** | 5 人 |
 
@@ -290,23 +290,27 @@
 ### 核心标准类问题
 
 #### Q1: 如何保证软件质量？测试策略是什么？
-**A**: 
-- 领域层：GameEngineTest 单元测试（发牌验证、出牌校验、Pass逻辑）
+**A**:
+- 单元测试：123 个用例覆盖引擎/规则/AI/网络/工具层，0 失败
 - 集成测试：蓝牙联调冒烟测试（两台/四台手机完整对局）
-- 验收测试：每次Sprint结束后按验收标准逐条检查
-- 代码审查：GitHub Pull Request → 团队成员Code Review → 合并
-- AI辅助质量保障：使用Claude Code进行代码审查、BUG分析、逻辑一致性检查
+- Instrumentation 测试：Android 模拟器端到端验证
+- CI/CD：GitHub Actions 在 push/PR 时自动 build + test
+- 验收测试：每次 Sprint 结束后按验收标准逐条检查
+- 代码审查：GitHub Pull Request → 团队成员 Code Review → 合并
+- AI 辅助质量保障：使用 Claude Code 进行代码审查、架构审计、BUG 修复
 
 #### Q2: 项目中的设计模式应用有哪些？
 **A**:
-- **策略模式**：AIDecisionStrategy接口 → Greedy/MonteCarlo/Adaptive/Normal/Aggressive/Defensive 六种实现
-- **观察者模式**：EventBus + GameEventListener，解耦UI/AI/蓝牙
-- **Builder模式**：RuleConfig.Builder，支持灵活配置规则参数
-- **单例模式**：EventBus（Holder静态内部类线程安全实现）
-- **适配器模式**：BluetoothEventRelay（事件→蓝牙消息），AdaptiveAIDecisionStrategy（包装蒙特卡洛+风格分析）
-- **模板方法模式**：AIDecisionStrategy.decidePlay()定义AI决策模板
-- **工厂模式**：RuleConfig静态工厂方法（SOUTHERN/NORTHERN预设）
-- **状态模式**：PhaseManager（EARLY/MID/LATE游戏阶段）
+- **策略模式**：AIDecisionStrategy 接口 → 7 种实现（Greedy/MonteCarlo/Adaptive + Normal/Aggressive/Defensive 风格变体）
+- **观察者模式**：IEventBus + GameEventListener，解耦 UI/AI/蓝牙三大模块
+- **工厂模式**：AIStrategyFactory 集中管理 7 种策略的依赖注入和构建
+- **Builder 模式**：RuleConfig.Builder，支持南方/北方双规则 + 自定义规则
+- **单例模式**：EventBus（Holder 静态内部类线程安全实现，同时支持 IEventBus 注入）
+- **适配器模式**：BluetoothEventRelay（事件→蓝牙消息），AdaptiveAIDecisionStrategy（包装 MonteCarlo + 风格学习）
+- **模板方法模式**：GreedyAIDecisionStrategy.decidePlay() 定义统一决策骨架
+- **状态模式**：PhaseManager（EARLY/MID/LATE 三阶段状态机）
+
+共 14 个接口支撑完整 DI 体系。
 
 #### Q3: 项目中如何应用UML建模？和最终代码的对应关系？
 **A**:
@@ -346,8 +350,9 @@
 2. **AI代码引擎使用**：使用Claude Code/GitHub Copilot辅助开发全流程（代码生成→审查→BUG修复→UML生成），显著提升开发效率
 3. **蒙特卡洛树搜索应用**：在不完全信息博弈中实现有效的期望收益评估
 4. **遗传算法参数优化**：AI策略参数的自动化寻优
-5. **事件驱动架构重构**：通过观察者模式实现UI/AI/蓝牙三大模块松耦合
-6. **蓝牙可靠通信协议栈**：ACK确认+心跳保活+断线重连的完整工程化实现
+5. **事件驱动架构 + 依赖注入**：14 接口 DI 体系 + IEventBus 观察者模式，实现 UI/AI/蓝牙松耦合
+6. **蓝牙可靠通信协议栈**：ACK 确认 + 心跳保活 + 断线重连的完整工程化实现
+7. **代码质量工程化**：122 单元测试 + 0 反射 + 0 泛化异常 + 0 静态可变状态
 
 ### 针对组员个人的预备问题
 
