@@ -1,0 +1,93 @@
+@startuml
+' 锄大地卡牌游戏 — 包图 (Package Diagram)
+' 显示顶层包及其依赖关系
+
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "model" as model #LightBlue {
+  [Card]
+  [Player]
+  [GameState]
+  [Play]
+  [HumanStyleProfile]
+  [Rank]
+  [Suit]
+}
+
+package "engine" as engine #LightGreen {
+  [GameEngine]
+  [DealManager]
+  [TurnManager]
+  [SettlementManager]
+}
+
+package "rule" as rule #LightYellow {
+  [RuleEngine]
+  [PatternRecognizer]
+  [PlayValidator]
+  [RuleConfig]
+}
+
+package "ai" as ai #LightPink {
+  [AIDecisionStrategy]
+  [AIStrategyFactory]
+  [MonteCarloAIDecisionStrategy]
+  [GreedyAIDecisionStrategy]
+  [AdaptiveAIDecisionStrategy]
+  [PhaseManager]
+  [CandidateGenerator]
+  [MonteCarloSimulator]
+}
+
+package "controller" as ctrl #Wheat {
+  [GameController]
+  [BluetoothController]
+  [BluetoothEventRelay]
+}
+
+package "network" as net #Plum {
+  [BluetoothGateway]
+  [NetworkGameBridge]
+  [BluetoothConnectionManager]
+  [RoomController]
+  [ReliabilityManager]
+}
+
+package "event" as event #Coral {
+  [EventBus]
+  [CardPlayedEvent]
+  [PlayerPassedEvent]
+  [TurnChangedEvent]
+  [GameOverEvent]
+}
+
+package "llm" as llm #Orchid {
+  [LLMAnalyzer]
+  [VivoLLMClient]
+}
+
+package "ui" as ui #LightCyan {
+  [GameActivity]
+  [RoomLobbyActivity]
+  [RoomSettingsActivity]
+  [SearchDeviceActivity]
+}
+
+' 依赖关系
+engine --> model
+rule --> model
+ai --> model
+ai --> rule
+ctrl --> engine
+ctrl --> ai
+ctrl --> network
+ctrl --> event
+network --> engine
+network --> event
+event --> engine
+llm --> ai
+ui --> ctrl
+ui --> event
+
+@enduml

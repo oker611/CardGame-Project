@@ -1,0 +1,42 @@
+@startuml
+' 时序图 — 人类玩家出牌完整流程
+' 覆盖从 UI 点击到蓝牙同步的全链路
+
+actor "Human P1" as P1
+participant "GameActivity" as UI
+participant "GameController" as Ctrl
+participant "GameEngine" as Engine
+participant "RuleEngine" as Rule
+participant "TurnManager" as Turn
+participant "EventBus" as EB
+participant "BluetoothGateway" as BT
+actor "Remote P2" as P2
+
+== 出牌阶段 ==
+P1 -> UI: 选择手牌 + 点击出牌
+UI -> Ctrl: submitPlay([cardIds])
+Ctrl -> Engine: playCards("P1", cardIds)
+
+Engine -> Rule: validatePlay(cards, lastPlay, isFirstRound, isFirstTurn)
+Rule -> Rule: PatternRecognizer.recognizePattern(cards)
+Rule --> Engine: ValidationResult(valid=true)
+
+Engine -> Engine: player.removeCards(cardIds)\nsetLastPlay(play)\nresetConsecutivePassCount()
+
+Engine -> Engine: settlementManager.checkAndSettle(gameState)
+
+== 回合切换 ==
+Engine -> Turn: switchPlayer(gameState)
+Turn -> Turn: 计算下一玩家索引
+Turn -> EB: post(TurnChangedEvent("P2", PLAY))
+
+== 事件广播 ==
+EB -> UI: UI 自动刷新 (refreshUI)
+EB -> Ctrl: 触发 AI 决策 (若下一玩家是 AI)
+
+== 蓝牙同步 ==
+Ctrl -> BT: sendPlayAction(play)
+BT -> BT: 构造 BluetoothMessage\n编码 PlayActionPayload
+BT --> P2: 蓝牙消息: PLAY_ACTION
+
+@enduml

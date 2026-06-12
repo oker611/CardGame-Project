@@ -1,0 +1,37 @@
+@startuml
+' 通信图 — AI 决策流程 (Communication Diagram)
+' 显示 AI 蒙特卡洛决策中各组件的消息传递
+
+actor "AI Player" as AI
+
+rectangle "MonteCarloAIDecisionStrategy" as MC {
+  rectangle "CandidateGenerator" as CG
+  rectangle "OpponentHandSampler" as OHS
+  rectangle "MonteCarloSimulator" as MCS
+  rectangle "PhaseManager" as PM
+}
+
+rectangle "RuleEngine" as RE
+rectangle "GameState" as GS
+
+AI -> MC: 1. decidePlay(aiPlayer, gameState)
+MC -> CG: 2. generate(hand, lastPlay)
+CG -> RE: 3. recognizePattern(cards)
+CG --> MC: 4. List<Play> candidates (TOP_K=4)
+
+MC -> OHS: 5. sampleWorlds(aiPlayer, gameState, cardTracker, 10)
+OHS --> MC: 6. List<World> (10 worlds)
+
+MC -> PM: 7. getCurrentPhase(aiPlayer, gameState)
+
+loop 每个候选 x 每个World
+  MC -> MCS: 8. evaluate(candidate, aiPlayer, state, world)
+  MCS -> RE: 9. 快速贪心模拟到终局
+  MCS --> MC: 10. expectedScore
+  MC -> PM: 11. adjustScore(baseScore, candidate, phase)
+end
+
+MC -> MC: 12. 选择最高分候选
+MC --> AI: 13. List<Card> 最佳出牌
+
+@enduml

@@ -1,4 +1,7 @@
 app/
+
+> 本文档为 Sprint 3 规划阶段的目录结构蓝图。后续迭代中实际文件有调整（如 `Logger.java` 已删除、AI 层已扩展为完整策略体系）。当前实际结构见 `ARCHITECTURE.md`。
+
 └── src/main/java/com/example/cardgame/
     │
     ├── model/                 # 数据模型（纯数据）
