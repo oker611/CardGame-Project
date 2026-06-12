@@ -1,0 +1,26 @@
+========================================
+Optimized AI Parameters (Self-Play GA)
+========================================
+Timestamp: Fri May 29 21:31:58 CST 2026
+Total optimization time: 2766 seconds
+
+Best Chromosome:
+  numSamples: 22
+  topKCandidates: 12
+  earlyBigCardBonus: 0.8686769461653766
+  fiveCardPenalty: -0.7782068714031485
+  midSuppressBonus: 0.7111539129328288
+  lateFastBonus: 0.685531225150149
+  aggression: 0.5495716696478977
+  defense: 0.5998244646548526
+
+========================================
+Copy to Android MonteCarloAIDecisionStrategy.java:
+========================================
+private static final int NUM_SAMPLES = 22;
+private static final int TOP_K_CANDIDATES = 12;
+private static final double EARLY_BIG_CARD_BONUS = 0.8686769461653766;
+private static final double FIVE_CARD_PENALTY = -0.7782068714031485;
+private static final double MID_SUPPRESS_BONUS = 0.7111539129328288;
+private static final double LATE_FAST_BONUS = 0.685531225150149;
+========================================
