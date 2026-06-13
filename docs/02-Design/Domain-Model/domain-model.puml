@@ -1,0 +1,94 @@
+@startuml
+' 锄大地卡牌游戏 — 领域模型 (Domain Model)
+' Sprint 2 Elaboration + Sprint 4-5 Refinement
+
+skinparam class {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+  FontSize 12
+}
+
+class GameState {
+  + currentPlayerId: String
+  + lastPlay: Play
+  + lastWinnerId: String
+  + consecutivePassCount: int
+  + isOpeningTurn: boolean
+  + isGameOver: boolean
+  + winnerId: String
+  + allPlayedCards: List<Card>
+  + lastPlayByPlayer: Map<String, List<Card>>
+}
+
+class Player {
+  + playerId: String
+  + playerName: String
+  + type: PlayerType
+  + handCards: List<Card>
+  + passed: boolean
+}
+
+enum PlayerType <<enumeration>> {
+  HUMAN
+  AI
+  REMOTE
+}
+
+class Card {
+  + cardId: String
+  + rank: Rank
+  + suit: Suit
+}
+
+enum Rank <<enumeration>> {
+  THREE, FOUR, FIVE, SIX, SEVEN
+  EIGHT, NINE, TEN, J, Q, K, ACE, TWO
+}
+
+enum Suit <<enumeration>> {
+  DIAMOND
+  CLUB
+  HEART
+  SPADE
+}
+
+class Play {
+  + playerId: String
+  + cards: List<Card>
+  + pattern: CardPattern
+}
+
+enum CardPattern <<enumeration>> {
+  SINGLE, PAIR, TRIPLE, QUADRUPLE
+  STRAIGHT, FLUSH, FULL_HOUSE
+  IRON_BRANCH, STRAIGHT_FLUSH
+  INVALID
+}
+
+class HumanStyleProfile {
+  + playerId: String
+  + styleLabel: String
+  + aggressivenessScore: double
+  + conservativenessScore: double
+  + gamesAnalyzed: int
+}
+
+class AIPlayerProfile {
+  + level: int
+  + keepBigPattern: boolean
+  + aggressivenessFactor: double
+  + defenseFactor: double
+}
+
+' 聚合关系
+GameState "1" -- "*" Player : contains
+GameState "1" -- "0..1" Play : lastPlay
+Player "1" -- "*" Card : handCards
+Player "1" -- "0..1" HumanStyleProfile : profile (Human)
+Player "1" -- "0..1" AIPlayerProfile : profile (AI)
+Play "*" -- "*" Card : uses
+Card "1" -- "1" Rank : has
+Card "1" -- "1" Suit : has
+Play "1" -- "1" CardPattern : classifiedAs
+
+@enduml

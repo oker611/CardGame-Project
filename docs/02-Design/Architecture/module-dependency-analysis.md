@@ -1,5 +1,7 @@
 # 项目代码现状分析：面向观察者模式引入的前置评估
 
+> 本文档为 Sprint 3 引入 EventBus 前的架构审计快照。当前代码已全面事件驱动化（14 接口 DI 体系），最新架构见根目录 `ARCHITECTURE.md`。
+
 分析范围：`app/src/main/java/com/example/cardgame` 下的生产代码。未修改任何代码。
 
 ## 1. 模块边界识别
