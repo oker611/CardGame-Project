@@ -1,0 +1,26 @@
+========================================
+Optimized AI Parameters (vs Greedy Baseline)
+========================================
+Timestamp: Fri May 29 00:45:07 CST 2026
+Total optimization time: 59 seconds
+
+Best Chromosome:
+  numSamples: 7
+  topKCandidates: 3
+  earlyBigCardBonus: 0.6934399276996002
+  fiveCardPenalty: -2.3720474080620186
+  midSuppressBonus: 0.71254443783306
+  lateFastBonus: 1.2677753969039025
+  aggression: 0.11305751241994544
+  defense: 0.9810034472811262
+
+========================================
+Copy to Android MonteCarloAIDecisionStrategy.java:
+========================================
+private static final int NUM_SAMPLES = 7;
+private static final int TOP_K_CANDIDATES = 3;
+private static final double EARLY_BIG_CARD_BONUS = 0.6934399276996002;
+private static final double FIVE_CARD_PENALTY = -2.3720474080620186;
+private static final double MID_SUPPRESS_BONUS = 0.71254443783306;
+private static final double LATE_FAST_BONUS = 1.2677753969039025;
+========================================
