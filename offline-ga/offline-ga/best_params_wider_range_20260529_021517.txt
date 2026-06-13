@@ -1,0 +1,26 @@
+========================================
+Optimized AI Parameters
+========================================
+Timestamp: Fri May 29 02:15:17 CST 2026
+Total optimization time: 639 seconds
+
+Best Chromosome:
+  numSamples: 5
+  topKCandidates: 4
+  earlyBigCardBonus: 0.5485718437008635
+  fiveCardPenalty: -0.23488168513433327
+  midSuppressBonus: 0.17270758434542885
+  lateFastBonus: 0.12475341320653466
+  aggression: 0.49306465963641377
+  defense: 0.5693694506532413
+
+========================================
+Copy to Android MonteCarloAIDecisionStrategy.java:
+========================================
+private static final int NUM_SAMPLES = 5;
+private static final int TOP_K_CANDIDATES = 4;
+private static final double EARLY_BIG_CARD_BONUS = 0.5485718437008635;
+private static final double FIVE_CARD_PENALTY = -0.23488168513433327;
+private static final double MID_SUPPRESS_BONUS = 0.17270758434542885;
+private static final double LATE_FAST_BONUS = 0.12475341320653466;
+========================================
