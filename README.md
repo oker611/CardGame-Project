@@ -1,167 +1,85 @@
----
-An Android-based card game application featuring AI-powered gameplay and modern game engine architecture.
+# 锄大地 — 蓝牙联机卡牌游戏
 
-## 📋 Project Overview
+基于 Android 的多人卡牌游戏，集成三层 AI 决策引擎和大语言模型对手风格分析。
 
-This is a comprehensive Software Engineering Training Project that demonstrates professional development practices through a fully-featured card game application. The project integrates AI capabilities for intelligent opponent behavior and implements a robust game engine architecture.
+**语言：** Java | **平台：** Android | **Min SDK：** 21 | **目标 SDK：** 34
 
-**Language:** Java (100%)
-**Platform:** Android
-**Min SDK:** 24 | **Target SDK:** 34
+## 核心特性
 
-## 🎮 Key Features
+- **锄大地规则引擎** — 10 种牌型识别，南方/北方双规则，首轮♦3强制，跨牌型压制
+- **三层 AI 体系** — 贪心策略(3 风格变体) → 蒙特卡洛模拟 → 自适应策略(分析人类风格并自动调整)
+- **蓝牙四人联机** — HOST + 3 CLIENT，16 种消息类型，心跳保活，ACK 可靠投递，断线重连
+- **LLM 集成** — 接入 Vivo 蓝心大模型，异步分析对手风格，跨游戏持久化
+- **事件驱动架构** — EventBus 解耦 UI / AI / 蓝牙三大模块，14 个接口支撑 DI 体系
+- **道具系统** — 记牌器、牌型提示、透视三种可选辅助
 
-- **AI-Powered Gameplay** - LLM integration for intelligent AI opponents
-- **Game Engine** - Custom game engine with event-driven architecture
-- **Modern Architecture** - Clean separation of concerns with MVC/MVVM patterns
-- **Network** - HTTP networking capabilities for multiplayer features
-- **Type-Safe Data Models** - DTO pattern for data consistency
-- **Event System** - Event-driven programming model
-
-## 📁 Project Structure
+## 项目结构
 
 ```
-CardGame-Project/
-├── app/                              # Android application module
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/example/cardgame/
-│   │   │   │   ├── ai/            # AI and machine learning components
-│   │   │   │   ├── controller/    # Game controllers
-│   │   │   │   ├── dto/           # Data Transfer Objects
-│   │   │   │   ├── engine/        # Game engine core
-│   │   │   │   ├── event/         # Event system
-│   │   │   │   ├── llm/           # LLM/AI integration
-│   │   │   │   ├── model/         # Data models
-│   │   │   │   ├── network/       # Network operations
-│   │   │   │   ├── rule/          # Game rules and logic
-│   │   │   │   ├── ui/            # UI components
-│   │   │   │   ├── util/          # Utility classes
-│   │   │   │   └── CardGameApplication.java  # App entry point
-│   │   │   ├── res/               # Android resources (layouts, strings, drawables)
-│   │   │   ├── assets/            # Game assets
-│   │   │   └── AndroidManifest.xml
-│   │   ├── test/                  # Unit tests
-│   │   └── androidTest/           # Android instrumented tests
-│   └── build.gradle               # App module configuration
-├── docs/                           # Project documentation (UML diagrams, reports, etc.)
-├── gradle/                         # Gradle wrapper files
-├── build.gradle                    # Root project configuration
-├── gradle.properties              # Gradle configuration
-├── settings.gradle                 # Project settings
-├── gradlew / gradlew.bat           # Gradle wrapper scripts
-└── LICENSE                         # Project license
+app/src/main/java/com/example/cardgame/
+├── ai/            AI 决策 (7 种策略 + 蒙特卡洛组件)
+├── controller/    控制器 (GameController, BluetoothController, EventRelay)
+├── dto/           数据传输对象
+├── engine/        游戏引擎 (发牌/回合/结算)
+├── event/         事件总线 (4 类事件)
+├── llm/           大模型分析 (Vivo LLM 客户端)
+├── model/         领域模型 (Card, Player, GameState)
+├── network/       蓝牙通信 (网关/桥接/房间/可靠性)
+├── rule/          规则引擎 (牌型识别/出牌校验)
+├── ui/            界面层 (GameActivity, RoomLobby 等)
+└── util/          工具类 (记牌器/跨游戏记忆)
 ```
 
-## 🏗️ Architecture
+## 设计模式
 
-### Module Organization
+| 模式 | 应用 |
+|------|------|
+| Strategy | `AIDecisionStrategy` → 7 种实现 |
+| Observer | `IEventBus` + `GameEventListener` |
+| Factory | `AIStrategyFactory` |
+| Adapter | `BluetoothEventRelay`, `AdaptiveAIDecisionStrategy` |
+| Builder | `RuleConfig.Builder` |
+| Singleton | `EventBus` (Holder 模式, 同时支持 `IEventBus` 注入) |
+| Template Method | `GreedyAIDecisionStrategy.decidePlay()` |
 
-| Module | Purpose |
-|--------|---------|
-| **ai** | AI decision-making and strategy |
-| **controller** | Game flow and user action handling |
-| **dto** | Data structures for network/storage |
-| **engine** | Core game mechanics and game loop |
-| **event** | Event dispatching and handling system |
-| **llm** | Large Language Model integration |
-| **model** | Domain-specific game objects |
-| **network** | HTTP requests and API communication |
-| **rule** | Game rules validation and enforcement |
-| **ui** | Android UI components and views |
-| **util** | Helper functions and utilities |
+## 技术栈
 
-## 🛠️ Technology Stack
+| 层级 | 技术 |
+|------|------|
+| 语言 | Java 8 |
+| UI | Android View + Material Design |
+| 通信 | Bluetooth RFCOMM |
+| 网络 | OkHttp 4.12 (LLM API) |
+| 序列化 | Gson 2.10 |
+| 测试 | JUnit 4 (123 用例, 0 失败) |
+| CI/CD | GitHub Actions |
 
-### Dependencies
+## 快速开始
 
-- **Android Framework** - Core Android libraries
-- **AndroidX** - Modern Android support libraries
-- **Material Design** - Material UI components
-- **Gson** - JSON serialization/deserialization (v2.10.1)
-- **OkHttp3** - HTTP client (v4.12.0)
-- **JUnit** - Unit testing
-
-### Build Configuration
-
-- **Build System:** Gradle with Android Plugin
-- **Compile SDK:** 34
-- **Build Tools:** 36.1.0
-- **Java Compatibility:** 1.8
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Android Studio (Arctic Fox or newer)
-- Java 8 or higher
-- Android SDK 24 or higher
-
-### Building the Project
-
-1. **Clone the repository**
 ```bash
 git clone https://github.com/oker611/CardGame-Project.git
 cd CardGame-Project
+
+# 配置 LLM API 密钥 (gradle.properties)
+# VIVO_APP_KEY=your_key
+
+./gradlew assembleDebug      # 构建
+./gradlew test                # 单元测试 (123 用例)
+./gradlew installDebug        # 安装到设备
 ```
 
-2. **Configure API Keys**
-- Set `DEEPSEEK_API_KEY` in `gradle.properties` or environment variables
-- LLM integration requires valid API credentials
+## 文档
 
-3. **Build the application**
-```bash
-./gradlew build
+```
+docs/
+├── 01-Requirements/    需求文档 (用例模型, Vision, 补充规约, 术语表)
+├── 02-Design/          设计文档 (领域模型, SSD, 操作契约, 类图, 包图, 状态机图)
+├── 03-Plans/           迭代计划 (Sprint 1-5)
+├── 04-Refactoring/     重构报告 (设计模式汇总, 事件框架, 各模块评估)
+├── 05-Model-Refinement/ 模型精化日志
+└── 06-Defense/         答辩材料
 ```
 
-4. **Run on emulator or device**
-```bash
-./gradlew installDebug
-```
+## 许可证
 
-## 🧪 Development Workflow
-
-### Running Tests
-
-```bash
-# Unit tests
-./gradlew test
-
-# Android instrumented tests
-./gradlew connectedAndroidTest
-```
-
-### Building Release
-
-```bash
-./gradlew assembleRelease
-```
-
-## ⚙️ Configuration
-
-### Application ID
-
-- **Package:** `com.example.cardgame`
-
-### Gradle Properties
-
-- JVM arguments: `-Xmx2048m -Dfile.encoding=UTF-8`
-- AndroidX enabled for modern API compatibility
-- R class namespacing enabled for library separation
-
-## 🤖 AI Integration
-
-- API keys should be stored securely and not committed to version control
-- Use proper ProGuard rules for production builds (configured in `build.gradle`)
-- Validate all network data before processing
-
-## 🤝 Contributing
-
-This is a training project. For contributions or improvements, please follow standard Git workflow practices and maintain code quality standards.
-
----
-
-**Last Updated:** 2026
-**Project Type:** Software Engineering Training
-**Status:** Active Development
-**Platform:** Active Development
+MIT License
