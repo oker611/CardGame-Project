@@ -1,0 +1,48 @@
+@startuml
+' 系统顺序图 — 出牌流程 (SSD - Play Cards)
+' Actor: 人类玩家 | System: CardGame
+
+skinparam sequenceMessageAlign center
+
+actor "Human Player" as P
+
+box "System" #LightBlue
+  participant "GameActivity" as UI
+  participant "GameController" as Ctrl
+  participant "GameEngine" as Engine
+  participant "RuleEngine" as Rule
+  participant "TurnManager" as Turn
+  participant "EventBus" as EB
+end box
+
+P -> UI: 选择手牌 + 点击出牌按钮
+UI -> Ctrl: submitPlay(selectedCardIds)
+Ctrl -> Engine: playCards(playerId, cardIds)
+
+Engine -> Rule: validatePlay(cards, lastPlay, isFirstRound, isFirstTurn)
+Rule --> Engine: ValidationResult(valid, reason)
+
+alt 校验失败
+  Engine --> Ctrl: PlayResult(false, reason)
+  Ctrl --> UI: PlayResult
+  UI --> P: Toast 错误提示
+else 校验成功
+  Engine -> Engine: 移除手牌, 更新 lastPlay, 重置 consecutivePassCount
+  Engine -> Engine: settlementManager.checkAndSettle()
+
+  alt 游戏未结束
+    Engine -> Turn: switchPlayer(gameState)
+    Turn -> EB: post(TurnChangedEvent)
+    EB --> UI: UI 自动刷新
+    EB --> Ctrl: 触发 AI 决策
+  else 游戏结束
+    Engine -> EB: post(GameOverEvent)
+    EB --> UI: 显示游戏结束弹窗
+  end
+
+  Engine --> Ctrl: PlayResult(true, "出牌成功")
+  Ctrl --> UI: PlayResult
+  UI --> P: Toast + UI 刷新
+end
+
+@enduml
