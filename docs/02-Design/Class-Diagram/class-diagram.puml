@@ -1,0 +1,111 @@
+@startuml
+' 锄大地卡牌游戏 — 核心类图 (Class Diagram)
+' 显示 AI 策略体系 + 引擎层的类关系
+
+skinparam classAttributeIconSize 0
+
+' === AI 策略体系 ===
+
+interface AIDecisionStrategy <<interface>> {
+  + decidePlay(Player, GameState): List<Card>
+  + recordPlayFailure(): void
+  + resetFailCount(): void
+}
+
+class GreedyAIDecisionStrategy {
+  - patternRecognizer: IPatternRecognizer
+  - playValidator: IPlayValidator
+  - aggressivenessFactor: double
+  - defenseFactor: double
+  + decidePlay(Player, GameState): List<Card>
+}
+
+class MonteCarloAIDecisionStrategy {
+  - ruleEngine: RuleEngine
+  - candidateGenerator: ICandidateGenerator
+  - opponentHandSampler: IOpponentHandSampler
+  - monteCarloSimulator: IMonteCarloSimulator
+  - phaseManager: IPhaseManager
+  - cardTracker: CardTracker
+  + decidePlay(Player, GameState): List<Card>
+}
+
+class AdaptiveAIDecisionStrategy {
+  - monteCarloStrategy: MonteCarloAIDecisionStrategy
+  - humanStyleProfile: HumanStyleProfile
+  + setHumanStyleProfile(HumanStyleProfile): void
+  + decidePlay(Player, GameState): List<Card>
+}
+
+class AIStrategyFactory <<final>> {
+  + create(AIDifficulty, RuleConfig): AIDecisionStrategy {static}
+  + createGreedyWithStyle(AIStrategyStyle, RuleConfig): AIDecisionStrategy {static}
+  + createAdaptiveIfNeeded(AIDecisionStrategy, RuleConfig, HumanStyleProfile): AIDecisionStrategy {static}
+}
+
+enum AIDifficulty <<enumeration>> {
+  GREEDY
+  MONTE_CARLO
+  ADAPTIVE
+}
+
+enum AIStrategyStyle <<enumeration>> {
+  AGGRESSIVE
+  DEFENSIVE
+  NORMAL
+}
+
+AIDecisionStrategy <|.. GreedyAIDecisionStrategy
+AIDecisionStrategy <|.. MonteCarloAIDecisionStrategy
+AIDecisionStrategy <|.. AdaptiveAIDecisionStrategy
+AdaptiveAIDecisionStrategy o-- MonteCarloAIDecisionStrategy
+AIStrategyFactory ..> AIDecisionStrategy : creates
+AIStrategyFactory ..> AIStrategyStyle
+AIStrategyFactory ..> AIDifficulty
+
+' === 引擎层 ===
+
+interface IDealManager <<interface>> {
+  + dealCards(GameState): void
+}
+
+interface ITurnManager <<interface>> {
+  + switchPlayer(GameState): void
+}
+
+interface ISettlementManager <<interface>> {
+  + checkGameOver(GameState): boolean
+  + settleGame(GameState): void
+  + checkAndSettle(GameState): void
+}
+
+interface GameStateAccess <<interface>> {
+  + getGameState(): GameState
+  + passTurn(String): PassResult
+}
+
+class GameEngine {
+  - dealManager: IDealManager
+  - turnManager: ITurnManager
+  - settlementManager: ISettlementManager
+  - eventBus: IEventBus
+  + playCards(String, List<String>): PlayResult
+  + passTurn(String): PassResult
+}
+
+class DealManager {}
+class TurnManager {
+  - eventBus: IEventBus
+}
+class SettlementManager {}
+
+IDealManager <|.. DealManager
+ITurnManager <|.. TurnManager
+ISettlementManager <|.. SettlementManager
+GameStateAccess <|.. GameEngine
+GameEngine o-- IDealManager
+GameEngine o-- ITurnManager
+GameEngine o-- ISettlementManager
+GameEngine o-- IEventBus
+
+@enduml

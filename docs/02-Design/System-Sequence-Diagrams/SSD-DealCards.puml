@@ -1,0 +1,32 @@
+@startuml
+' 系统顺序图 — 发牌流程 (SSD - Deal Cards)
+
+actor "Game Host" as Host
+
+box "System" #LightBlue
+  participant "GameController" as Ctrl
+  participant "GameEngine" as Engine
+  participant "DealManager" as Deal
+  participant "TurnManager" as Turn
+  participant "EventBus" as EB
+end box
+
+Host -> Ctrl: startNewGame()
+Ctrl -> Engine: initializeGame(players, ruleConfig)
+Engine -> Engine: 创建 GameState + RuleEngine
+
+Engine -> Deal: dealCards(gameState)
+Deal -> Deal: 生成52张牌 (4花色 x 13点数)
+Deal -> Deal: Collections.shuffle(deck)
+Deal -> Deal: 分配4人各13张
+Deal -> Deal: 识别持有♦3的玩家 → openingPlayer
+Deal --> Engine: gameState 已填充手牌
+
+Engine -> Engine: setOpeningTurn(true)
+Engine -> Turn: switchPlayer(gameState)
+Turn -> EB: post(TurnChangedEvent(openingPlayer, GAME_START))
+
+Engine --> Ctrl: 发牌完成
+Ctrl --> Host: GameViewData (手牌 + 回合信息)
+
+@enduml
