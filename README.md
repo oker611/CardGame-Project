@@ -206,7 +206,8 @@ docs/
 
 根目录:
 ├── ARCHITECTURE.md      架构文档 (当前接口清单/DI 图/代码质量指标)
-├── docs/ai_strategy.md  AI 策略算法详细设计
+├── docs/02-Design/AI-Strategy-Early-Design.md  AI 策略早期设计文档
+├── docs/02-Design/AI-Strategy-Implementation.md AI 策略实现文档
 ├── docs/UML-7-Diagrams-Prompts.md  7 类 PlantUML 生成 Prompt
 └── docs/Defense-Materials.md       答辩准备材料 (分工/创新点/Q&A)
 ```
