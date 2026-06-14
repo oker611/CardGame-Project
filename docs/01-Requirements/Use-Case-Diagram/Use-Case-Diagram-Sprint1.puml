@@ -1,0 +1,32 @@
+@startuml
+' 用例图 — Sprint 1 (Inception)
+' 第1周交付：核心游戏流程用例
+
+left to right direction
+
+actor "Human Player" as Human
+actor "AI Player" as AI
+
+rectangle "锄大地卡牌游戏 — Sprint 1" {
+  usecase "UC-01 开始游戏" as UC01
+  usecase "UC-02 出牌" as UC02
+  usecase "UC-03 过牌" as UC03
+  usecase "UC-04 查看游戏状态" as UC04
+  usecase "UC-05 游戏结算" as UC05
+  usecase "UC-09 发牌" as UC09
+  usecase "UC-10 回合管理" as UC10
+}
+
+Human --> UC01
+Human --> UC02
+Human --> UC03
+Human --> UC04
+AI --> UC02
+AI --> UC03
+
+UC01 ..> UC09 : <<include>>
+UC02 ..> UC10 : <<include>>
+UC03 ..> UC10 : <<include>>
+UC02 ..> UC05 : <<extend>>
+
+@enduml

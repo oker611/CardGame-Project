@@ -1,5 +1,6 @@
 @startuml
-' 锄大地卡牌游戏 — 核心类图 (Class Diagram)
+' 类图3 — Sprint 4 (Final)
+' 第4周交付：14 接口 DI 体系完整类图
 ' 显示 AI 策略体系 + 引擎层的类关系
 
 skinparam classAttributeIconSize 0
