@@ -9,37 +9,41 @@ package "engine" {
     - dealManager: DealManager
     - turnManager: TurnManager
     - settlementManager: SettlementManager
-    + playCards(String, List<String>): PlayResult
+    + playCards(String, List): PlayResult
     + passTurn(String): PassResult
   }
-  class DealManager { + dealCards(GameState): void }
+  class DealManager {
+    + dealCards(GameState): void
+  }
   class TurnManager {
     - eventBus: EventBus
     + switchPlayer(GameState): void
   }
-  class SettlementManager { + checkAndSettle(GameState): void }
+  class SettlementManager {
+    + checkAndSettle(GameState): void
+  }
 }
 
 package "ai" {
   interface AIDecisionStrategy <<interface>> {
-    + decidePlay(Player, GameState): List<Card>
+    + decidePlay(Player, GameState): List
     + recordPlayFailure(): void
   }
   class GreedyAIDecisionStrategy {
-    + decidePlay(Player, GameState): List<Card>
+    + decidePlay(Player, GameState): List
   }
   class MonteCarloAIDecisionStrategy {
-    + decidePlay(Player, GameState): List<Card>
+    + decidePlay(Player, GameState): List
   }
 }
 
 package "event" {
   class EventBus {
-    - listeners: CopyOnWriteArrayList
+    - listeners
     + register(GameEventListener): void
     + unregister(GameEventListener): void
     + post(GameEvent): void
-    - {static} getInstance(): EventBus
+    + getInstance(): EventBus
   }
   interface GameEventListener <<interface>> {
     + onCardPlayed(CardPlayedEvent): void
@@ -47,10 +51,22 @@ package "event" {
     + onTurnChanged(TurnChangedEvent): void
     + onGameOver(GameOverEvent): void
   }
-  class CardPlayedEvent { + playerId, + playedCardIds }
-  class PlayerPassedEvent { + playerId }
-  class TurnChangedEvent { + newCurrentPlayerId, + reason }
-  class GameOverEvent { + winnerId }
+  class GameEvent {
+  }
+  class CardPlayedEvent {
+    + playerId: String
+    + playedCardIds: List
+  }
+  class PlayerPassedEvent {
+    + playerId: String
+  }
+  class TurnChangedEvent {
+    + newCurrentPlayerId: String
+    + reason: String
+  }
+  class GameOverEvent {
+    + winnerId: String
+  }
 }
 
 package "network" {

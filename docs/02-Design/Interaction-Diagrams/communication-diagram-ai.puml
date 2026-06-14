@@ -1,37 +1,41 @@
 @startuml
-' 通信图 — UC-20 对手风格分析 / UC-21 自适应AI对抗 用例实现
-' 显示 AI 蒙特卡洛决策中各组件的消息传递 (Sprint 5 最终版)
+' 通信图 — UC-20/21 AI决策 用例实现
+' AI 蒙特卡洛决策消息传递 (Sprint 5 最终版)
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 
 actor "AI Player" as AI
 
-rectangle "MonteCarloAIDecisionStrategy" as MC {
-  rectangle "CandidateGenerator" as CG
-  rectangle "OpponentHandSampler" as OHS
-  rectangle "MonteCarloSimulator" as MCS
-  rectangle "PhaseManager" as PM
-}
+participant "CandidateGenerator" as CG
+participant "OpponentHandSampler" as OHS
+participant "MonteCarloSimulator" as MCS
+participant "PhaseManager" as PM
+participant "RuleEngine" as RE
 
-rectangle "RuleEngine" as RE
-rectangle "GameState" as GS
+== 候选生成 ==
+AI -> CG: generate(hand, lastPlay, isFirstRound, isFirstTurn)
+CG -> RE: recognizePattern(cards)
+CG --> AI: candidates (TOP_K=4)
 
-AI -> MC: 1. decidePlay(aiPlayer, gameState)
-MC -> CG: 2. generate(hand, lastPlay)
-CG -> RE: 3. recognizePattern(cards)
-CG --> MC: 4. List<Play> candidates (TOP_K=4)
+== 对手建模 ==
+AI -> OHS: sampleWorlds(aiPlayer, gameState, cardTracker, 10)
+OHS --> AI: 10 worlds
 
-MC -> OHS: 5. sampleWorlds(aiPlayer, gameState, cardTracker, 10)
-OHS --> MC: 6. List<World> (10 worlds)
+== 阶段判定 ==
+AI -> PM: getCurrentPhase(aiPlayer, gameState)
+PM --> AI: EARLY/MID/LATE
 
-MC -> PM: 7. getCurrentPhase(aiPlayer, gameState)
-
-loop 每个候选 x 每个World
-  MC -> MCS: 8. evaluate(candidate, aiPlayer, state, world)
-  MCS -> RE: 9. 快速贪心模拟到终局
-  MCS --> MC: 10. expectedScore
-  MC -> PM: 11. adjustScore(baseScore, candidate, phase)
+== 蒙特卡洛推演 ==
+loop 每个候选
+  AI -> MCS: evaluate(candidate, aiPlayer, state, worlds)
+  MCS -> RE: 快速贪心推演
+  MCS --> AI: expectedScore
+  AI -> PM: adjustScore(baseScore, candidate, phase)
 end
 
-MC -> MC: 12. 选择最高分候选
-MC --> AI: 13. List<Card> 最佳出牌
+== 选择 ==
+AI -> AI: 选最高分候选
 
 @enduml
