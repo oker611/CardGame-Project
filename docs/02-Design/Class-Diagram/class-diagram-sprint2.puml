@@ -1,0 +1,105 @@
+@startuml
+' 类图1 — Sprint 2 (Elaboration)
+' 第2周交付：初始类图设计，领域模型细化为类结构
+
+skinparam classAttributeIconSize 0
+
+class Card {
+  - cardId: String
+  - rank: Rank
+  - suit: Suit
+}
+
+enum Rank <<enumeration>> {
+  THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN
+  J, Q, K, ACE, TWO
+}
+
+enum Suit <<enumeration>> {
+  DIAMOND, CLUB, HEART, SPADE
+}
+
+class Player {
+  - playerId: String
+  - playerName: String
+  - type: PlayerType
+  - handCards: List<Card>
+  - passed: boolean
+}
+
+enum PlayerType <<enumeration>> {
+  HUMAN, AI, REMOTE
+}
+
+class Play {
+  - playerId: String
+  - cards: List<Card>
+  - pattern: CardPattern
+}
+
+enum CardPattern <<enumeration>> {
+  SINGLE, PAIR, TRIPLE, QUADRUPLE
+  STRAIGHT, FLUSH, FULL_HOUSE
+  IRON_BRANCH, STRAIGHT_FLUSH, INVALID
+}
+
+class GameState {
+  + currentPlayerId: String
+  + lastPlay: Play
+  + lastWinnerId: String
+  + consecutivePassCount: int
+  + isOpeningTurn: boolean
+  + isGameOver: boolean
+}
+
+class GameEngine {
+  + initializeGame(List<Player>, RuleConfig): void
+  + playCards(String, List<String>): PlayResult
+  + passTurn(String): PassResult
+  + getGameState(): GameState
+}
+
+class DealManager {
+  + dealCards(GameState): void
+}
+
+class TurnManager {
+  + switchPlayer(GameState): void
+}
+
+class SettlementManager {
+  + checkAndSettle(GameState): void
+}
+
+class RuleEngine {
+  + validatePlay(...): ValidationResult
+  + recognizePattern(List<Card>): CardPattern
+}
+
+class GameActionHandler <<interface>> {
+  + submitPlay(List<String>): PlayResult
+  + passTurn(): PassResult
+  + getGameViewData(): GameViewData
+}
+
+class GameController {
+  + startNewGame(): void
+  + submitPlay(List<String>): PlayResult
+  + passTurn(): PassResult
+}
+
+GameState "1" -- "*" Player
+GameState "1" -- "0..1" Play
+Player "1" -- "*" Card
+Card "1" -- "1" Rank
+Card "1" -- "1" Suit
+Play "1" -- "1" CardPattern
+GameEngine --> DealManager
+GameEngine --> TurnManager
+GameEngine --> SettlementManager
+GameEngine --> RuleEngine
+GameEngine --> GameState
+GameActionHandler <|.. GameController
+GameController --> GameEngine
+
+@enduml

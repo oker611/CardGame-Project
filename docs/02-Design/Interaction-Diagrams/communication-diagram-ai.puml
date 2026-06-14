@@ -1,6 +1,6 @@
 @startuml
-' 通信图 — AI 决策流程 (Communication Diagram)
-' 显示 AI 蒙特卡洛决策中各组件的消息传递
+' 通信图 — UC-20 对手风格分析 / UC-21 自适应AI对抗 用例实现
+' 显示 AI 蒙特卡洛决策中各组件的消息传递 (Sprint 5 最终版)
 
 actor "AI Player" as AI
 

@@ -1,6 +1,6 @@
 @startuml
-' 时序图 — 人类玩家出牌完整流程
-' 覆盖从 UI 点击到蓝牙同步的全链路
+' 时序图 — UC-02 出牌 用例实现
+' 覆盖从 UI 点击到蓝牙同步的全链路 (Sprint 4 最终版)
 
 actor "Human P1" as P1
 participant "GameActivity" as UI
