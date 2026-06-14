@@ -1,0 +1,81 @@
+@startuml
+' 类图2 — Sprint 3 (Construction)
+' 第3周交付：AI策略接口 + EventBus + 蓝牙占位接口
+
+skinparam classAttributeIconSize 0
+
+package "engine" {
+  class GameEngine {
+    - dealManager: DealManager
+    - turnManager: TurnManager
+    - settlementManager: SettlementManager
+    + playCards(String, List<String>): PlayResult
+    + passTurn(String): PassResult
+  }
+  class DealManager { + dealCards(GameState): void }
+  class TurnManager {
+    - eventBus: EventBus
+    + switchPlayer(GameState): void
+  }
+  class SettlementManager { + checkAndSettle(GameState): void }
+}
+
+package "ai" {
+  interface AIDecisionStrategy <<interface>> {
+    + decidePlay(Player, GameState): List<Card>
+    + recordPlayFailure(): void
+  }
+  class GreedyAIDecisionStrategy {
+    + decidePlay(Player, GameState): List<Card>
+  }
+  class MonteCarloAIDecisionStrategy {
+    + decidePlay(Player, GameState): List<Card>
+  }
+}
+
+package "event" {
+  class EventBus {
+    - listeners: CopyOnWriteArrayList
+    + register(GameEventListener): void
+    + unregister(GameEventListener): void
+    + post(GameEvent): void
+    - {static} getInstance(): EventBus
+  }
+  interface GameEventListener <<interface>> {
+    + onCardPlayed(CardPlayedEvent): void
+    + onPlayerPassed(PlayerPassedEvent): void
+    + onTurnChanged(TurnChangedEvent): void
+    + onGameOver(GameOverEvent): void
+  }
+  class CardPlayedEvent { + playerId, + playedCardIds }
+  class PlayerPassedEvent { + playerId }
+  class TurnChangedEvent { + newCurrentPlayerId, + reason }
+  class GameOverEvent { + winnerId }
+}
+
+package "network" {
+  interface MultiplayerGateway <<interface>> {
+    + sendPlayAction(Play): void
+    + sendPassAction(String): void
+    + syncGameState(GameState): void
+  }
+  class BluetoothGateway {
+    + sendPlayAction(Play): void
+    + sendPassAction(String): void
+  }
+}
+
+AIDecisionStrategy <|.. GreedyAIDecisionStrategy
+AIDecisionStrategy <|.. MonteCarloAIDecisionStrategy
+GameEngine --> AIDecisionStrategy
+GameEngine --> EventBus
+TurnManager --> EventBus
+EventBus "1" -- "*" GameEventListener
+GameEvent <|-- CardPlayedEvent
+GameEvent <|-- PlayerPassedEvent
+GameEvent <|-- TurnChangedEvent
+GameEvent <|-- GameOverEvent
+MultiplayerGateway <|.. BluetoothGateway
+GameEngine <.. MultiplayerGateway
+
+@enduml

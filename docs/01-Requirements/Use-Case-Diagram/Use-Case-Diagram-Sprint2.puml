@@ -1,0 +1,44 @@
+@startuml
+' 用例图 — Sprint 2 (Elaboration)
+' 第2周交付：新增蓝牙联机 + AI 难度选择 + 规则切换
+
+left to right direction
+
+actor "Human Player" as Human
+actor "AI Player" as AI
+actor "Bluetooth Device" as BT
+
+rectangle "锄大地卡牌游戏 — Sprint 2" {
+  usecase "UC-01 开始游戏" as UC01
+  usecase "UC-02 出牌" as UC02
+  usecase "UC-03 过牌" as UC03
+  usecase "UC-05 游戏结算" as UC05
+  usecase "UC-06 选择规则" as UC06
+  usecase "UC-07 选择AI难度" as UC07
+  usecase "UC-09 发牌" as UC09
+  usecase "UC-10 回合管理" as UC10
+  usecase "UC-11 创建蓝牙房间" as UC11
+  usecase "UC-12 搜索蓝牙设备" as UC12
+  usecase "UC-13 加入蓝牙房间" as UC13
+}
+
+Human --> UC01
+Human --> UC02
+Human --> UC03
+Human --> UC06
+Human --> UC07
+Human --> UC11
+Human --> UC12
+AI --> UC02
+AI --> UC03
+BT --> UC11
+BT --> UC12
+BT --> UC13
+
+UC01 ..> UC09 : <<include>>
+UC01 ..> UC06 : <<include>>
+UC02 ..> UC10 : <<include>>
+UC03 ..> UC10 : <<include>>
+UC11 ..> UC13 : <<extend>>
+
+@enduml
